@@ -1,29 +1,27 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:plantapulse/src/theme/app_colors.dart';
+import 'src/theme/app_colors.dart';
+import 'src/theme/rutas.dart';
+import 'src/models/orden.dart';
+import 'src/screens/splash_screen.dart';
+import 'src/screens/login_screen.dart';
+import 'src/screens/registro_screen.dart';
+import 'src/screens/menu_PlantaPulse_Feed_screen.dart';
+import 'src/screens/detalle_orden_screen.dart';
+import 'src/screens/alertas_screen.dart';
+import 'src/screens/perfil_screen.dart';
+import 'src/screens/ajustes_screen.dart';
+import 'src/screens/crear_orden_p1_screen.dart';
+import 'src/screens/resumen_turno_screen.dart';
+import 'src/screens/validar_evidencia_screen.dart';
+import 'src/screens/mis_tareas_screen.dart';
+import 'src/screens/llenar_reporte_screen.dart';
+import 'src/screens/emergencia_screen.dart';
 
-import 'package:plantapulse/src/components/pill_estado.dart';
-import 'package:plantapulse/src/components/meta_row.dart';
-import 'package:plantapulse/src/components/seccion_header.dart';
-import 'package:plantapulse/src/components/boton_ancho.dart';
-import 'package:plantapulse/src/components/tile_aviso.dart';
-import 'package:plantapulse/src/components/tarjeta_oscura.dart';
-import 'package:plantapulse/src/components/chips_fila.dart';
-import 'package:plantapulse/src/components/orden_card.dart';
-import 'package:plantapulse/src/components/grid_fotos.dart';
-import 'package:plantapulse/src/components/fila_alerta.dart';
-import 'package:plantapulse/src/components/stat_card.dart';
-import 'package:plantapulse/src/components/campo_texto.dart';
-import 'package:plantapulse/src/components/fila_opcion.dart';
-import 'package:plantapulse/src/components/dotted_box.dart';
-import 'package:plantapulse/src/components/pantalla_base.dart';
+void main() => runApp(const PlantaPulseApp());
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class PlantaPulseApp extends StatelessWidget {
+  const PlantaPulseApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -31,125 +29,41 @@ class MyApp extends StatelessWidget {
       title: 'PlantaPulse',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.azul,
-          primary: AppColors.azul,
-          secondary: AppColors.naranja,
-        ),
         scaffoldBackgroundColor: AppColors.fondo,
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.azul),
       ),
-      home: const GaleriaComponentes(),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// GALERÍA
-// Es StatefulWidget porque el Switch de FilaOpcion necesita setState.
-// ═══════════════════════════════════════════════════════════════
-class GaleriaComponentes extends StatefulWidget {
-  const GaleriaComponentes({super.key});
-
-  @override
-  State<GaleriaComponentes> createState() => _GaleriaComponentesState();
-}
-
-class _GaleriaComponentesState extends State<GaleriaComponentes> {
-  // Estado del Switch de la fila de Ajustes
-  bool _push = true;
-
-  // Controlador para leer lo que se escribe en el CampoTexto
-  final _correoCtrl = TextEditingController();
-
-  // Estado del ojito de la contraseña
-  bool _ocultarPass = true;
-
-  @override
-  void dispose() {
-    _correoCtrl.dispose(); // libera memoria al cerrar la pantalla
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Galería de componentes'),
-        backgroundColor: AppColors.azul,
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
+      // Simula ancho de celular en Chrome — una sola vez para las 15
+      builder: (context, child) => Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 390),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ─────────────────────────────────────────────
-                // 15. DottedBox — NECESITA tamaño explícito
-                // ─────────────────────────────────────────────
-                _titulo('DottedBox'),
-                const Text(
-                  'Solo pinta el borde: no tiene tamaño propio. Siempre '
-                  'envuélvelo en un SizedBox o úsalo dentro de un GridView.',
-                  style: AppText.gris,
-                ),
-                const SizedBox(height: 10),
-                const SizedBox(
-                  height: 110,
-                  width: 110,
-                  child: DottedBox(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_alt_outlined,
-                            color: AppColors.textoGris),
-                        SizedBox(height: 4),
-                        Text('Tomar Foto', style: AppText.gris),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Variante ancha y en rojo (zona de emergencia)
-                const SizedBox(
-                  height: 70,
-                  width: double.infinity,
-                  child: DottedBox(
-                    color: AppColors.rojo,
-                    radius: 12,
-                    child: Center(
-                      child: Text('Adjuntar evidencia del incidente',
-                          style: AppText.gris),
-                    ),
-                  ),
-                ),
- 
-              ],
-            ),
-          ),
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: child,
         ),
       ),
-    );
-  }
-
-  Widget _titulo(String texto) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 28, bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(texto,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.azul)),
-          const Divider(color: AppColors.borde),
-        ],
-      ),
+      initialRoute: Rutas.splash,
+      routes: {
+        Rutas.splash:        (_) => const SplashScreen(),
+        Rutas.login:         (_) => const LoginScreen(),
+        Rutas.registro:      (_) => const RegistroScreen(),
+        Rutas.feed:          (_) => const MenuPlantaPulseFeed(),
+        Rutas.alertas:       (_) => const AlertasScreen(),
+        Rutas.perfil:        (_) => const PerfilScreen(),
+        Rutas.ajustes:       (_) => const AjustesScreen(),
+        Rutas.crearOrden:    (_) => const CrearOrdenP1Screen(),
+        Rutas.resumenTurno:  (_) => const ResumenTurnoScreen(),
+        Rutas.validar:       (_) => const ValidarEvidenciaScreen(),
+        Rutas.misTareas:     (_) => const MisTareasScreen(),
+        Rutas.llenarReporte: (_) => const LlenarReporteScreen(),
+        Rutas.emergencia:    (_) => const EmergenciaScreen(),
+      },
+      // Rutas que necesitan parámetros
+      onGenerateRoute: (settings) {
+        if (settings.name == Rutas.detalleOrden) {
+          final orden = settings.arguments as Orden;
+          return MaterialPageRoute(
+            builder: (_) => DetalleOrdenScreen(orden: orden));
+        }
+        return null;
+      },
     );
   }
 }
-
