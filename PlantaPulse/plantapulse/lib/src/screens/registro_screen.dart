@@ -1,7 +1,6 @@
 // lib/src/screens/registro_screen.dart
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../theme/rutas.dart';
 import '../components/widgets.dart';
 
 class RegistroScreen extends StatefulWidget {
