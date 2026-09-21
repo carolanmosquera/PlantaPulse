@@ -7,6 +7,7 @@ class ChipsFila extends StatefulWidget {
   final List<IconData>? iconos;
   final bool envolver;     // true = se acomodan en varias filas (emergencia)
   final Color colorActivo;
+  final int inicial;       // chip seleccionado al construirse
   final ValueChanged<int>? onCambio;
 
   const ChipsFila({
@@ -15,6 +16,7 @@ class ChipsFila extends StatefulWidget {
     this.iconos,
     this.envolver = false,
     this.colorActivo = AppColors.azul,
+    this.inicial = 0,
     this.onCambio,
   });
 
@@ -23,7 +25,7 @@ class ChipsFila extends StatefulWidget {
 }
 
 class _ChipsFilaState extends State<ChipsFila> {
-  int _sel = 0; // esto es lo único que el widget "recuerda"
+  late int _sel = widget.inicial; // esto es lo único que el widget "recuerda"
 
   List<Widget> _construirChips() {
     return List.generate(widget.opciones.length, (i) {

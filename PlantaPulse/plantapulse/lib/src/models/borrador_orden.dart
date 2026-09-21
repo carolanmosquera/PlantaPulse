@@ -1,7 +1,9 @@
 // lib/src/models/borrador_orden.dart
+import 'orden.dart';
+
 class BorradorOrden {
   String descripcion = '';
-  String categoria = '';
+  CategoriaOrden categoria = CategoriaOrden.mecanico;
   String? equipoNombre;
   String? equipoCodigo;
   String prioridad = 'MEDIA';

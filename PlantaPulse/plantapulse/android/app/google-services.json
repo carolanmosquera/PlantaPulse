@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "367735180314",
+    "project_id": "plantapulse",
+    "storage_bucket": "plantapulse.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:367735180314:android:78621ad5b1bdd0177215a3",
+        "android_client_info": {
+          "package_name": "com.masdulces.plantapulse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBex6QuGhHN_uVrvyFNiyWjk_t5Ww_5KuY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

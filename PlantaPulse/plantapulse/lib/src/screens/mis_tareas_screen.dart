@@ -15,19 +15,26 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
   int _filtro = 0;
   static const _filtros = ['Todas', 'Urgentes', 'Hoy', 'Próximas'];
 
+  static bool _esUrgente(Orden t) =>
+      t.prioridad == Prioridad.critica || t.prioridad == Prioridad.alta;
+
+  static bool _venceHoy(Orden t) {
+    final ahora = DateTime.now();
+    final f = t.fechaLimite;
+    return f.year == ahora.year && f.month == ahora.month && f.day == ahora.day;
+  }
+
   List<Orden> get _visibles => switch (_filtro) {
-    1 => tareasDemo.where((t) => t.prioridad == 'Urgente' ||
-                                 t.prioridad == 'Alta').toList(),
-    2 => tareasDemo.where((t) => t.hora.startsWith('Hoy')).toList(),
-    3 => tareasDemo.where((t) => !t.hora.startsWith('Hoy')).toList(),
+    1 => tareasDemo.where(_esUrgente).toList(),
+    2 => tareasDemo.where(_venceHoy).toList(),
+    3 => tareasDemo.where((t) => !_venceHoy(t)).toList(),
     _ => tareasDemo,
   };
 
   @override
   Widget build(BuildContext context) {
     final visibles = _visibles;
-    final criticas = tareasDemo.where((t) =>
-        t.prioridad == 'Urgente' || t.prioridad == 'Alta').length;
+    final criticas = tareasDemo.where(_esUrgente).length;
 
     return PantallaBase(
       titulo: 'Mis Tareas',
@@ -103,7 +110,7 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
                 estado: t.estado.etiqueta,
                 estadoColor: t.estado.color,
                 hora: t.hora,
-                prioridad: t.prioridad,
+                prioridad: t.prioridadTexto,
                 estilo: EstiloOrden.conBarra,    // ← variante sin foto
                 onTap: () {},
               ),

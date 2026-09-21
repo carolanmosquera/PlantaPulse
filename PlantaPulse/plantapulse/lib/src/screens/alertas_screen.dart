@@ -10,7 +10,8 @@ class AlertasScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Agrupa por el campo 'grupo' conservando el orden de aparición
+    // Agrupa por el getter 'grupo' (calculado desde createdAt),
+    // conservando el orden de aparición
     final grupos = <String, List<Alerta>>{};
     for (final a in alertasDemo) {
       grupos.putIfAbsent(a.grupo, () => []).add(a);

@@ -43,7 +43,7 @@ class _MenuPlantaPulseFeedState extends State<MenuPlantaPulseFeed> {
       case 2:
         lista = lista.where((o) => o.estado == EstadoOrden.enProgreso).toList();
       case 3:
-        lista = lista.where((o) => o.prioridad == 'Urgente').toList();
+        lista = lista.where((o) => o.prioridad == Prioridad.critica).toList();
     }
 
     final texto = _busquedaCtrl.text.trim().toLowerCase();
@@ -150,8 +150,8 @@ class _MenuPlantaPulseFeedState extends State<MenuPlantaPulseFeed> {
                 estado: orden.estado.etiqueta,
                 estadoColor: orden.estado.color,
                 hora: orden.hora,
-                prioridad: orden.prioridad,
-                fotoUrl: orden.fotoUrl,
+                prioridad: orden.prioridadTexto,
+                fotoUrl: orden.portadaUrl,
                 estilo: EstiloOrden.conFoto,
                 onTap: () => Navigator.pushNamed(
                   context,

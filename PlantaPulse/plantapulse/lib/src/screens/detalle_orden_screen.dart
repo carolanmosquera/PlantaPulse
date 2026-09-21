@@ -1,7 +1,10 @@
 // lib/src/screens/detalle_orden_screen.dart
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../models/datos_demo.dart';
+import '../models/firestore_helpers.dart';
 import '../models/orden.dart';
+import '../models/reporte.dart';
 import '../components/widgets.dart';
 
 class DetalleOrdenScreen extends StatefulWidget {
@@ -15,14 +18,20 @@ class DetalleOrdenScreen extends StatefulWidget {
 
 class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
   final _comentarioCtrl = TextEditingController();
-  late List<PasoActividad> _actividades;
+
+  // Los avances de la orden viven en su subcolección 'reportes'.
+  // El timeline y la evidencia se arman a partir de ellos.
+  late List<Reporte> _reportes;
   late List<String> _fotos;
 
   @override
   void initState() {
     super.initState();
-    _actividades = List.from(widget.orden.actividades);
-    _fotos = List.from(widget.orden.fotos);
+    _reportes = List.of(reportesDemo[widget.orden.id] ?? const <Reporte>[]);
+    _fotos = [
+      for (final r in _reportes)
+        for (final e in r.evidencias) e.thumbUrl,
+    ];
     _comentarioCtrl.addListener(() => setState(() {}));
   }
 
@@ -33,15 +42,17 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
   }
 
   void _enviarComentario() {
-    final texto = _comentarioCtrl.text.trim();
-    if (texto.isEmpty) return;
+    final contenido = _comentarioCtrl.text.trim();
+    if (contenido.isEmpty) return;
 
+    final ahora = DateTime.now();
     setState(() {
-      _actividades.add(PasoActividad(
-        titulo: texto,
-        tecnico: 'Téc: C. Mendoza',
-        hora: TimeOfDay.now().format(context),
-        completado: true,
+      _reportes.add(Reporte(
+        id: 'local-${ahora.microsecondsSinceEpoch}',   // Firestore dará el definitivo
+        ordenId: widget.orden.id,
+        autor: usuarioActualDemo,
+        detalles: contenido,
+        createdAt: ahora,
       ));
       _comentarioCtrl.clear();
     });
@@ -69,8 +80,8 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
             etiqueta: 'ESTADO ACTUAL',
             titulo: orden.estado.etiqueta,
             extra: PillEstado(
-              texto: 'Prioridad ${orden.prioridad}',
-              color: AppColors.rojo,
+              texto: 'Prioridad ${orden.prioridadTexto}',
+              color: orden.prioridad.color,
             ),
           ),
           const SizedBox(height: 16),
@@ -90,7 +101,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                 const SizedBox(height: 14),
 
                 // Descripción sobre fondo tenue
-                if (orden.descripcion != null)
+                if (orden.descripcion.isNotEmpty)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -98,7 +109,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                       color: AppColors.fondo,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(orden.descripcion!,
+                    child: Text(orden.descripcion,
                       style: const TextStyle(fontSize: 14,
                                              color: AppColors.texto,
                                              height: 1.5)),
@@ -112,14 +123,14 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                       child: MetaRow(
                         icono: Icons.person_outline,
                         texto: 'Asignado a',
-                        valor: orden.asignadoA ?? '—',
+                        valor: orden.asignadoA.nombre,
                       ),
                     ),
                     Expanded(
                       child: MetaRow(
                         icono: Icons.calendar_today_outlined,
                         texto: 'Creado',
-                        valor: orden.creadoEn ?? '—',
+                        valor: fechaCorta(orden.createdAt),
                       ),
                     ),
                   ],
@@ -149,14 +160,14 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
           ),
           TarjetaBlanca(
             child: Column(
-              children: List.generate(_actividades.length, (i) {
-                final paso = _actividades[i];
+              children: List.generate(_reportes.length, (i) {
+                final r = _reportes[i];
                 return PasoTimeline(
-                  titulo: paso.titulo,
-                  subtitulo: paso.tecnico,
-                  hora: paso.hora,
-                  completado: paso.completado,
-                  esUltimo: i == _actividades.length - 1,
+                  titulo: r.detalles,
+                  subtitulo: 'Téc: ${r.autor.nombre}',
+                  hora: r.horaTexto,
+                  completado: r.estadoTrabajo != EstadoTrabajo.bloqueado,
+                  esUltimo: i == _reportes.length - 1,
                 );
               }),
             ),
@@ -164,12 +175,12 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
           const SizedBox(height: 16),
 
           // ══ EQUIPO ══
-          if (orden.equipo != null)
+          if (orden.equipoNombre != null)
             FilaOpcion(
               icono: Icons.build_outlined,
-              titulo: 'EQUIPO: ${orden.equipo!.nombre}',
-              subtitulo: 'Serial: ${orden.equipo!.serial} / '
-                         'Mod: ${orden.equipo!.modelo}',
+              titulo: 'EQUIPO: ${orden.equipoNombre}',
+              // Serial y modelo no viajan en la orden: salen del documento del equipo
+              subtitulo: equipoDemoPorId(orden.equipoId)?.subtitulo,
               onTap: () {},
             ),
 

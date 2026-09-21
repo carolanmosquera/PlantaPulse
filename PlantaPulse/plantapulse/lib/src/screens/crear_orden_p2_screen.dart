@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../models/orden.dart';
 import '../models/borrador_orden.dart';
+import '../models/datos_demo.dart';
 import '../components/widgets.dart';
 
 class CrearOrdenP2Screen extends StatefulWidget {
@@ -20,6 +21,9 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
   final List<String> _fotos = ['hallazgo1'];
 
   static const _prioridades = ['BAJA', 'MEDIA', 'CRÍTICA'];
+  static const _prioridadesModelo = [
+    Prioridad.baja, Prioridad.media, Prioridad.critica,
+  ];
   static const _meses = ['enero','febrero','marzo','abril','mayo','junio',
     'julio','agosto','septiembre','octubre','noviembre','diciembre'];
   static const _dias = ['lunes','martes','miércoles','jueves','viernes',
@@ -48,15 +52,27 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
 
   void _publicar() {
     final b = widget.borrador;
+    final ahora = DateTime.now();
+    final codigo = 'WO-${ahora.year}-${ahora.millisecondsSinceEpoch % 10000}';
+
     final orden = Orden(
-      codigo: 'WO-${DateTime.now().year}-'
-              '${DateTime.now().millisecondsSinceEpoch % 10000}',
+      id: codigo,                       // provisional: Firestore dará el definitivo
+      codigo: codigo,
+      plantaId: plantaDemoId,
       titulo: b.descripcion,
-      ubicacion: b.equipoNombre ?? 'Sin asignar',
+      descripcion: _obsCtrl.text.trim(),
+      categoria: b.categoria,
+      zonaNombre: b.equipoCodigo ?? '',
+      equipoNombre: b.equipoNombre,
+      creadoPor: usuarioActualDemo,
+      asignadoA: usuarioActualDemo,     // toda orden nace con responsable
+      asignadoAUid: usuarioActualDemo.uid,
       estado: _prioridad == 2 ? EstadoOrden.critica : EstadoOrden.pendiente,
-      hora: TimeOfDay.now().format(context),
-      prioridad: _prioridades[_prioridad],
-      descripcion: _obsCtrl.text.trim().isEmpty ? null : _obsCtrl.text.trim(),
+      prioridad: _prioridadesModelo[_prioridad],
+      createdAt: ahora,
+      // El selector solo da el día: la orden vence al terminar ese día
+      fechaLimite: DateTime(_fecha.year, _fecha.month, _fecha.day, 23, 59),
+      ultimaActividad: ahora,
     );
 
     Navigator.pop(context, orden);

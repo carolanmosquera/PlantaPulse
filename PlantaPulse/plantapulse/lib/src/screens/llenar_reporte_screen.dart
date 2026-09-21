@@ -1,21 +1,37 @@
 // lib/src/screens/llenar_reporte_screen.dart
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../models/datos_demo.dart';
+import '../models/evidencia.dart';
+import '../models/orden.dart';
+import '../models/reporte.dart';
 import '../components/widgets.dart';
 
 class LlenarReporteScreen extends StatefulWidget {
-  const LlenarReporteScreen({super.key});
+  /// Orden a la que pertenece el reporte. Si no llega, usa la de demo.
+  final Orden? orden;
+
+  const LlenarReporteScreen({super.key, this.orden});
+
   @override
   State<LlenarReporteScreen> createState() => _LlenarReporteScreenState();
 }
 
 class _LlenarReporteScreenState extends State<LlenarReporteScreen> {
   final _detallesCtrl = TextEditingController();
-  int _estatus = 1;
+  EstadoTrabajo _estado = EstadoTrabajo.enProgreso;
   bool _incidenteCritico = false;
   final List<String> _fotos = ['f1', 'f2', 'f3'];
 
-  static const _estatus_ = ['Pendiente', 'En Progreso', 'Crítico'];
+  static const _estados = EstadoTrabajo.values;
+  static const _iconosEstado = [
+    Icons.schedule,               // pendiente
+    Icons.play_circle_outline,    // en progreso
+    Icons.block,                  // bloqueado
+    Icons.check_circle_outline,   // resuelto
+  ];
+
+  Orden get _orden => widget.orden ?? ordenDetalleDemo;
 
   @override
   void initState() {
@@ -31,8 +47,43 @@ class _LlenarReporteScreenState extends State<LlenarReporteScreen> {
 
   bool get _puedeEnviar => _detallesCtrl.text.trim().length >= 10;
 
+  bool get _puedeAgregarFoto => _fotos.length < maxFotosPorReporte;
+
+  /// Cada foto ocupa una de las cuatro posiciones fijas del modelo
+  List<Evidencia> get _evidencias => [
+        for (var i = 0; i < _fotos.length && i < maxFotosPorReporte; i++)
+          Evidencia(
+            posicion: PosicionFoto.values[i],
+            url: _fotos[i],
+            thumbUrl: _fotos[i],
+            publicId: 'demo/${_fotos[i]}',
+            tomadaEn: DateTime.now(),
+          ),
+      ];
+
+  void _enviar() {
+    final ahora = DateTime.now();
+    final reporte = Reporte(
+      id: 'local-${ahora.microsecondsSinceEpoch}',   // Firestore dará el definitivo
+      ordenId: _orden.id,
+      autor: usuarioActualDemo,
+      detalles: _detallesCtrl.text.trim(),
+      estadoTrabajo: _estado,
+      evidencias: _evidencias,
+      esAlertaCritica: _incidenteCritico,
+      createdAt: ahora,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Reporte sincronizado'),
+        backgroundColor: AppColors.verde));
+    Navigator.pop(context, reporte);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final orden = _orden;
+
     return PantallaBase(
       titulo: 'Llenar reporte de avance',
       mostrarMenu: true,
@@ -42,27 +93,27 @@ class _LlenarReporteScreenState extends State<LlenarReporteScreen> {
         children: [
           const SizedBox(height: 14),
 
-          const TarjetaOscura(
-            icono: Icon(Icons.description_outlined, color: Colors.white,
+          TarjetaOscura(
+            icono: const Icon(Icons.description_outlined, color: Colors.white,
               size: 26),
             titulo: 'Resumen de Intervención',
-            subtitulo: 'ORDEN ID\n#WO-2024-0892\n\nEQUIPO\n'
-                       'Compresor Atlas Copco GA75',
-            extra: Row(children: [
-              PillEstado(texto: 'PLANTA A', color: Colors.white70),
-              SizedBox(width: 8),
-              PillEstado(texto: 'SECTOR 04', color: Colors.white70),
-            ]),
+            subtitulo: 'ORDEN ID\n#${orden.codigo}\n\nEQUIPO\n'
+                       '${orden.equipoNombre ?? orden.titulo}',
+            extra: orden.zonaNombre.isEmpty
+                ? null
+                : Row(children: [
+                    PillEstado(texto: orden.zonaNombre, color: Colors.white70),
+                  ]),
           ),
 
           const SeccionHeader(icono: Icons.schedule,
             titulo: 'ESTATUS DE AVANCE'),
           ChipsFila(
-            opciones: _estatus_,
-            iconos: const [Icons.schedule, Icons.check_circle_outline,
-                           Icons.error_outline],
+            opciones: [for (final e in _estados) e.etiqueta],
+            iconos: _iconosEstado,
             colorActivo: AppColors.ambar,
-            onCambio: (i) => setState(() => _estatus = i),
+            inicial: _estados.indexOf(_estado),
+            onCambio: (i) => setState(() => _estado = _estados[i]),
           ),
 
           SeccionHeader(
@@ -88,8 +139,10 @@ class _LlenarReporteScreenState extends State<LlenarReporteScreen> {
           SeccionHeader(
             icono: Icons.photo_camera_outlined,
             titulo: 'EVIDENCIA FOTOGRÁFICA',
-            accion: 'AÑADIR FOTO',
-            onAccion: () => setState(() => _fotos.add('nueva')),
+            accion: 'AÑADIR FOTO (${_fotos.length}/$maxFotosPorReporte)',
+            onAccion: _puedeAgregarFoto
+                ? () => setState(() => _fotos.add('nueva'))
+                : null,
           ),
           GridFotos(
             urls: _fotos,
@@ -114,14 +167,7 @@ class _LlenarReporteScreenState extends State<LlenarReporteScreen> {
           BotonAncho(
             texto: 'ENVIAR REPORTE',
             icono: Icons.arrow_forward,
-            onTap: _puedeEnviar
-                ? () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Reporte sincronizado'),
-                        backgroundColor: AppColors.verde));
-                    Navigator.pop(context);
-                  }
-                : null,
+            onTap: _puedeEnviar ? _enviar : null,
           ),
           const SizedBox(height: 10),
           const Center(child: Text(
