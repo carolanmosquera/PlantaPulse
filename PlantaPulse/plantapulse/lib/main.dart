@@ -1,8 +1,12 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';           // ← NUEVO
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'firebase_options.dart';                              // ← NUEVO (lo genera flutterfire configure)
 import 'src/theme/app_colors.dart';
 import 'src/theme/rutas.dart';
 import 'src/models/orden.dart';
+import 'src/blocs/auth/auth_bloc.dart';
 import 'src/screens/splash_screen.dart';
 import 'src/screens/login_screen.dart';
 import 'src/screens/registro_screen.dart';
@@ -17,53 +21,78 @@ import 'src/screens/validar_evidencia_screen.dart';
 import 'src/screens/mis_tareas_screen.dart';
 import 'src/screens/llenar_reporte_screen.dart';
 import 'src/screens/emergencia_screen.dart';
+import 'src/screens/espera_aprobacion_screen.dart';
 
-void main() => runApp(const PlantaPulseApp());
+// ── CAMBIO: main pasa a ser async ────────────────────────────
+// Firebase tiene que estar listo ANTES de que exista cualquier pantalla,
+// porque el splash ya lo va a usar para restaurar la sesión.
+Future<void> main() async {
+  // Obligatorio cuando haces 'await' antes de runApp:
+  // prepara el puente entre Flutter y el sistema operativo.
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  runApp(const PlantaPulseApp());
+}
+// ─────────────────────────────────────────────────────────────
 
 class PlantaPulseApp extends StatelessWidget {
-  const PlantaPulseApp({super.key});
+  /// Solo para pruebas: permite inyectar un AuthBloc con servicios falsos.
+  /// En la app real es null y se crea el AuthBloc normal.
+  final AuthBloc? authBloc;
+
+  const PlantaPulseApp({super.key, this.authBloc});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'PlantaPulse',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: AppColors.fondo,
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.azul),
-      ),
-      // Simula ancho de celular en Chrome — una sola vez para las 15
-      builder: (context, child) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: child,
+    // El AuthBloc va POR ENCIMA del MaterialApp: el splash lo necesita
+    // antes de que exista cualquier ruta, y así todas las pantallas lo ven.
+    return BlocProvider<AuthBloc>(
+      create: (_) => (authBloc ?? AuthBloc())..add(const AuthComprobarSesion()),
+      child: MaterialApp(
+        title: 'PlantaPulse',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          scaffoldBackgroundColor: AppColors.fondo,
+          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.azul),
         ),
+        // Simula ancho de celular en Chrome — una sola vez para las 15
+        builder: (context, child) => Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: child,
+          ),
+        ),
+        initialRoute: Rutas.splash,
+        routes: {
+          Rutas.splash:        (_) => const SplashScreen(),
+          Rutas.login:         (_) => const LoginScreen(),
+          Rutas.registro:      (_) => const RegistroScreen(),
+          Rutas.feed:          (_) => const MenuPlantaPulseFeed(),
+          Rutas.alertas:       (_) => const AlertasScreen(),
+          Rutas.perfil:        (_) => const PerfilScreen(),
+          Rutas.ajustes:       (_) => const AjustesScreen(),
+          Rutas.crearOrden:    (_) => const CrearOrdenP1Screen(),
+          Rutas.resumenTurno:  (_) => const ResumenTurnoScreen(),
+          Rutas.validar:       (_) => const ValidarEvidenciaScreen(),
+          Rutas.misTareas:     (_) => const MisTareasScreen(),
+          Rutas.llenarReporte: (_) => const LlenarReporteScreen(),
+          Rutas.emergencia:    (_) => const EmergenciaScreen(),
+          Rutas.espera:        (_) => const EsperaAprobacionScreen(),
+        },
+        // Rutas que necesitan parámetros
+        onGenerateRoute: (settings) {
+          if (settings.name == Rutas.detalleOrden) {
+            final orden = settings.arguments as Orden;
+            return MaterialPageRoute(
+              builder: (_) => DetalleOrdenScreen(orden: orden));
+          }
+          return null;
+        },
       ),
-      initialRoute: Rutas.splash,
-      routes: {
-        Rutas.splash:        (_) => const SplashScreen(),
-        Rutas.login:         (_) => const LoginScreen(),
-        Rutas.registro:      (_) => const RegistroScreen(),
-        Rutas.feed:          (_) => const MenuPlantaPulseFeed(),
-        Rutas.alertas:       (_) => const AlertasScreen(),
-        Rutas.perfil:        (_) => const PerfilScreen(),
-        Rutas.ajustes:       (_) => const AjustesScreen(),
-        Rutas.crearOrden:    (_) => const CrearOrdenP1Screen(),
-        Rutas.resumenTurno:  (_) => const ResumenTurnoScreen(),
-        Rutas.validar:       (_) => const ValidarEvidenciaScreen(),
-        Rutas.misTareas:     (_) => const MisTareasScreen(),
-        Rutas.llenarReporte: (_) => const LlenarReporteScreen(),
-        Rutas.emergencia:    (_) => const EmergenciaScreen(),
-      },
-      // Rutas que necesitan parámetros
-      onGenerateRoute: (settings) {
-        if (settings.name == Rutas.detalleOrden) {
-          final orden = settings.arguments as Orden;
-          return MaterialPageRoute(
-            builder: (_) => DetalleOrdenScreen(orden: orden));
-        }
-        return null;
-      },
     );
   }
 }

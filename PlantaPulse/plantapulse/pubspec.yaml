@@ -35,6 +35,8 @@ dependencies:
   firebase_auth: ^5.4.0
   http: ^1.2.0          # para subir a Cloudinary
   image_picker: ^1.1.2  # para tomar las fotos
+  flutter_bloc: ^9.1.1  # manejo de estado (AuthBloc)
+  equatable: ^2.0.7     # comparación de estados y eventos
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

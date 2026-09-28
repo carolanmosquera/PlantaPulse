@@ -15,4 +15,6 @@ class Rutas {
   static const misTareas    = '/mis-tareas';
   static const llenarReporte= '/llenar-reporte';
   static const emergencia   = '/emergencia';
+  static const espera       = '/espera-aprobacion';
+  static const solicitudes  = '/solicitudes';
 }

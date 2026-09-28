@@ -2,10 +2,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_helpers.dart';
 
-enum RolUsuario { supervisor, tecnico }
+enum RolUsuario { admin, supervisor, tecnico }
 
 extension RolUsuarioX on RolUsuario {
   String get etiqueta => switch (this) {
+        RolUsuario.admin      => 'Administrador',
         RolUsuario.supervisor => 'Supervisor de Planta',
         RolUsuario.tecnico    => 'Técnico de Mantenimiento',
       };
@@ -14,15 +15,46 @@ extension RolUsuarioX on RolUsuario {
   /// si mañana agregas un rol en medio, los índices se corren y los datos
   /// viejos quedarían mal interpretados.
   String get db => switch (this) {
+        RolUsuario.admin      => 'admin',
         RolUsuario.supervisor => 'supervisor',
         RolUsuario.tecnico    => 'tecnico',
       };
 
+  bool get esAdmin => this == RolUsuario.admin;
   bool get esSupervisor => this == RolUsuario.supervisor;
 
   static RolUsuario desdeDb(String? valor) => switch (valor) {
+        'admin'      => RolUsuario.admin,
         'supervisor' => RolUsuario.supervisor,
         _            => RolUsuario.tecnico,
+      };
+}
+
+/// Estado de la cuenta dentro del flujo de aprobación.
+/// Al registrarse queda 'pendiente' hasta que un admin la apruebe o rechace.
+enum EstadoCuenta { pendiente, activo, rechazado }
+
+extension EstadoCuentaX on EstadoCuenta {
+  String get etiqueta => switch (this) {
+        EstadoCuenta.pendiente => 'Pendiente de aprobación',
+        EstadoCuenta.activo    => 'Activo',
+        EstadoCuenta.rechazado => 'Acceso denegado',
+      };
+
+  /// Valor que se guarda en Firestore (texto, nunca el índice).
+  String get db => switch (this) {
+        EstadoCuenta.pendiente => 'pendiente',
+        EstadoCuenta.activo    => 'activo',
+        EstadoCuenta.rechazado => 'rechazado',
+      };
+
+  /// Solo una cuenta activa puede entrar al feed.
+  bool get puedeEntrar => this == EstadoCuenta.activo;
+
+  static EstadoCuenta desdeDb(String? valor) => switch (valor) {
+        'activo'    => EstadoCuenta.activo,
+        'rechazado' => EstadoCuenta.rechazado,
+        _           => EstadoCuenta.pendiente,
       };
 }
 
@@ -77,6 +109,9 @@ class Usuario {
   final String? fcmToken;        // para notificaciones push
   final bool activo;
   final DateTime createdAt;
+  final EstadoCuenta estado;     // flujo de aprobación por el admin
+  final UsuarioRef? aprobadoPor; // admin que aprobó o rechazó
+  final DateTime? aprobadoEn;
 
   const Usuario({
     required this.uid,
@@ -91,6 +126,9 @@ class Usuario {
     this.fcmToken,
     this.activo = true,
     required this.createdAt,
+    this.estado = EstadoCuenta.pendiente,
+    this.aprobadoPor,
+    this.aprobadoEn,
   });
 
   factory Usuario.desdeFirestore(DocumentSnapshot doc) {
@@ -108,6 +146,11 @@ class Usuario {
       fcmToken: textoOpcional(d['fcmToken']),
       activo: booleano(d['activo'], true),
       createdAt: fecha(d['createdAt']),
+      estado: EstadoCuentaX.desdeDb(textoOpcional(d['estado'])),
+      aprobadoPor: d['aprobadoPor'] == null
+          ? null
+          : UsuarioRef.desdeMapa(mapa(d['aprobadoPor'])),
+      aprobadoEn: fechaOpcional(d['aprobadoEn']),
     );
   }
 
@@ -124,12 +167,21 @@ class Usuario {
         'fcmToken': fcmToken,
         'activo': activo,
         'createdAt': Timestamp.fromDate(createdAt),
+        'estado': estado.db,
+        'aprobadoPor': aprobadoPor?.aMapa(),
+        'aprobadoEn': aprobadoEn == null ? null : Timestamp.fromDate(aprobadoEn!),
       };
 
   UsuarioRef get ref => UsuarioRef.desdeUsuario(this);
 
+  bool get puedeEntrar => estado.puedeEntrar;
+
   Usuario copyWith({
     String? nombre,
+    RolUsuario? rol,
+    String? plantaId,
+    EstadoCuenta? estado,
+    UsuarioRef? aprobadoPor,
     String? especialidad,
     List<String>? zonasAsignadas,
     String? fotoUrl,
@@ -141,14 +193,17 @@ class Usuario {
         uid: uid,
         nombre: nombre ?? this.nombre,
         email: email,
-        rol: rol,
+        rol: rol ?? this.rol,
         especialidad: especialidad ?? this.especialidad,
-        plantaId: plantaId,
+        plantaId: plantaId ?? this.plantaId,
         zonasAsignadas: zonasAsignadas ?? this.zonasAsignadas,
         fotoUrl: fotoUrl ?? this.fotoUrl,
         turno: turno ?? this.turno,
         fcmToken: fcmToken ?? this.fcmToken,
         activo: activo ?? this.activo,
         createdAt: createdAt,
+        estado: estado ?? this.estado,
+        aprobadoPor: aprobadoPor ?? this.aprobadoPor,
+        aprobadoEn: aprobadoEn,
       );
 }

@@ -16,3 +16,4 @@ export '../components/dotted_box.dart';
 export '../components/pantalla_base.dart';
 export '../components/tarjeta_blanca.dart';
 export '../components/paso_timeline.dart';
+export '../components/campo_dropdown.dart';
