@@ -1,8 +1,10 @@
 // lib/src/screens/perfil_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../theme/app_colors.dart';
 import '../theme/rutas.dart';
 import '../components/widgets.dart';
+import '../blocs/auth/auth_bloc.dart';
 
 class PerfilScreen extends StatelessWidget {
   const PerfilScreen({super.key});
@@ -148,6 +150,7 @@ class PerfilScreen extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);                      // cierra el diálogo
+              context.read<AuthBloc>().add(const AuthCerrarSesion());
               Navigator.pushNamedAndRemoveUntil(       // vacía la pila
                 context, Rutas.login, (r) => false);
             },

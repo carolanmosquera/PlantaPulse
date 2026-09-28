@@ -1,8 +1,10 @@
 // lib/src/screens/ajustes_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../theme/app_colors.dart';
 import '../theme/rutas.dart';
 import '../components/widgets.dart';
+import '../blocs/auth/auth_bloc.dart';
 
 class AjustesScreen extends StatefulWidget {
   const AjustesScreen({super.key});
@@ -103,8 +105,12 @@ class _AjustesScreenState extends State<AjustesScreen> {
             texto: 'CERRAR SESIÓN',
             icono: Icons.logout,
             estilo: EstiloBoton.peligro,
-            onTap: () => Navigator.pushNamedAndRemoveUntil(
-              context, Rutas.login, (r) => false),
+            onTap: () {
+              // Cierra la sesión en Firebase y vacía la pila
+              context.read<AuthBloc>().add(const AuthCerrarSesion());
+              Navigator.pushNamedAndRemoveUntil(
+                context, Rutas.login, (r) => false);
+            },
           ),
           const SizedBox(height: 24),
         ],

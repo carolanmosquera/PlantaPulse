@@ -165,4 +165,36 @@ void main() {
     await tocar(tester, 'Iniciar Sesión');
     expect(find.text('PlantaPulse Feed'), findsOneWidget);
   });
+
+  probar('cerrar sesión desde perfil cierra la sesión de verdad', (tester) async {
+    auth.cuentas['sup@planta.com'] = ('clave1234', 'sup1');
+    repo.perfiles['sup1'] = Usuario(
+      uid: 'sup1',
+      nombre: 'Sup',
+      email: 'sup@planta.com',
+      rol: RolUsuario.supervisor,
+      plantaId: 'p1',
+      estado: EstadoCuenta.activo,
+      createdAt: DateTime(2026),
+    );
+    await arrancar(tester);
+    await tester.enterText(find.byType(TextField).at(0), 'sup@planta.com');
+    await tester.enterText(find.byType(TextField).at(1), 'clave1234');
+    await tocar(tester, 'Iniciar Sesión');
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pushNamed('/perfil');
+    await tester.pumpAndSettle();
+    // El ListView del perfil es perezoso: hay que desplazarse hasta el botón
+    await tester.scrollUntilVisible(find.text('CERRAR SESIÓN'), 300,
+        scrollable: find.byType(Scrollable).first);
+    await tocar(tester, 'CERRAR SESIÓN');
+    await tocar(tester, 'Salir');
+
+    expect(find.text('Acceso al Sistema'), findsOneWidget);
+    expect(auth.uidActual, isNull);
+
+    // Al reabrir la app ya no hay sesión: va al login
+    await arrancar(tester);
+    expect(find.text('Acceso al Sistema'), findsOneWidget);
+  });
 }

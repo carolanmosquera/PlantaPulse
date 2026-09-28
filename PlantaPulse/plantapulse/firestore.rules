@@ -1,0 +1,258 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════════════
+    // FUNCIONES
+    // ═══════════════════════════════════════════════════════
+
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // Cada get() cuenta como una lectura facturable.
+    // Si se llama varias veces en la misma evaluación, Firestore lo cachea.
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios/$(uid())).data;
+    }
+
+    function miPlanta() {
+      return perfil().plantaId;
+    }
+
+    // NUEVO: solo una cuenta aprobada por el admin opera en la planta.
+    // .get() evita el error en perfiles viejos que no tienen 'estado'.
+    function estoyActivo() {
+      return autenticado() && perfil().get('estado', '') == 'activo';
+    }
+
+    // NUEVO
+    function soyAdmin() {
+      return estoyActivo() && perfil().rol == 'admin';
+    }
+
+    // CAMBIO: un supervisor pendiente o rechazado no tiene poderes
+    function soySupervisor() {
+      return estoyActivo() && perfil().rol == 'supervisor';
+    }
+
+    function deMiPlanta(datos) {
+      return datos.plantaId == miPlanta();
+    }
+
+    // La escritura solo toca los campos de esta lista.
+    // Es la herramienta clave para dar permisos parciales.
+    function soloCambia(campos) {
+      return request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(campos);
+    }
+
+    // Máximo 4 fotos. .get() evita el error si el campo no viene.
+    function fotosValidas() {
+      return request.resource.data.get('evidencias', []).size() <= 4;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // PLANTAS — lectura pública
+    // Solo son nombres de sedes: no es información sensible.
+    // El admin las lista en la bandeja de solicitudes.
+    // ═══════════════════════════════════════════════════════
+
+    match /plantas/{plantaId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ZONAS Y EQUIPOS — catálogos
+    // CAMBIO: exigen cuenta activa, como el resto de la planta
+    // ═══════════════════════════════════════════════════════
+
+    match /zonas/{zonaId} {
+      allow read: if estoyActivo();
+      allow write: if false;
+    }
+
+    match /equipos/{equipoId} {
+      allow read: if estoyActivo();
+      // El supervisor actualiza el estado al cerrar una orden
+      allow update: if soySupervisor()
+                    && deMiPlanta(resource.data)
+                    && soloCambia(['estado', 'ultimoMantenimiento']);
+      allow create, delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // USUARIOS
+    // ═══════════════════════════════════════════════════════
+
+    match /usuarios/{userId} {
+
+      // Mi propio perfil lo leo siempre (la pantalla de espera lo necesita).
+      // Los de mi planta, solo si estoy activo: así un pendiente, cuyo
+      // plantaId es '', no ve a los demás pendientes.
+      // El admin ve las solicitudes pendientes (bandeja de aprobación).
+      allow read: if autenticado() && (
+                    userId == uid()
+                    || (estoyActivo() && resource.data.plantaId == miPlanta())
+                    || (soyAdmin() && resource.data.estado == 'pendiente')
+                  );
+
+      // CAMBIO: todos se registran como técnico PENDIENTE y sin planta.
+      // La planta la asigna el admin al aprobar.
+      // Aquí NO se puede usar perfil(): el documento todavía no existe.
+      allow create: if autenticado()
+                    && userId == uid()
+                    && request.resource.data.rol == 'tecnico'
+                    && request.resource.data.estado == 'pendiente'
+                    && request.resource.data.plantaId == ''
+                    && request.resource.data.get('aprobadoPor', null) == null
+                    && request.resource.data.get('aprobadoEn', null) == null;
+
+      // Cada quien edita solo sus datos personales.
+      // rol, plantaId y estado quedan bloqueados.
+      allow update: if userId == uid()
+                    && soloCambia(['nombre', 'fotoUrl', 'turno',
+                                   'fcmToken', 'especialidad']);
+
+      // NUEVO: el admin aprueba o rechaza solicitudes pendientes de OTROS.
+      // No puede crear más admins: el rol solo puede quedar en
+      // supervisor o técnico, y queda firmado quién decidió.
+      allow update: if soyAdmin()
+                    && userId != uid()
+                    && resource.data.estado == 'pendiente'
+                    && soloCambia(['estado', 'rol', 'plantaId',
+                                   'aprobadoPor', 'aprobadoEn'])
+                    && request.resource.data.estado in ['activo', 'rechazado']
+                    && request.resource.data.rol in ['supervisor', 'tecnico']
+                    && request.resource.data.aprobadoPor.uid == uid()
+                    && request.resource.data.aprobadoEn == request.time
+                    && ( request.resource.data.estado == 'rechazado'
+                         || request.resource.data.plantaId.size() > 0 );
+
+      allow delete: if false;
+
+      // Notificaciones: otros me las crean, yo solo las marco como leídas
+      match /notificaciones/{notifId} {
+        allow read:   if userId == uid();
+        allow create: if estoyActivo();   // CAMBIO: antes bastaba autenticado()
+        allow update: if userId == uid() && soloCambia(['leida']);
+        allow delete: if userId == uid();
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ÓRDENES DE TRABAJO
+    // CAMBIO: todo exige estoyActivo(), no solo autenticado()
+    // ═══════════════════════════════════════════════════════
+
+    match /ordenes/{ordenId} {
+
+      allow read: if estoyActivo() && deMiPlanta(resource.data);
+
+      // Solo el supervisor crea, y siempre con responsable
+      allow create: if soySupervisor()
+                    && deMiPlanta(request.resource.data)
+                    && request.resource.data.creadoPor.uid == uid()
+                    && request.resource.data.asignadoAUid is string
+                    && request.resource.data.asignadoAUid.size() > 0;
+
+      // El técnico asignado solo avanza el trabajo.
+      // No puede reasignar, cambiar prioridad ni cerrar la orden.
+      allow update: if estoyActivo() && deMiPlanta(resource.data) && (
+                      soySupervisor()
+                      ||
+                      ( resource.data.asignadoAUid == uid()
+                        && soloCambia(['estado', 'ultimaActividad',
+                                       'totalReportes', 'totalAlertas',
+                                       'portadaUrl'])
+                        && request.resource.data.estado
+                             in ['en_progreso', 'validando', 'critica'] )
+                    );
+
+      allow delete: if false;   // el historial es evidencia
+
+      // ── REPORTES DE AVANCE ─────────────────────────────
+      match /reportes/{reporteId} {
+
+        // Una función dentro del match puede usar {ordenId}
+        function ordenPadre() {
+          return get(/databases/$(database)/documents/ordenes/$(ordenId)).data;
+        }
+
+        allow read: if estoyActivo() && ordenPadre().plantaId == miPlanta();
+
+        // Solo el técnico asignado o el supervisor
+        allow create: if estoyActivo()
+                      && request.resource.data.autor.uid == uid()
+                      && ( ordenPadre().asignadoAUid == uid()
+                           || soySupervisor() )
+                      && fotosValidas();
+
+        allow update, delete: if false;   // lo publicado no se edita
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // NOVEDADES
+    // Cualquiera de la planta publica; todos ven;
+    // solo el supervisor decide qué hacer con ella.
+    // ═══════════════════════════════════════════════════════
+
+    match /novedades/{novedadId} {
+
+      allow read: if estoyActivo() && deMiPlanta(resource.data);
+
+      allow create: if estoyActivo()
+                    && deMiPlanta(request.resource.data)
+                    && request.resource.data.autor.uid == uid()
+                    && request.resource.data.estado == 'reportada'
+                    && request.resource.data.descripcion is string
+                    && request.resource.data.descripcion.size() >= 5
+                    && request.resource.data.descripcion.size() <= 500
+                    && fotosValidas();
+
+      // Solo el supervisor la revisa o la convierte en orden
+      allow update: if soySupervisor()
+                    && deMiPlanta(resource.data)
+                    && soloCambia(['estado', 'ordenId',
+                                   'revisadaPor', 'revisadaEn']);
+
+      allow delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ALERTAS CRÍTICAS — emergencias
+    // ═══════════════════════════════════════════════════════
+
+    match /alertas/{alertaId} {
+
+      allow read: if estoyActivo() && deMiPlanta(resource.data);
+
+      allow create: if estoyActivo()
+                    && deMiPlanta(request.resource.data)
+                    && request.resource.data.creadoPor.uid == uid()
+                    && request.resource.data.estado == 'abierta'
+                    && fotosValidas();
+
+      allow update: if soySupervisor()
+                    && deMiPlanta(resource.data)
+                    && soloCambia(['estado']);
+
+      allow delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // RESÚMENES DE TURNO — los escribe solo el agente de IA
+    // ═══════════════════════════════════════════════════════
+
+    match /resumenes/{resumenId} {
+      allow read: if estoyActivo() && deMiPlanta(resource.data);
+      allow write: if false;
+    }
+  }
+}
