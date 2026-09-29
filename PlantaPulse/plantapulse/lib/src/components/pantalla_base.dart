@@ -1,6 +1,7 @@
 // lib/src/components/pantalla_base.dart
 import 'package:flutter/material.dart';
 import 'package:plantapulse/src/theme/app_colors.dart';
+import 'package:plantapulse/src/theme/rutas.dart';
 
 class PantallaBase extends StatelessWidget {
   final String titulo;
@@ -61,14 +62,34 @@ class PantallaBase extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (barraInferiorFija != null) barraInferiorFija!,
-                _navInferior(),
+                _navInferior(context),
               ],
             )
           : barraInferiorFija,
     );
   }
 
-  Widget _navInferior() {
+  // Destino de cada pestaña, en el mismo orden que los items
+  static const _destinos = [Rutas.feed, Rutas.alertas, Rutas.perfil];
+
+  void _irAPestana(BuildContext context, int i) {
+    final destino = _destinos[i];
+    // Se compara con la ruta actual y no con tabActiva: Ajustes marca
+    // Perfil como activa, pero desde ahí sí debe poder volver al perfil.
+    if (ModalRoute.of(context)?.settings.name == destino) return;
+
+    if (destino == Rutas.feed) {
+      // El feed es la base: se vacía la pila por completo
+      Navigator.pushNamedAndRemoveUntil(context, Rutas.feed, (r) => false);
+    } else {
+      // Las otras pestañas se apilan sobre el feed, sin acumular historial:
+      // "atrás" siempre regresa al feed
+      Navigator.pushNamedAndRemoveUntil(
+          context, destino, (r) => r.settings.name == Rutas.feed);
+    }
+  }
+
+  Widget _navInferior(BuildContext context) {
     return BottomNavigationBar(
       currentIndex: tabActiva,
       type: BottomNavigationBarType.fixed,
@@ -77,7 +98,7 @@ class PantallaBase extends StatelessWidget {
       unselectedItemColor: AppColors.textoGris,
       selectedFontSize: 11,
       unselectedFontSize: 11,
-      onTap: (i) {},
+      onTap: (i) => _irAPestana(context, i),
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: "Feed"),
         BottomNavigationBarItem(icon: Icon(Icons.notifications_none), label: "Alertas"),

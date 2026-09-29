@@ -9,6 +9,7 @@ class BotonAncho extends StatelessWidget {
   final IconData? icono;
   final EstiloBoton estilo;
   final VoidCallback? onTap; // null = deshabilitado (gris, como en Registro)
+  final Color? color;        // opcional: reemplaza el color del estilo (ej. verde)
 
   const BotonAncho({
     super.key,
@@ -16,12 +17,13 @@ class BotonAncho extends StatelessWidget {
     this.icono,
     this.estilo = EstiloBoton.primario,
     this.onTap,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final esPeligro = estilo == EstiloBoton.peligro;
-    final colorBase = esPeligro ? AppColors.rojo : AppColors.azul;
+    final colorBase = color ?? (esPeligro ? AppColors.rojo : AppColors.azul);
     final relleno   = estilo != EstiloBoton.borde;
 
     return SizedBox(

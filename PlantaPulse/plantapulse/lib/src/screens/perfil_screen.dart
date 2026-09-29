@@ -98,6 +98,23 @@ class PerfilScreen extends StatelessWidget {
 
           // ══ CONFIGURACIÓN ══
           const SeccionHeader(titulo: 'CONFIGURACIÓN Y GESTIÓN'),
+          // Solo el admin ve la bandeja de aprobación de cuentas
+          BlocBuilder<AuthBloc, AuthState>(
+            buildWhen: (antes, ahora) => antes.esAdmin != ahora.esAdmin,
+            builder: (context, state) => !state.esAdmin
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: FilaOpcion(
+                      icono: Icons.how_to_reg_outlined,
+                      titulo: 'Solicitudes de registro',
+                      subtitulo: 'Aprobar o rechazar cuentas nuevas',
+                      color: AppColors.ambar,
+                      onTap: () =>
+                          Navigator.pushNamed(context, Rutas.solicitudes),
+                    ),
+                  ),
+          ),
           FilaOpcion(
             icono: Icons.settings_outlined,
             titulo: 'Ajustes de Cuenta',

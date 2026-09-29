@@ -12,10 +12,12 @@ import 'fakes.dart';
 void main() {
   late FakeAuthService auth;
   late FakeUsuarioRepository repo;
+  late FakePlantaRepository plantas;
 
   setUp(() {
     auth = FakeAuthService();
     repo = FakeUsuarioRepository();
+    plantas = FakePlantaRepository();
   });
 
   /// testWidgets que ignora SOLO los avisos de desborde: la fuente de pruebas
@@ -44,7 +46,12 @@ void main() {
     tester.view.devicePixelRatio = 2.625;
     addTearDown(tester.view.reset);
     // Una key nueva por arranque: simula cerrar y volver a abrir la app
-    await tester.pumpWidget(PlantaPulseApp(key: UniqueKey(), authBloc: nuevoBloc()));
+    await tester.pumpWidget(PlantaPulseApp(
+      key: UniqueKey(),
+      authBloc: nuevoBloc(),
+      usuarioRepository: repo,
+      plantaRepository: plantas,
+    ));
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
   }
@@ -182,7 +189,24 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), 'clave1234');
     await tocar(tester, 'Iniciar Sesión');
 
-    tester.state<NavigatorState>(find.byType(Navigator)).pushNamed('/perfil');
+    // Igual que el usuario: tocar "Perfil" en la barra inferior del feed
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mi Perfil'), findsOneWidget);
+
+    // Alertas y de vuelta a Perfil: "atrás" debe llevar al feed, sin historial
+    await tester.tap(find.text('Alertas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mi Perfil'), findsOneWidget);
+    final nav = tester.state<NavigatorState>(find.byType(Navigator));
+    nav.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('PlantaPulse Feed'), findsOneWidget);
+    expect(nav.canPop(), isFalse);
+
+    await tester.tap(find.text('Perfil'));
     await tester.pumpAndSettle();
     // El ListView del perfil es perezoso: hay que desplazarse hasta el botón
     await tester.scrollUntilVisible(find.text('CERRAR SESIÓN'), 300,
@@ -196,5 +220,134 @@ void main() {
     // Al reabrir la app ya no hay sesión: va al login
     await arrancar(tester);
     expect(find.text('Acceso al Sistema'), findsOneWidget);
+  });
+
+  // ═══════════ Bandeja del admin (tarea 14) ═══════════
+
+  void crearCuentaActiva(String uid, String email, RolUsuario rol) {
+    auth.cuentas[email] = ('clave1234', uid);
+    repo.perfiles[uid] = Usuario(
+      uid: uid,
+      nombre: 'Cuenta $uid',
+      email: email,
+      rol: rol,
+      plantaId: 'p1',
+      estado: EstadoCuenta.activo,
+      createdAt: DateTime(2026),
+    );
+  }
+
+  Future<void> entrar(WidgetTester tester, String email, String clave) async {
+    await tester.enterText(find.byType(TextField).at(0), email);
+    await tester.enterText(find.byType(TextField).at(1), clave);
+    await tocar(tester, 'Iniciar Sesión');
+  }
+
+  /// Desde el feed: barra inferior → Perfil → Solicitudes de registro
+  Future<void> abrirBandeja(WidgetTester tester) async {
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Solicitudes de registro'), 300,
+        scrollable: find.byType(Scrollable).first);
+    await tocar(tester, 'Solicitudes de registro');
+  }
+
+  Future<void> elegir(WidgetTester tester, String hint, String opcion) async {
+    await tester.tap(find.text(hint));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(opcion).last);
+    await tester.pumpAndSettle();
+  }
+
+  probar('ciclo completo: registro → admin aprueba desde la bandeja → entra',
+      (tester) async {
+    crearCuentaActiva('admin1', 'admin@planta.com', RolUsuario.admin);
+    await arrancar(tester);
+
+    // 1. Alguien se registra y cierra sesión
+    await registrarse(tester, 'nuevo@planta.com');
+    expect(find.text('Solicitud enviada'), findsOneWidget);
+    await tocar(tester, 'Cerrar sesión');
+
+    // 2. Entra el admin y abre la bandeja desde su perfil
+    await entrar(tester, 'admin@planta.com', 'clave1234');
+    await abrirBandeja(tester);
+    expect(find.text('Juan Pérez'), findsOneWidget);
+
+    // 3. Abre la solicitud: APROBAR deshabilitado hasta elegir rol y planta
+    await tester.tap(find.text('Juan Pérez'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('APROBAR'));
+    await tester.pumpAndSettle();
+    expect(repo.perfiles.values.where((u) => u.estado == EstadoCuenta.pendiente),
+        hasLength(1));
+
+    await elegir(tester, 'Seleccionar rol', 'Técnico de Mantenimiento');
+    // El admin no puede crear otros admins: no está en las opciones
+    expect(find.text('Administrador'), findsNothing);
+    await elegir(tester, 'Seleccionar planta', 'Planta Sur');
+    await tocar(tester, 'APROBAR');
+
+    // 4. Hoja cerrada, confirmación, bandeja vacía y perfil actualizado
+    expect(find.textContaining('aprobado como'), findsOneWidget);
+    expect(find.text('No hay solicitudes pendientes'), findsOneWidget);
+    final aprobado = repo.perfiles.values
+        .singleWhere((u) => u.email == 'nuevo@planta.com');
+    expect(aprobado.estado, EstadoCuenta.activo);
+    expect(aprobado.rol, RolUsuario.tecnico);
+    expect(aprobado.plantaId, 'p2');
+    expect(aprobado.aprobadoPor?.uid, 'admin1');
+
+    // 5. El admin sale y la persona aprobada entra al feed
+    Navigator.of(tester.element(find.text('No hay solicitudes pendientes')))
+        .pop();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('CERRAR SESIÓN'), 300,
+        scrollable: find.byType(Scrollable).first);
+    await tocar(tester, 'CERRAR SESIÓN');
+    await tocar(tester, 'Salir');
+    await entrar(tester, 'nuevo@planta.com', 'secreta123');
+    expect(find.text('PlantaPulse Feed'), findsOneWidget);
+  });
+
+  probar('el admin rechaza desde la bandeja → la cuenta ve Acceso denegado',
+      (tester) async {
+    crearCuentaActiva('admin1', 'admin@planta.com', RolUsuario.admin);
+    await arrancar(tester);
+    await registrarse(tester, 'otro@planta.com');
+    await tocar(tester, 'Cerrar sesión');
+
+    await entrar(tester, 'admin@planta.com', 'clave1234');
+    await abrirBandeja(tester);
+    await tester.tap(find.text('Juan Pérez'));
+    await tester.pumpAndSettle();
+    await tocar(tester, 'RECHAZAR');
+    expect(find.textContaining('rechazada'), findsOneWidget);
+    expect(find.text('No hay solicitudes pendientes'), findsOneWidget);
+
+    Navigator.of(tester.element(find.text('No hay solicitudes pendientes')))
+        .pop();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('CERRAR SESIÓN'), 300,
+        scrollable: find.byType(Scrollable).first);
+    await tocar(tester, 'CERRAR SESIÓN');
+    await tocar(tester, 'Salir');
+    await entrar(tester, 'otro@planta.com', 'secreta123');
+    expect(find.text('Acceso denegado'), findsOneWidget);
+  });
+
+  probar('un técnico activo NO ve la bandeja en su perfil', (tester) async {
+    crearCuentaActiva('tec1', 'tec@planta.com', RolUsuario.tecnico);
+    await arrancar(tester);
+    await entrar(tester, 'tec@planta.com', 'clave1234');
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mi Perfil'), findsOneWidget);
+    // Bajar hasta la sección de gestión: el ListView solo construye lo visible,
+    // y sin esto la ausencia no probaría nada
+    await tester.scrollUntilVisible(find.text('Ajustes de Cuenta'), 300,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('Ajustes de Cuenta'), findsOneWidget);
+    expect(find.text('Solicitudes de registro'), findsNothing);
   });
 }

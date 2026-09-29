@@ -1,8 +1,11 @@
 // test/fakes.dart
 // Versiones en memoria de AuthService y UsuarioRepository, para probar
 // el AuthBloc y las pantallas sin tocar Firebase.
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:plantapulse/src/models/planta.dart';
 import 'package:plantapulse/src/models/usuario.dart';
+import 'package:plantapulse/src/repositories/planta_repository.dart';
 import 'package:plantapulse/src/repositories/usuario_repository.dart';
 import 'package:plantapulse/src/services/auth_service.dart';
 
@@ -56,10 +59,25 @@ class FakeUsuarioRepository implements UsuarioRepository {
   /// Lo que se habría escrito en Firestore, para revisar que no haya contraseña.
   final List<Map<String, dynamic>> escrituras = [];
 
+  /// Avisa a los streams abiertos que algo cambió, como snapshots().
+  final _cambios = StreamController<void>.broadcast();
+
+  List<Usuario> get _pendientes => perfiles.values
+      .where((u) => u.estado == EstadoCuenta.pendiente)
+      .toList()
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  @override
+  Stream<List<Usuario>> solicitudesPendientes() async* {
+    yield _pendientes;
+    yield* _cambios.stream.map((_) => _pendientes);
+  }
+
   @override
   Future<void> crear(Usuario usuario) async {
     escrituras.add(usuario.aFirestore());
     perfiles[usuario.uid] = usuario;
+    _cambios.add(null);
   }
 
   @override
@@ -78,6 +96,7 @@ class FakeUsuarioRepository implements UsuarioRepository {
       plantaId: plantaId,
       aprobadoPor: aprobadoPor,
     );
+    _cambios.add(null);
   }
 
   @override
@@ -86,10 +105,21 @@ class FakeUsuarioRepository implements UsuarioRepository {
       estado: EstadoCuenta.rechazado,
       aprobadoPor: aprobadoPor,
     );
+    _cambios.add(null);
   }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakePlantaRepository implements PlantaRepository {
+  final List<Planta> plantas = const [
+    Planta(id: 'p1', nombre: 'Planta Norte'),
+    Planta(id: 'p2', nombre: 'Planta Sur'),
+  ];
+
+  @override
+  Future<List<Planta>> activas() async => plantas;
 }
 
 const adminRef = UsuarioRef(uid: 'admin1', nombre: 'Admin');
