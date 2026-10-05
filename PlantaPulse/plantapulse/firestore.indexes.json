@@ -7,6 +7,41 @@
         { "fieldPath": "estado", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ordenes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ordenes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "asignadoAUid", "order": "ASCENDING" },
+        { "fieldPath": "fechaLimite", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ordenes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "equipos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plantaId", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

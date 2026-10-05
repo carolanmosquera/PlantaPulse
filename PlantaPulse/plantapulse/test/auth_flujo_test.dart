@@ -4,8 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plantapulse/main.dart';
-import 'package:plantapulse/src/blocs/auth/auth_bloc.dart';
-import 'package:plantapulse/src/models/usuario.dart';
+import 'package:plantapulse/src/core/core.dart';
+import 'package:plantapulse/src/features/auth/auth.dart';
 
 import 'fakes.dart';
 
@@ -38,7 +38,7 @@ void main() {
     });
   }
 
-  AuthBloc nuevoBloc() => AuthBloc(authService: auth, usuarioRepository: repo);
+  AuthBloc nuevoBloc() => authBlocDe(auth, repo);
 
   /// Arranca la app y deja pasar el splash de 3 segundos.
   Future<void> arrancar(WidgetTester tester) async {
@@ -51,6 +51,9 @@ void main() {
       authBloc: nuevoBloc(),
       usuarioRepository: repo,
       plantaRepository: plantas,
+      // El feed ahora lee órdenes: sin esto intentaría usar Firestore real
+      ordenRepository: FakeOrdenRepository(),
+      equipoRepository: FakeEquipoRepository(),
     ));
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();

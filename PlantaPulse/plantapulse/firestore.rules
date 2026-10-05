@@ -154,12 +154,14 @@ service cloud.firestore {
 
       allow read: if estoyActivo() && deMiPlanta(resource.data);
 
-      // Solo el supervisor crea, y siempre con responsable
+      // Solo el supervisor crea, y siempre con responsable.
+      // Toda orden nace pendiente: la prioridad crítica NO es un estado.
       allow create: if soySupervisor()
                     && deMiPlanta(request.resource.data)
                     && request.resource.data.creadoPor.uid == uid()
                     && request.resource.data.asignadoAUid is string
-                    && request.resource.data.asignadoAUid.size() > 0;
+                    && request.resource.data.asignadoAUid.size() > 0
+                    && request.resource.data.estado == 'pendiente';
 
       // El técnico asignado solo avanza el trabajo.
       // No puede reasignar, cambiar prioridad ni cerrar la orden.

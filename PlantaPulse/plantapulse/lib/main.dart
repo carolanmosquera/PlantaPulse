@@ -1,32 +1,23 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';           // ← NUEVO
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'firebase_options.dart';                              // ← NUEVO (lo genera flutterfire configure)
-import 'src/theme/app_colors.dart';
-import 'src/theme/rutas.dart';
-import 'src/models/orden.dart';
-import 'src/blocs/auth/auth_bloc.dart';
-import 'src/repositories/planta_repository.dart';
-import 'src/repositories/usuario_repository.dart';
-import 'src/screens/splash_screen.dart';
-import 'src/screens/login_screen.dart';
-import 'src/screens/registro_screen.dart';
-import 'src/screens/menu_PlantaPulse_Feed_screen.dart';
-import 'src/screens/detalle_orden_screen.dart';
-import 'src/screens/alertas_screen.dart';
-import 'src/screens/perfil_screen.dart';
-import 'src/screens/ajustes_screen.dart';
-import 'src/screens/crear_orden_p1_screen.dart';
-import 'src/screens/resumen_turno_screen.dart';
-import 'src/screens/validar_evidencia_screen.dart';
-import 'src/screens/mis_tareas_screen.dart';
-import 'src/screens/llenar_reporte_screen.dart';
-import 'src/screens/emergencia_screen.dart';
-import 'src/screens/espera_aprobacion_screen.dart';
-import 'src/screens/solicitudes_screen.dart';
+import 'firebase_options.dart';                              // lo genera flutterfire configure
+import 'src/core/core.dart';
+import 'src/features/auth/auth.dart';
+import 'src/features/crear_orden/crear_orden.dart';
+import 'src/features/novedades/novedades.dart';
+import 'src/features/ordenes/ordenes.dart';
+import 'src/features/perfil/perfil.dart';
+import 'src/features/reportes/reportes.dart';
 
-// ── CAMBIO: main pasa a ser async ────────────────────────────
+// Implementaciones concretas: main.dart es el ÚNICO archivo que las conoce.
+import 'src/core/data/planta_repositorio_firestore.dart';
+import 'src/features/auth/data/repositories/autenticacion_repositorio_firebase.dart';
+import 'src/features/auth/data/repositories/usuario_repositorio_firestore.dart';
+import 'src/features/crear_orden/data/repositories/equipo_repositorio_firestore.dart';
+import 'src/features/ordenes/data/repositories/orden_repositorio_firestore.dart';
+
 // Firebase tiene que estar listo ANTES de que exista cualquier pantalla,
 // porque el splash ya lo va a usar para restaurar la sesión.
 Future<void> main() async {
@@ -40,38 +31,88 @@ Future<void> main() async {
 
   runApp(const PlantaPulseApp());
 }
-// ─────────────────────────────────────────────────────────────
 
 class PlantaPulseApp extends StatelessWidget {
-  /// Solo para pruebas: permiten inyectar versiones falsas.
-  /// En la app real son null y se crean las normales.
-  final AuthBloc? authBloc;
-  final UsuarioRepository? usuarioRepository;
-  final PlantaRepository? plantaRepository;
+  /// Solo para pruebas: permiten inyectar versiones falsas de los
+  /// contratos. En la app real son null y se crean las de Firebase.
+  final SesionBloc? authBloc;
+  final AutenticacionRepositorio? autenticacionRepositorio;
+  final UsuarioRepositorio? usuarioRepository;
+  final PlantaRepositorio? plantaRepository;
+  final OrdenRepositorio? ordenRepository;
+  final EquipoRepositorio? equipoRepository;
 
   const PlantaPulseApp({
     super.key,
     this.authBloc,
+    this.autenticacionRepositorio,
     this.usuarioRepository,
     this.plantaRepository,
+    this.ordenRepository,
+    this.equipoRepository,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Repositorios y AuthBloc van POR ENCIMA del MaterialApp: el splash
-    // los necesita antes de que exista cualquier ruta, y así todas las
-    // pantallas (y las hojas inferiores) los ven con context.read.
+    // La cadena completa se arma aquí, en este orden:
+    //   implementaciones de repositorio → casos de uso → Blocs.
+    //
+    // Todo va POR ENCIMA del MaterialApp: el splash necesita la sesión
+    // antes de que exista cualquier ruta, el feed es una ruta con nombre,
+    // y así todas las pantallas (y las hojas inferiores) los ven con
+    // context.read. Los RepositoryProvider son perezosos: un repositorio
+    // de Firebase solo se crea si alguien lo pide.
+    // El CrearOrdenBloc NO va aquí: vive y muere dentro del asistente.
     return MultiRepositoryProvider(
       providers: [
-        RepositoryProvider<UsuarioRepository>(
-            create: (_) => usuarioRepository ?? UsuarioRepository()),
-        RepositoryProvider<PlantaRepository>(
-            create: (_) => plantaRepository ?? PlantaRepository()),
+        // ── Repositorios (contratos del dominio) ──
+        RepositoryProvider<UsuarioRepositorio>(
+            create: (_) => usuarioRepository ?? UsuarioRepositorioFirestore()),
+        RepositoryProvider<PlantaRepositorio>(
+            create: (_) => plantaRepository ?? PlantaRepositorioFirestore()),
+        RepositoryProvider<OrdenRepositorio>(
+            create: (_) => ordenRepository ?? OrdenRepositorioFirestore()),
+        RepositoryProvider<EquipoRepositorio>(
+            create: (_) => equipoRepository ?? EquipoRepositorioFirestore()),
+
+        // ── Casos de uso que las pantallas leen directamente ──
+        RepositoryProvider(
+            create: (c) =>
+                ObservarSolicitudesPendientes(c.read<UsuarioRepositorio>())),
+        RepositoryProvider(
+            create: (c) => AprobarSolicitud(c.read<UsuarioRepositorio>())),
+        RepositoryProvider(
+            create: (c) => RechazarSolicitud(c.read<UsuarioRepositorio>())),
+        RepositoryProvider(
+            create: (c) => ListarPlantasActivas(c.read<PlantaRepositorio>())),
+        RepositoryProvider(
+            create: (c) => ListarEquiposDePlanta(c.read<EquipoRepositorio>())),
+        RepositoryProvider(
+            create: (c) => ListarTecnicosDePlanta(c.read<UsuarioRepositorio>())),
+        RepositoryProvider(
+            create: (c) => PublicarOrden(c.read<OrdenRepositorio>())),
+        RepositoryProvider(
+            create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
       ],
-      child: BlocProvider<AuthBloc>(
-        create: (context) => (authBloc ??
-                AuthBloc(usuarioRepository: context.read<UsuarioRepository>()))
-          ..add(const AuthComprobarSesion()),
+      child: MultiBlocProvider(
+        providers: [
+          // Se registra como SesionBloc: así los demás features lo leen
+          // sin importar el feature auth.
+          BlocProvider<SesionBloc>(
+            create: (context) =>
+                (authBloc ?? _crearAuthBloc(context.read<UsuarioRepositorio>()))
+                  ..add(const AuthComprobarSesion()),
+          ),
+          BlocProvider<OrdenesBloc>(
+            create: (context) {
+              final ordenes = context.read<OrdenRepositorio>();
+              return OrdenesBloc(
+                observarOrdenesDePlanta: ObservarOrdenesDePlanta(ordenes),
+                observarMisTareas: ObservarMisTareas(ordenes),
+              );
+            },
+          ),
+        ],
         child: MaterialApp(
           title: 'PlantaPulse',
           debugShowCheckedModeBanner: false,
@@ -91,7 +132,7 @@ class PlantaPulseApp extends StatelessWidget {
             Rutas.splash:        (_) => const SplashScreen(),
             Rutas.login:         (_) => const LoginScreen(),
             Rutas.registro:      (_) => const RegistroScreen(),
-            Rutas.feed:          (_) => const MenuPlantaPulseFeed(),
+            Rutas.feed:          (_) => const FeedScreen(),
             Rutas.alertas:       (_) => const AlertasScreen(),
             Rutas.perfil:        (_) => const PerfilScreen(),
             Rutas.ajustes:       (_) => const AjustesScreen(),
@@ -115,6 +156,18 @@ class PlantaPulseApp extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+
+  /// La cadena de autenticación: repositorio → casos de uso → Bloc.
+  AuthBloc _crearAuthBloc(UsuarioRepositorio usuarios) {
+    final auth = autenticacionRepositorio ?? AutenticacionRepositorioFirebase();
+    return AuthBloc(
+      comprobarSesion: ComprobarSesion(auth, usuarios),
+      iniciarSesion: IniciarSesion(auth, usuarios),
+      registrarSolicitud: RegistrarSolicitud(auth, usuarios),
+      recargarPerfil: RecargarPerfil(auth, usuarios),
+      cerrarSesion: CerrarSesion(auth),
     );
   }
 }

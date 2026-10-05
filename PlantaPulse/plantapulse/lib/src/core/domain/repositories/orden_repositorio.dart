@@ -1,0 +1,17 @@
+// lib/src/core/domain/repositories/orden_repositorio.dart
+import '../entities/orden.dart';
+
+/// Órdenes de trabajo. En core porque lo usan ordenes (leer)
+/// y crear_orden (publicar).
+abstract class OrdenRepositorio {
+  /// Feed de la planta en tiempo real, las más nuevas primero.
+  Stream<List<Orden>> deLaPlanta(String plantaId, {EstadoOrden? estado});
+
+  /// "Mis Tareas": las órdenes de un técnico, la que vence primero arriba.
+  Stream<List<Orden>> asignadasA(String uid, String plantaId);
+
+  /// Crea la orden y devuelve el id que le asignó la base de datos.
+  Future<String> crear(Orden orden);
+
+  Future<void> actualizarEstado(String ordenId, EstadoOrden estado);
+}

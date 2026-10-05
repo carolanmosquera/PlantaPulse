@@ -8,7 +8,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:plantapulse/main.dart';
-import 'package:plantapulse/src/blocs/auth/auth_bloc.dart';
 
 import 'fakes.dart';
 
@@ -17,10 +16,7 @@ void main() {
     // Build our app and trigger a frame.
     // Se inyecta un AuthBloc con servicios falsos: en pruebas no hay Firebase.
     await tester.pumpWidget(PlantaPulseApp(
-      authBloc: AuthBloc(
-        authService: FakeAuthService(),
-        usuarioRepository: FakeUsuarioRepository(),
-      ),
+      authBloc: authBlocDe(FakeAuthService(), FakeUsuarioRepository()),
     ));
 
     // Verify that the splash screen is shown on startup.
