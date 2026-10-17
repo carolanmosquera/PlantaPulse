@@ -1,7 +1,7 @@
 // lib/src/core/data/datos_demo.dart
 //
 // Datos de prueba con la estructura real de los modelos, para que las
-// pantallas funcionen mientras Firestore no está conectado.
+// pantallas funcionen mientras la base de datos no está conectada.
 // Cuando lo conectes, cada lista de aquí se reemplaza por un stream.
 // TODO fase B: borrar este archivo.
 import '../domain/entities/alerta.dart';
@@ -34,7 +34,7 @@ Orden _orden({
   required Prioridad prioridad,
   required DateTime limite,
   String descripcion = '',
-  CategoriaOrden categoria = CategoriaOrden.mecanico,
+  String categoria = 'Mecánico',
   String? equipoId,
   String? equipoNombre,
   int totalReportes = 0,
@@ -104,7 +104,7 @@ final ordenDetalleDemo = _orden(
   totalReportes: 3,
 );
 
-// SIN USO desde la tajada 2: el feed lee las órdenes de Firestore.
+// SIN USO desde la tajada 2: el feed lee las órdenes de Supabase.
 // Borrar en la próxima tajada.
 final ordenesDemo = <Orden>[
   _orden(
@@ -121,7 +121,7 @@ final ordenesDemo = <Orden>[
     codigo: 'WO-2024-0892',
     titulo: 'Falla en Panel de Control Eléctrico',
     zona: 'Sector de Empaque',
-    categoria: CategoriaOrden.electrico,
+    categoria: 'Eléctrico',
     estado: EstadoOrden.critica,
     prioridad: Prioridad.critica,
     limite: _hoyA(9, 30),
@@ -131,7 +131,7 @@ final ordenesDemo = <Orden>[
     codigo: 'WO-2024-0893',
     titulo: 'Inspección de Válvula Hidráulica',
     zona: 'Área de Almacén',
-    categoria: CategoriaOrden.hidraulico,
+    categoria: 'Hidráulico',
     estado: EstadoOrden.pendiente,
     prioridad: Prioridad.baja,
     limite: _hoyA(11, 15),
@@ -141,7 +141,7 @@ final ordenesDemo = <Orden>[
     codigo: 'WO-2024-0894',
     titulo: 'Reemplazo de Sensores Térmicos',
     zona: 'Planta de Energía',
-    categoria: CategoriaOrden.electrico,
+    categoria: 'Eléctrico',
     estado: EstadoOrden.pendiente,
     prioridad: Prioridad.media,
     limite: _hoyA(13, 45),
@@ -150,7 +150,7 @@ final ordenesDemo = <Orden>[
 ];
 
 /// Mis Tareas: las órdenes asignadas al usuario actual.
-// SIN USO desde la tajada 2: "Mis Tareas" lee de Firestore (asignadasA).
+// SIN USO desde la tajada 2: "Mis Tareas" lee de Supabase (asignadasA).
 // Borrar en la próxima tajada.
 final tareasDemo = <Orden>[
   _orden(
@@ -167,7 +167,7 @@ final tareasDemo = <Orden>[
     codigo: 'TSK-1035',
     titulo: 'Calibración de Sensor de Presión',
     zona: 'Línea de Envasado C',
-    categoria: CategoriaOrden.inspeccion,
+    categoria: 'Inspección',
     estado: EstadoOrden.enProgreso,
     prioridad: Prioridad.media,
     limite: _enDias(1, 9),
@@ -177,7 +177,7 @@ final tareasDemo = <Orden>[
     codigo: 'TSK-1041',
     titulo: 'Inspección de Válvula de Alivio',
     zona: 'Depósito de Químicos',
-    categoria: CategoriaOrden.inspeccion,
+    categoria: 'Inspección',
     estado: EstadoOrden.pendiente,
     prioridad: Prioridad.critica,
     limite: _hoyA(12, 30),

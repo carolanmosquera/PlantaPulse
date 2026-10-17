@@ -21,6 +21,7 @@ class Zona {
   final String nombre;      // "Sector de Empaque"
   final String codigo;      // "ZN-04"
   final String descripcion;
+  final bool activo;        // se da de baja, no se borra
 
   const Zona({
     required this.id,
@@ -28,6 +29,7 @@ class Zona {
     required this.nombre,
     this.codigo = '',
     this.descripcion = '',
+    this.activo = true,
   });
 
 }

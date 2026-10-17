@@ -2,6 +2,7 @@
 // Barril del dominio compartido: Dart puro, sin Flutter ni SDKs de datos.
 export 'entities/alerta.dart';
 export 'entities/alerta_critica.dart';
+export 'entities/categoria.dart';
 export 'entities/equipo.dart';
 export 'entities/evidencia.dart';
 export 'entities/novedad.dart';
@@ -9,8 +10,11 @@ export 'entities/orden.dart';
 export 'entities/planta.dart';
 export 'entities/reporte.dart';
 export 'entities/usuario.dart';
+export 'repositories/categoria_repositorio.dart';
 export 'repositories/orden_repositorio.dart';
 export 'repositories/planta_repositorio.dart';
 export 'repositories/usuario_repositorio.dart';
+export 'repositories/zona_repositorio.dart';
+export 'usecases/catalogos.dart';
 export 'utils/formato_fechas.dart';
 export '../errors/fallos.dart';

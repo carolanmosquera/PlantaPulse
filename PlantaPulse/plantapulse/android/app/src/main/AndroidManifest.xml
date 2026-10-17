@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Supabase necesita red. Antes lo agregaban los plugins de Firebase;
+         sin esto la versión release no tendría internet. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="plantapulse"
         android:name="${applicationName}"

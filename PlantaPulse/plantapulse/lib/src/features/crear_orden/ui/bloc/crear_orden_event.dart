@@ -1,5 +1,6 @@
 // lib/src/features/crear_orden/ui/bloc/crear_orden_event.dart
 import 'package:equatable/equatable.dart';
+import '../../../../core/domain/entities/categoria.dart';
 import '../../../../core/domain/entities/equipo.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
@@ -11,7 +12,7 @@ sealed class CrearOrdenEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Lo lanza P1 al abrirse: carga equipos y técnicos de la planta.
+/// Lo lanza P1 al abrirse: carga categorías, equipos y técnicos de la planta.
 class CrearOrdenIniciada extends CrearOrdenEvent {
   final String plantaId;
 
@@ -30,8 +31,9 @@ class DescripcionCambiada extends CrearOrdenEvent {
   List<Object?> get props => [texto];
 }
 
+/// Lleva el NOMBRE de la categoría: es lo que se guarda en la orden.
 class CategoriaCambiada extends CrearOrdenEvent {
-  final CategoriaOrden categoria;
+  final String categoria;
 
   const CategoriaCambiada(this.categoria);
 
@@ -73,6 +75,33 @@ class TecnicoSeleccionado extends CrearOrdenEvent {
 
   @override
   List<Object?> get props => [tecnico.uid];
+}
+
+/// "Sin asignar" en el selector de P2.
+class TecnicoQuitado extends CrearOrdenEvent {
+  const TecnicoQuitado();
+}
+
+/// El formulario de alta ya guardó la categoría: se añade al catálogo
+/// y queda seleccionada.
+class CategoriaAgregada extends CrearOrdenEvent {
+  final Categoria categoria;
+
+  const CategoriaAgregada(this.categoria);
+
+  @override
+  List<Object?> get props => [categoria.id];
+}
+
+/// El formulario de alta ya guardó el equipo: se añade a la lista y
+/// queda seleccionado, sin reabrir el asistente.
+class EquipoAgregado extends CrearOrdenEvent {
+  final Equipo equipo;
+
+  const EquipoAgregado(this.equipo);
+
+  @override
+  List<Object?> get props => [equipo.id];
 }
 
 class ObservacionesCambiadas extends CrearOrdenEvent {

@@ -13,7 +13,10 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   final _busquedaCtrl = TextEditingController();
 
-  static const _filtros = ['Todos', 'Pendiente', 'En Progreso', 'Urgente'];
+  // Alineadas con el switch de OrdenesState.visibles: índice 4 = sin técnico
+  static const _filtros = [
+    'Todos', 'Pendiente', 'En Progreso', 'Urgente', 'Sin asignar',
+  ];
 
   @override
   void initState() {
@@ -38,8 +41,9 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final esSupervisor =
-        context.watch<SesionBloc>().state.usuario?.rol.esSupervisor ?? false;
+    // Supervisor o admin: el mismo criterio que puede_operar() en la base
+    final puedeCrear =
+        context.watch<SesionBloc>().state.usuario?.rol.puedeOperar ?? false;
 
     return PantallaBase(
       titulo: 'PlantaPulse Feed',
@@ -52,8 +56,8 @@ class _FeedScreenState extends State<FeedScreen> {
           onPressed: () => Navigator.pushReplacementNamed(context, Rutas.alertas),
         ),
       ],
-      // Solo el supervisor crea órdenes (las reglas también lo exigen)
-      fab: esSupervisor
+      // Solo supervisor y admin crean órdenes (RLS también lo exige)
+      fab: puedeCrear
           ? FloatingActionButton(
               backgroundColor: AppColors.naranja,
               onPressed: () => Navigator.pushNamed(context, Rutas.crearOrden),
@@ -151,6 +155,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     prioridad: orden.prioridadTexto,
                     fotoUrl: orden.portadaUrl,
                     estilo: EstiloOrden.conFoto,
+                    sinAsignar: orden.sinAsignar,
                     onTap: () => Navigator.pushNamed(
                       context,
                       Rutas.detalleOrden,

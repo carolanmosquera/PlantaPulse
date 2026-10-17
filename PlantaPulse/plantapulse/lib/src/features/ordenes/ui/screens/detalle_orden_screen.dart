@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../bloc/ordenes_bloc.dart';
+import '../widgets/editar_orden_hoja.dart';
 import '../../../../core/data/datos_demo.dart';
 
 class DetalleOrdenScreen extends StatefulWidget {
@@ -48,7 +49,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
     final ahora = DateTime.now();
     setState(() {
       _reportes.add(Reporte(
-        id: 'local-${ahora.microsecondsSinceEpoch}',   // Firestore dará el definitivo
+        id: 'local-${ahora.microsecondsSinceEpoch}',   // la base de datos dará el definitivo
         ordenId: widget.orden.id,
         autor: usuarioActualDemo,
         detalles: contenido,
@@ -60,10 +61,71 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
     FocusScope.of(context).unfocus();   // cierra el teclado
   }
 
+  /// "Asignar técnico": cierra el ciclo de las órdenes sin asignar.
+  /// Sin mensaje de éxito: la orden cambia sola cuando llega por el stream.
+  Future<void> _asignarTecnico(Orden orden) async {
+    final bloc = context.read<OrdenesBloc>();
+    final avisos = ScaffoldMessenger.of(context);
+    final List<Usuario> tecnicos;
+    try {
+      tecnicos = await context
+          .read<ListarTecnicosDePlanta>()
+          .ejecutar(orden.plantaId);
+    } catch (e) {
+      avisos.showSnackBar(SnackBar(
+        backgroundColor: AppColors.rojo,
+        content: Text(FalloApp.mensajeDe(e)),
+      ));
+      return;
+    }
+    if (!mounted) return;
+    final eleccion = await SelectorBuscable.mostrar<Usuario>(
+      context,
+      titulo: 'Asignar técnico',
+      opciones: tecnicos,
+      textoDe: (u) => u.nombre,
+      subtituloDe: (u) => u.especialidad,
+      iconoDe: (_) => Icons.engineering_outlined,
+      seleccionado: tecnicos.where((u) => u.uid == orden.asignadoAUid).firstOrNull,
+      claveDe: (u) => u.uid,
+      textoNinguno: 'Sin asignar',
+    );
+    if (eleccion == null) return;                       // cerró sin elegir
+    if (eleccion.valor?.uid == orden.asignadoAUid) return;   // no cambió
+    bloc.add(TecnicoAsignado(orden.id, eleccion.valor));
+  }
+
+  /// Menú de tres puntos. Dos acciones separadas: son dos momentos
+  /// distintos (asignar es rutina; editar corrige la orden).
+  Widget _menu(Orden orden) => PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
+        onSelected: (accion) => switch (accion) {
+          'asignar' => _asignarTecnico(orden),
+          _ => EditarOrdenHoja.mostrar(context, orden),
+        },
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: 'asignar', child: ListTile(
+            leading: Icon(Icons.engineering_outlined),
+            title: Text('Asignar técnico'),
+            contentPadding: EdgeInsets.zero)),
+          PopupMenuItem(value: 'editar', child: ListTile(
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Editar orden'),
+            contentPadding: EdgeInsets.zero)),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
-    // Si la orden cambia de estado en Firestore, el detalle se entera
-    return BlocBuilder<OrdenesBloc, OrdenesState>(
+    // Si la orden cambia en la base de datos, el detalle se entera
+    return BlocConsumer<OrdenesBloc, OrdenesState>(
+      // Solo los fallos con error explícito: el éxito se ve en la orden
+      listenWhen: (antes, ahora) =>
+          ahora.errorAccion != null && antes.errorAccion != ahora.errorAccion,
+      listener: (context, state) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.rojo,
+            content: Text(state.errorAccion!)),
+      ),
       builder: (context, state) {
         final orden = state.ordenes
                 .where((o) => o.id == widget.orden.id)
@@ -75,9 +137,13 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
   }
 
   Widget _contenido(Orden orden) {
+    final puedeEditar =
+        context.watch<SesionBloc>().state.usuario?.rol.puedeOperar ?? false;
     return PantallaBase(
       titulo: 'Orden #${orden.codigo}',
-      mostrarMenu: true,
+      // Supervisor y admin tienen su menú; el resto ve el de siempre
+      mostrarMenu: !puedeEditar,
+      accionesExtra: puedeEditar ? [_menu(orden)] : null,
       conNavegacion: true,
       tabActiva: 0,
       barraInferiorFija: _barraComentario(),
@@ -132,9 +198,12 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                   children: [
                     Expanded(
                       child: MetaRow(
-                        icono: Icons.person_outline,
+                        icono: orden.sinAsignar
+                            ? Icons.person_off_outlined
+                            : Icons.person_outline,
                         texto: 'Asignado a',
-                        valor: orden.asignadoA.nombre,
+                        valor: orden.asignadoA?.nombre ?? 'Sin asignar',
+                        atenuado: orden.sinAsignar,
                       ),
                     ),
                     Expanded(

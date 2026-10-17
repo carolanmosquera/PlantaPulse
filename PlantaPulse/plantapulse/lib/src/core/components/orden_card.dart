@@ -18,6 +18,9 @@ class OrdenCard extends StatelessWidget {
   final EstiloOrden estilo;
   final VoidCallback? onTap;
 
+  /// La orden no tiene responsable: se marca en gris bajo la ubicación.
+  final bool sinAsignar;
+
   const OrdenCard({
     super.key,
     required this.codigo,
@@ -30,6 +33,7 @@ class OrdenCard extends StatelessWidget {
     this.fotoUrl,
     this.estilo = EstiloOrden.conFoto,
     this.onTap,
+    this.sinAsignar = false,
   });
 
   @override
@@ -132,6 +136,11 @@ class OrdenCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               MetaRow(icono: Icons.place_outlined, texto: ubicacion),
+              if (sinAsignar) ...[
+                const SizedBox(height: 4),
+                const MetaRow(icono: Icons.person_off_outlined,
+                    texto: 'Sin asignar'),
+              ],
               const SizedBox(height: 10),
               const Divider(height: 1, color: AppColors.borde),
               const SizedBox(height: 10),

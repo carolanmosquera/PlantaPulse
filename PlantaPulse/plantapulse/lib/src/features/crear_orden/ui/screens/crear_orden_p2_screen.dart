@@ -6,7 +6,7 @@ import '../bloc/crear_orden_bloc.dart';
 
 /// Segundo paso del asistente. Recibe el CrearOrdenBloc de P1 por
 /// BlocProvider.value. No devuelve nada por Navigator.pop: el feed se
-/// entera de la orden nueva porque está suscrito al stream de Firestore.
+/// entera de la orden nueva porque está suscrito al stream en tiempo real.
 class CrearOrdenP2Screen extends StatefulWidget {
   const CrearOrdenP2Screen({super.key});
 
@@ -56,6 +56,28 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
     );
     if (!mounted || elegida == null) return;
     bloc.add(FechaLimiteCambiada(elegida));
+  }
+
+  /// Responsable: un técnico o "Sin asignar" (se asigna después desde
+  /// el detalle de la orden).
+  Future<void> _elegirTecnico(CrearOrdenState state) async {
+    final bloc = context.read<CrearOrdenBloc>();
+    final eleccion = await SelectorBuscable.mostrar<Usuario>(
+      context,
+      titulo: 'Técnico Responsable',
+      opciones: state.tecnicos,
+      textoDe: (u) => u.nombre,
+      subtituloDe: (u) => u.especialidad,
+      iconoDe: (_) => Icons.engineering_outlined,
+      seleccionado: state.tecnico,
+      claveDe: (u) => u.uid,
+      textoNinguno: 'Sin asignar',
+    );
+    if (eleccion == null) return;            // cerró la hoja sin elegir
+    final tecnico = eleccion.valor;
+    bloc.add(tecnico == null
+        ? const TecnicoQuitado()
+        : TecnicoSeleccionado(tecnico));
   }
 
   void _publicar() {
@@ -163,22 +185,17 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                     const SizedBox(height: 18),
 
                     // ══ RESPONSABLE ══
-                    CampoDropdown<Usuario>(
+                    // Opcional: sin técnico la orden se publica "Sin asignar"
+                    CampoSeleccion(
                       label: 'Técnico Responsable',
-                      hint: state.tecnicos.isEmpty
-                          ? 'No hay técnicos activos'
-                          : 'Seleccionar técnico',
                       icono: Icons.engineering_outlined,
-                      valor: state.tecnico,
-                      opciones: state.tecnicos,
-                      textoDe: (u) => u.especialidad.isEmpty
-                          ? u.nombre
-                          : '${u.nombre} • ${u.especialidad}',
-                      onCambio: (u) {
-                        if (u != null) {
-                          context.read<CrearOrdenBloc>().add(TecnicoSeleccionado(u));
-                        }
+                      valor: switch (state.tecnico) {
+                        null => null,
+                        final u when u.especialidad.isEmpty => u.nombre,
+                        final u => '${u.nombre} • ${u.especialidad}',
                       },
+                      vacio: 'Sin asignar',
+                      onTap: () => _elegirTecnico(state),
                     ),
                   ],
                 ),

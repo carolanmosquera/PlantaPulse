@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plantapulse/main.dart';
 import 'package:plantapulse/src/core/core.dart';
+import 'package:plantapulse/src/features/crear_orden/crear_orden.dart';
 import 'package:plantapulse/src/features/ordenes/ordenes.dart';
 
 import 'fakes.dart';
@@ -15,6 +16,8 @@ void main() {
   late FakeUsuarioRepository usuarios;
   late FakeOrdenRepository ordenes;
   late FakeEquipoRepository equipos;
+  late FakeCategoriaRepository categorias;
+  late FakeZonaRepository zonas;
 
   const supervisor = UsuarioRef(uid: 'sup1', nombre: 'Laura Vega');
 
@@ -38,6 +41,16 @@ void main() {
     usuarios = FakeUsuarioRepository();
     ordenes = FakeOrdenRepository();
     equipos = FakeEquipoRepository();
+    categorias = FakeCategoriaRepository();
+    zonas = FakeZonaRepository();
+
+    // Desordenadas a propósito: el repositorio las entrega por nombre
+    categorias.categorias.addAll(const [
+      Categoria(id: 'cat-elec', plantaId: 'p1', nombre: 'Eléctrico', icono: 'rayo'),
+      Categoria(id: 'cat-mec', plantaId: 'p1', nombre: 'Mecánico', icono: 'llave'),
+      Categoria(id: 'cat-hid', plantaId: 'p1', nombre: 'Hidráulico', icono: 'gota'),
+      Categoria(id: 'cat-otra', plantaId: 'p2', nombre: 'De otra planta'),
+    ]);
 
     crearCuenta('sup1', 'Laura Vega', RolUsuario.supervisor);
     crearCuenta('tec1', 'Luis Pérez', RolUsuario.tecnico,
@@ -62,12 +75,12 @@ void main() {
     ]);
   });
 
-  /// Una orden ya existente en Firestore.
+  /// Una orden ya existente en la base de datos.
   Orden sembrar(String id, String titulo, {
     String codigo = 'WO-2026-0001',
     EstadoOrden estado = EstadoOrden.pendiente,
     Prioridad prioridad = Prioridad.media,
-    String asignadoA = 'tec1',
+    String? asignadoA = 'tec1',          // null = orden sin asignar
     String zona = 'Línea A',
   }) {
     final ahora = DateTime.now();
@@ -78,7 +91,8 @@ void main() {
       titulo: titulo,
       zonaNombre: zona,
       creadoPor: supervisor,
-      asignadoA: UsuarioRef(uid: asignadoA, nombre: asignadoA),
+      asignadoA:
+          asignadoA == null ? null : UsuarioRef(uid: asignadoA, nombre: asignadoA),
       asignadoAUid: asignadoA,
       estado: estado,
       prioridad: prioridad,
@@ -126,6 +140,8 @@ void main() {
       plantaRepository: FakePlantaRepository(),
       ordenRepository: ordenes,
       equipoRepository: equipos,
+      categoriaRepositorio: categorias,
+      zonaRepositorio: zonas,
     ));
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
@@ -142,7 +158,8 @@ void main() {
   }
 
   /// Recorre el asistente completo como supervisor, con prioridad crítica.
-  Future<void> publicarOrden(WidgetTester tester) async {
+  /// Con [conTecnico] en false la orden se publica sin responsable.
+  Future<void> publicarOrden(WidgetTester tester, {bool conTecnico = true}) async {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     expect(find.text('Crear Nueva Orden'), findsOneWidget);
@@ -158,11 +175,18 @@ void main() {
     await tocar(tester, 'Estructurar con IA');
     expect(find.text('Nueva Orden: Paso 2'), findsOneWidget);
 
-    // P2: prioridad crítica y técnico responsable
+    // P2: prioridad crítica y técnico responsable (opcional)
     await tocar(tester, 'CRÍTICA');
-    await tocar(tester, 'Seleccionar técnico');
-    await tester.tap(find.text('Luis Pérez • Mecánico').last);
-    await tester.pumpAndSettle();
+    if (conTecnico) {
+      // El campo dice "Sin asignar" hasta elegir; abre el selector
+      await tocar(tester, 'Sin asignar');
+      await tester.tap(find.text('Luis Pérez').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Luis Pérez • Mecánico'), findsOneWidget);
+    }
+    // El ListView de P2 es perezoso: hay que desplazarse hasta el botón
+    await tester.scrollUntilVisible(find.text('PUBLICAR ORDEN'), 300,
+        scrollable: find.byType(Scrollable).first);
     await tocar(tester, 'PUBLICAR ORDEN');
   }
 
@@ -214,22 +238,22 @@ void main() {
       (tester) async {
     await entrarComo(tester, 'sup1');
     await publicarOrden(tester);
-    final doc = ordenes.escrituras.single;
-    expect(doc['prioridad'], 'critica');
-    expect(doc['estado'], 'pendiente');
+    final orden = ordenes.creadas.single;
+    expect(orden.prioridad, Prioridad.critica);
+    expect(orden.estado, EstadoOrden.pendiente);
   });
 
   // 6
   probar('la orden guarda la zona del equipo, no su código', (tester) async {
     await entrarComo(tester, 'sup1');
     await publicarOrden(tester);
-    final doc = ordenes.escrituras.single;
-    expect(doc['zonaId'], 'zona-comp');
-    expect(doc['zonaNombre'], 'Sección Compresores');
-    expect(doc['equipoId'], 'eq-ga75');
-    expect(doc['equipoNombre'], 'Compresor GA75');
-    expect(doc['plantaId'], 'p1');
-    expect(doc['codigo'], matches(RegExp(r'^WO-\d{4}-\d{4}$')));
+    final orden = ordenes.creadas.single;
+    expect(orden.zonaId, 'zona-comp');
+    expect(orden.zonaNombre, 'Sección Compresores');
+    expect(orden.equipoId, 'eq-ga75');
+    expect(orden.equipoNombre, 'Compresor GA75');
+    expect(orden.plantaId, 'p1');
+    expect(orden.codigo, matches(RegExp(r'^WO-\d{4}-\d{4}$')));
   });
 
   // 7
@@ -237,11 +261,11 @@ void main() {
       (tester) async {
     await entrarComo(tester, 'sup1');
     await publicarOrden(tester);
-    final doc = ordenes.escrituras.single;
-    expect((doc['asignadoA'] as Map)['uid'], 'tec1');
-    expect((doc['asignadoA'] as Map)['nombre'], 'Luis Pérez');
-    expect(doc['asignadoAUid'], 'tec1');
-    expect((doc['creadoPor'] as Map)['uid'], 'sup1');
+    final orden = ordenes.creadas.single;
+    expect(orden.asignadoA?.uid, 'tec1');
+    expect(orden.asignadoA?.nombre, 'Luis Pérez');
+    expect(orden.asignadoAUid, 'tec1');
+    expect(orden.creadoPor.uid, 'sup1');
   });
 
   // 8
@@ -340,5 +364,173 @@ void main() {
 
     await bloc.close();
     expect(ordenes.suscripcionesActivas, 0);
+  });
+
+  // ═══════════ Catálogos y órdenes sin técnico ═══════════
+
+  // 14
+  probar('una orden publicada sin técnico llega sin responsable',
+      (tester) async {
+    await entrarComo(tester, 'sup1');
+    await publicarOrden(tester, conTecnico: false);
+
+    final orden = ordenes.creadas.single;
+    expect(orden.asignadoA, isNull);
+    expect(orden.asignadoAUid, isNull);
+    // Y nace pendiente: "sin asignar" no es un estado
+    expect(orden.estado, EstadoOrden.pendiente);
+  });
+
+  // 15
+  test('copyWith(limpiarTecnico: true) deja el técnico en null', () {
+    final tecnico = usuarios.perfiles['tec1']!;
+    final conTecnico = CrearOrdenState.inicial().copyWith(tecnico: tecnico);
+    expect(conTecnico.tecnico?.uid, 'tec1');
+
+    // La trampa: `tecnico ?? this.tecnico` no puede volver a null
+    expect(conTecnico.copyWith().tecnico?.uid, 'tec1');
+    expect(conTecnico.copyWith(limpiarTecnico: true).tecnico, isNull);
+    // Sin técnico el paso 2 sigue siendo válido si el 1 lo es
+    expect(conTecnico.copyWith(limpiarTecnico: true).paso2Valido,
+        conTecnico.paso1Valido);
+  });
+
+  // 16
+  test('el filtro 4 del feed devuelve solo las órdenes sin asignar', () {
+    sembrar('o1', 'Asignada a Luis', asignadoA: 'tec1');
+    sembrar('o2', 'Nadie la tiene', codigo: 'WO-2026-0002', asignadoA: null);
+    sembrar('o3', 'Tampoco', codigo: 'WO-2026-0003', asignadoA: null,
+        estado: EstadoOrden.enProgreso);
+
+    final estado = OrdenesState(
+      status: EstadoOrdenes.listo,
+      ordenes: ordenes.ordenes,
+      filtro: 4,
+    );
+    expect(estado.visibles.map((o) => o.id), unorderedEquals(['o2', 'o3']));
+  });
+
+  // 17
+  test('CrearOrdenIniciada carga las tres listas y marca la primera categoría',
+      () async {
+    final bloc = crearOrdenBlocDe(
+      categorias: categorias,
+      equipos: equipos,
+      usuarios: usuarios,
+      ordenes: ordenes,
+    );
+    addTearDown(bloc.close);
+
+    bloc.add(const CrearOrdenIniciada('p1'));
+    final listo =
+        await bloc.stream.firstWhere((s) => s.status == EstadoCrearOrden.listo);
+
+    // Solo las de la planta, por nombre
+    expect(listo.categorias.map((c) => c.nombre),
+        ['Eléctrico', 'Hidráulico', 'Mecánico']);
+    expect(listo.equipos.map((e) => e.id), ['eq-ga75']);
+    expect(listo.tecnicos.map((u) => u.uid), unorderedEquals(['tec1', 'tec2']));
+    expect(listo.categoria, 'Eléctrico');
+  });
+
+  // 18
+  test('crear una categoría la añade al estado y la selecciona', () async {
+    final bloc = crearOrdenBlocDe(
+      categorias: categorias,
+      equipos: equipos,
+      usuarios: usuarios,
+      ordenes: ordenes,
+    );
+    addTearDown(bloc.close);
+    bloc.add(const CrearOrdenIniciada('p1'));
+    await bloc.stream.firstWhere((s) => s.status == EstadoCrearOrden.listo);
+
+    // Lo mismo que hace el formulario: guardar y avisar al Bloc
+    final crear = CrearCategoria(categorias);
+    final creada = await crear.ejecutar(const Categoria(
+        id: '', plantaId: 'p1', nombre: ' Neumático ', icono: 'engranaje',
+        creadaPor: supervisor));
+    bloc.add(CategoriaAgregada(creada));
+    final despues =
+        await bloc.stream.firstWhere((s) => s.categoria == 'Neumático');
+
+    expect(despues.categorias.map((c) => c.nombre),
+        ['Eléctrico', 'Hidráulico', 'Mecánico', 'Neumático']);
+
+    // Repetirla con otras mayúsculas da el mensaje de duplicada
+    await expectLater(
+      crear.ejecutar(const Categoria(id: '', plantaId: 'p1', nombre: 'NEUMÁTICO')),
+      throwsA(isA<FalloApp>().having((f) => f.mensaje, 'mensaje',
+          'Ya existe una categoría con ese nombre.')),
+    );
+  });
+
+  // 19 — flujo de la prueba manual, paso 4
+  probar('registrar un equipo desde "BUSCAR TODOS" lo deja seleccionado',
+      (tester) async {
+    zonas.zonas.add(const Zona(
+        id: 'zona-comp', plantaId: 'p1', nombre: 'Sección Compresores'));
+    equipos.nombresDeZona['zona-comp'] = 'Sección Compresores';
+    await entrarComo(tester, 'sup1');
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    await tocar(tester, 'BUSCAR TODOS');
+    expect(find.text('Equipos de la planta'), findsOneWidget);
+    await tocar(tester, 'Registrar equipo nuevo');
+
+    Future<void> llenar(String serial) async {
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Ej: Compresor Atlas Copco GA75'),
+          'Bomba de prueba');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Ej: AC-88291-K'), serial);
+      await tocar(tester, 'Seleccionar zona');
+      await tester.tap(find.text('Sección Compresores').last);
+      await tester.pumpAndSettle();
+      await tocar(tester, 'GUARDAR');
+    }
+
+    // Serial repetido: el mensaje lo dice y la hoja sigue abierta
+    await llenar('AC-88291-K');
+    expect(find.text('Ya hay un equipo con ese serial en esta planta.'),
+        findsOneWidget);
+    expect(find.text('Registrar equipo nuevo'), findsWidgets);
+
+    // Serial nuevo: se guarda, se cierran las dos hojas y queda marcado
+    await tester.enterText(
+        find.widgetWithText(TextField, 'AC-88291-K'), 'BP-0001');
+    await tocar(tester, 'GUARDAR');
+    expect(find.text('Equipos de la planta'), findsNothing);
+    final nuevo = equipos.equipos.singleWhere((e) => e.serial == 'BP-0001');
+    expect(nuevo.zonaNombre, 'Sección Compresores');   // la puso el "servidor"
+    expect(find.text('Bomba de prueba'), findsOneWidget);
+    expect(find.text('Estructurar con IA'), findsOneWidget);
+    // Seleccionado: el paso 1 ya es válido con la descripción
+    await tester.enterText(
+        find.byType(TextField).first, 'Fuga de aceite en sello del motor');
+    await tocar(tester, 'Estructurar con IA');
+    expect(find.text('Bomba de prueba'), findsOneWidget);   // la tarjeta de P2
+  });
+
+  // 20 — flujo de la prueba manual, pasos 7 y 8
+  probar('"Asignar técnico" desde el detalle la saca de "Sin asignar" sola',
+      (tester) async {
+    sembrar('o1', 'Revisar compresor sin dueño', asignadoA: null);
+    await entrarComo(tester, 'sup1');
+
+    // La tarjeta lo dice donde iría el responsable
+    expect(find.text('Sin asignar'), findsWidgets);
+    await tocar(tester, 'Revisar compresor sin dueño');
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tocar(tester, 'Asignar técnico');
+    await tester.tap(find.text('Luis Pérez').last);
+    await tester.pumpAndSettle();
+
+    // Sin recargar: el cambio llega por el stream
+    expect(ordenes.ordenes.single.asignadoAUid, 'tec1');
+    expect(find.text('Luis Pérez'), findsOneWidget);
   });
 }

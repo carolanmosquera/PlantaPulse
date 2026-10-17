@@ -1,5 +1,6 @@
 // lib/src/features/crear_orden/ui/bloc/crear_orden_state.dart
 import 'package:equatable/equatable.dart';
+import '../../../../core/domain/entities/categoria.dart';
 import '../../../../core/domain/entities/equipo.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
@@ -13,12 +14,13 @@ class CrearOrdenState extends Equatable {
   final String plantaId;
 
   // Catálogos
+  final List<Categoria> categorias;
   final List<Equipo> equipos;
   final List<Usuario> tecnicos;
 
   // Borrador
   final String descripcion;
-  final CategoriaOrden categoria;
+  final String categoria;          // el NOMBRE: es lo que guarda la orden
   final Equipo? equipo;
   final Prioridad prioridad;
   final DateTime fechaLimite;
@@ -33,10 +35,11 @@ class CrearOrdenState extends Equatable {
   const CrearOrdenState({
     this.status = EstadoCrearOrden.cargando,
     this.plantaId = '',
+    this.categorias = const [],
     this.equipos = const [],
     this.tecnicos = const [],
     this.descripcion = '',
-    this.categoria = CategoriaOrden.mecanico,
+    this.categoria = '',
     this.equipo,
     this.prioridad = Prioridad.media,
     required this.fechaLimite,
@@ -54,17 +57,19 @@ class CrearOrdenState extends Equatable {
 
   bool get paso1Valido => descripcion.trim().length >= 10 && equipo != null;
 
-  bool get paso2Valido => paso1Valido && tecnico != null;
+  /// El técnico NO es obligatorio: una orden puede nacer sin asignar.
+  bool get paso2Valido => paso1Valido;
 
   bool get publicando => status == EstadoCrearOrden.publicando;
 
   CrearOrdenState copyWith({
     EstadoCrearOrden? status,
     String? plantaId,
+    List<Categoria>? categorias,
     List<Equipo>? equipos,
     List<Usuario>? tecnicos,
     String? descripcion,
-    CategoriaOrden? categoria,
+    String? categoria,
     Equipo? equipo,
     Prioridad? prioridad,
     DateTime? fechaLimite,
@@ -74,18 +79,23 @@ class CrearOrdenState extends Equatable {
     String? ordenIdCreada,
     String? codigoCreado,
     bool limpiarError = false,
+    // `?? this.x` no puede volver un campo a null: si el supervisor quita
+    // el técnico, sin esta bandera se publicaría con el anterior.
+    bool limpiarTecnico = false,
+    bool limpiarEquipo = false,
   }) =>
       CrearOrdenState(
         status: status ?? this.status,
         plantaId: plantaId ?? this.plantaId,
+        categorias: categorias ?? this.categorias,
         equipos: equipos ?? this.equipos,
         tecnicos: tecnicos ?? this.tecnicos,
         descripcion: descripcion ?? this.descripcion,
         categoria: categoria ?? this.categoria,
-        equipo: equipo ?? this.equipo,
+        equipo: limpiarEquipo ? null : (equipo ?? this.equipo),
         prioridad: prioridad ?? this.prioridad,
         fechaLimite: fechaLimite ?? this.fechaLimite,
-        tecnico: tecnico ?? this.tecnico,
+        tecnico: limpiarTecnico ? null : (tecnico ?? this.tecnico),
         observaciones: observaciones ?? this.observaciones,
         mensajeError: limpiarError ? null : (mensajeError ?? this.mensajeError),
         ordenIdCreada: ordenIdCreada ?? this.ordenIdCreada,
@@ -97,6 +107,7 @@ class CrearOrdenState extends Equatable {
   List<Object?> get props => [
         status,
         plantaId,
+        categorias,
         equipos,
         tecnicos,
         descripcion,

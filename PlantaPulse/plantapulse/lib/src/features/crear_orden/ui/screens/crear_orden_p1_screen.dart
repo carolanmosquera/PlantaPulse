@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../../domain/usecases/crear_orden_casos.dart';
 import '../bloc/crear_orden_bloc.dart';
+import '../widgets/alta_categoria_hoja.dart';
+import '../widgets/alta_equipo_hoja.dart';
 import 'crear_orden_p2_screen.dart';
 
 /// Primer paso del asistente. Crea el CrearOrdenBloc, que vive solo
@@ -16,6 +18,7 @@ class CrearOrdenP1Screen extends StatelessWidget {
     final plantaId = context.read<SesionBloc>().state.usuario?.plantaId ?? '';
     return BlocProvider<CrearOrdenBloc>(
       create: (context) => CrearOrdenBloc(
+        listarCategorias: context.read<ListarCategoriasDePlanta>(),
         listarEquipos: context.read<ListarEquiposDePlanta>(),
         listarTecnicos: context.read<ListarTecnicosDePlanta>(),
         publicarOrden: context.read<PublicarOrden>(),
@@ -33,9 +36,6 @@ class _CrearOrdenP1Vista extends StatefulWidget {
 
 class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
   final _descCtrl = TextEditingController();
-
-  // Las categorías salen del enum del modelo, así P1 y la orden nunca se desincronizan
-  static const _categorias = CategoriaOrden.values;
 
   @override
   void initState() {
@@ -64,11 +64,66 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
     );
   }
 
+  /// La lupa de la categoría: buscar entre todas o crear una nueva.
+  Future<void> _buscarCategoria() async {
+    final bloc = context.read<CrearOrdenBloc>();
+    final usuario = context.read<SesionBloc>().state.usuario;
+    final state = bloc.state;
+    final eleccion = await SelectorBuscable.mostrar<Categoria>(
+      context,
+      titulo: 'Categoría',
+      opciones: state.categorias,
+      textoDe: (c) => c.nombre,
+      iconoDe: (c) => iconoDeCategoria(c.icono),
+      seleccionado:
+          state.categorias.where((c) => c.nombre == state.categoria).firstOrNull,
+      claveDe: (c) => c.id,
+      textoCrear: usuario == null ? null : 'Crear categoría',
+      alCrear: usuario == null
+          ? null
+          : (ctx) => AltaCategoriaHoja.mostrar(ctx,
+              plantaId: state.plantaId, creadaPor: usuario.ref),
+    );
+    final categoria = eleccion?.valor;
+    if (categoria == null) return;
+    // Una recién creada aún no está en el catálogo: se añade y se marca
+    bloc.add(bloc.state.categorias.any((c) => c.id == categoria.id)
+        ? CategoriaCambiada(categoria.nombre)
+        : CategoriaAgregada(categoria));
+  }
+
+  /// "BUSCAR TODOS": el selector es el "ver todos" de equipos recientes.
+  Future<void> _buscarEquipo() async {
+    final bloc = context.read<CrearOrdenBloc>();
+    final state = bloc.state;
+    final eleccion = await SelectorBuscable.mostrar<Equipo>(
+      context,
+      titulo: 'Equipos de la planta',
+      opciones: state.equipos,
+      textoDe: (e) => e.nombre,
+      subtituloDe: _subtituloEquipo,     // así se busca también por serial
+      iconoDe: (_) => Icons.build_outlined,
+      seleccionado: state.equipo,
+      claveDe: (e) => e.id,
+      textoCrear: 'Registrar equipo nuevo',
+      alCrear: (ctx) => AltaEquipoHoja.mostrar(ctx, plantaId: state.plantaId),
+    );
+    final equipo = eleccion?.valor;
+    if (equipo == null) return;
+    bloc.add(bloc.state.equipos.any((e) => e.id == equipo.id)
+        ? EquipoSeleccionado(equipo)
+        : EquipoAgregado(equipo));
+  }
+
+  static String _subtituloEquipo(Equipo e) =>
+      e.serial.isEmpty ? e.zonaNombre : '${e.zonaNombre} • ${e.serial}';
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<CrearOrdenBloc, CrearOrdenState>(
       builder: (context, state) {
         final largo = state.descripcion.trim().length;
+        final cargando = state.status == EstadoCrearOrden.cargando;
 
         return PantallaBase(
           titulo: 'Crear Nueva Orden',
@@ -138,25 +193,42 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
               ),
 
               // ══ CATEGORÍA ══
-              const SeccionHeader(titulo: 'CATEGORÍA INICIAL',
-                accion: 'Obligatorio'),
-              ChipsFila(
-                opciones: [for (final c in _categorias) c.etiqueta],
-                iconos: [for (final c in _categorias) c.icono],
-                inicial: _categorias.indexOf(state.categoria),
-                onCambio: (i) => context
-                    .read<CrearOrdenBloc>()
-                    .add(CategoriaCambiada(_categorias[i])),
-              ),
+              SeccionHeader(titulo: 'CATEGORÍA INICIAL',
+                accion: 'Obligatorio',
+                iconoAccion: Icons.search,
+                onAccion: cargando ? null : _buscarCategoria),
+              if (cargando)
+                const SizedBox(height: 44)
+              else if (state.categorias.isEmpty)
+                const TileAviso(
+                  icono: Icons.label_outline,
+                  titulo: 'Esta planta aún no tiene categorías',
+                  subtitulo: 'Toca la lupa para crear la primera.',
+                  color: AppColors.textoGris,
+                )
+              else
+                ChipsFila(
+                  opciones: [for (final c in state.categorias) c.nombre],
+                  iconos: [for (final c in state.categorias) iconoDeCategoria(c.icono)],
+                  // indexWhere da -1 si no la encuentra: ChipsFila no marcaría nada
+                  inicial: state.categorias
+                      .indexWhere((c) => c.nombre == state.categoria)
+                      .clamp(0, state.categorias.length - 1),
+                  // Se desliza de borde a borde: se nota que hay más chips
+                  sangria: 16,
+                  onCambio: (i) => context
+                      .read<CrearOrdenBloc>()
+                      .add(CategoriaCambiada(state.categorias[i].nombre)),
+                ),
 
               // ══ EQUIPOS ══
               SeccionHeader(
                 icono: Icons.history,
                 titulo: 'EQUIPOS RECIENTES',
                 accion: 'BUSCAR TODOS',
-                onAccion: () {},
+                onAccion: cargando ? null : _buscarEquipo,
               ),
-              if (state.status == EstadoCrearOrden.cargando)
+              if (cargando)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(child: CircularProgressIndicator()),
@@ -208,7 +280,7 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
     return FilaOpcion(
       icono: Icons.build_outlined,
       titulo: equipo.nombre,
-      subtitulo: '${equipo.zonaNombre} • ${equipo.serial}',
+      subtitulo: _subtituloEquipo(equipo),
       color: seleccionado ? AppColors.azul : AppColors.textoGris,
       trailing: Icon(
         seleccionado ? Icons.check_circle : Icons.chevron_right,

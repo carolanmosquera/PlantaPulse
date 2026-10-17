@@ -15,7 +15,7 @@ class SolicitudesScreen extends StatefulWidget {
 
 class _SolicitudesScreenState extends State<SolicitudesScreen> {
   // El stream se crea una sola vez: si se creara en build, cada
-  // redibujado abriría una suscripción nueva a Firestore.
+  // redibujado abriría una suscripción nueva en tiempo real.
   late final Stream<List<Usuario>> _solicitudes =
       context.read<ObservarSolicitudesPendientes>().ejecutar();
 
@@ -192,8 +192,8 @@ class _HojaSolicitudState extends State<_HojaSolicitud> {
                 return const TileAviso(
                   icono: Icons.factory_outlined,
                   titulo: 'No hay plantas registradas',
-                  subtitulo: 'Crea documentos en la colección "plantas" '
-                      'desde la consola de Firebase.',
+                  subtitulo: 'Agrega filas a la tabla "plantas" '
+                      'desde el panel de Supabase.',
                   color: AppColors.ambar,
                 );
               }

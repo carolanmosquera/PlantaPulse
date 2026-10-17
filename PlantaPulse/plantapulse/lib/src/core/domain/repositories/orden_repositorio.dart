@@ -1,5 +1,6 @@
 // lib/src/core/domain/repositories/orden_repositorio.dart
 import '../entities/orden.dart';
+import '../entities/usuario.dart';
 
 /// Órdenes de trabajo. En core porque lo usan ordenes (leer)
 /// y crear_orden (publicar).
@@ -14,4 +15,18 @@ abstract class OrdenRepositorio {
   Future<String> crear(Orden orden);
 
   Future<void> actualizarEstado(String ordenId, EstadoOrden estado);
+
+  /// Cambia los datos descriptivos. Equipo y zona NO se editan: cambiarlos
+  /// convertiría la orden en otra y el historial del equipo mentiría.
+  Future<void> editar({
+    required String ordenId,
+    required String titulo,
+    required String descripcion,
+    required String categoria,
+    required Prioridad prioridad,
+    required DateTime fechaLimite,
+  });
+
+  /// Asigna el responsable. Con null, la orden queda sin asignar.
+  Future<void> asignarTecnico(String ordenId, Usuario? tecnico);
 }

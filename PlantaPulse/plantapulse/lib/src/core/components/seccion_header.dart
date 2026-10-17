@@ -8,6 +8,7 @@ class SeccionHeader extends StatelessWidget {
   final String? accion;
   final VoidCallback? onAccion;
   final Color colorAccion;
+  final IconData? iconoAccion;   // icono tocable al final (la lupa de P1)
 
   const SeccionHeader({
     super.key,
@@ -16,6 +17,7 @@ class SeccionHeader extends StatelessWidget {
     this.accion,
     this.onAccion,
     this.colorAccion = AppColors.azul,
+    this.iconoAccion,
   });
 
   @override
@@ -35,6 +37,17 @@ class SeccionHeader extends StatelessWidget {
               child: Text(accion!, style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w600, color: colorAccion)),
             ),
+          if (iconoAccion != null) ...[
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: onAccion,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(iconoAccion, size: 20, color: colorAccion),
+              ),
+            ),
+          ],
         ],
       ),
     );

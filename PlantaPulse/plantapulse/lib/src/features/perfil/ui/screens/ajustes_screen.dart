@@ -103,7 +103,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
             icono: Icons.logout,
             estilo: EstiloBoton.peligro,
             onTap: () {
-              // Cierra la sesión en Firebase y vacía la pila
+              // Cierra la sesión en Supabase y vacía la pila
               context.read<SesionBloc>().add(const AuthCerrarSesion());
               Navigator.pushNamedAndRemoveUntil(
                 context, Rutas.login, (r) => false);

@@ -1,6 +1,6 @@
 // lib/src/core/errors/fallos.dart
 // Errores del dominio. Las implementaciones de repositorio capturan las
-// excepciones del SDK (Firebase hoy, Supabase mañana) y las convierten a
+// excepciones del SDK (hoy Supabase) y las convierten a
 // estas: así los casos de uso y los Blocs nunca ven un tipo del SDK.
 
 /// Error con un mensaje listo para mostrar al usuario, en español.

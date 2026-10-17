@@ -6,8 +6,10 @@ class MetaRow extends StatelessWidget {
   final IconData icono;
   final String texto;
   final String? valor; // si lo pasas, muestra etiqueta arriba y valor abajo
+  final bool atenuado; // el valor en gris: "Sin asignar" no es un nombre
 
-  const MetaRow({super.key, required this.icono, required this.texto, this.valor});
+  const MetaRow({super.key, required this.icono, required this.texto,
+      this.valor, this.atenuado = false});
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +25,10 @@ class MetaRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(texto, style: AppText.gris),
-                    Text(valor!, style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.texto)),
+                    Text(valor!, style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: atenuado ? FontWeight.w400 : FontWeight.w600,
+                        color: atenuado ? AppColors.textoGris : AppColors.texto)),
                   ],
                 ),
         ),

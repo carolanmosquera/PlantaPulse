@@ -1,8 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'firebase_options.dart';                              // lo genera flutterfire configure
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'src/core/core.dart';
 import 'src/features/auth/auth.dart';
 import 'src/features/crear_orden/crear_orden.dart';
@@ -12,35 +11,47 @@ import 'src/features/perfil/perfil.dart';
 import 'src/features/reportes/reportes.dart';
 
 // Implementaciones concretas: main.dart es el ÚNICO archivo que las conoce.
-import 'src/core/data/planta_repositorio_firestore.dart';
-import 'src/features/auth/data/repositories/autenticacion_repositorio_firebase.dart';
-import 'src/features/auth/data/repositories/usuario_repositorio_firestore.dart';
-import 'src/features/crear_orden/data/repositories/equipo_repositorio_firestore.dart';
-import 'src/features/ordenes/data/repositories/orden_repositorio_firestore.dart';
+import 'src/core/data/planta_repositorio_supabase.dart';
+import 'src/core/data/repositories/categoria_repositorio_supabase.dart';
+import 'src/core/data/repositories/zona_repositorio_supabase.dart';
+import 'src/features/auth/data/repositories/autenticacion_repositorio_supabase.dart';
+import 'src/features/auth/data/repositories/usuario_repositorio_supabase.dart';
+import 'src/features/crear_orden/data/repositories/equipo_repositorio_supabase.dart';
+import 'src/features/ordenes/data/repositories/orden_repositorio_supabase.dart';
 
-// Firebase tiene que estar listo ANTES de que exista cualquier pantalla,
-// porque el splash ya lo va a usar para restaurar la sesión.
+// Proyecto de Supabase. La clave es la PUBLISHABLE: está pensada para ir
+// en el cliente, y lo que protege los datos es RLS (supabase/esquema.sql).
+// NUNCA poner aquí la clave service_role: se salta RLS por completo.
+// Ambas se pueden cambiar sin tocar el código:
+//   flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_KEY=...
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL',
+    defaultValue: 'https://uxajglpaoofragjxcrvx.supabase.co');
+const _supabaseKey = String.fromEnvironment('SUPABASE_KEY',
+    defaultValue: 'sb_publishable_3u4XDt2DaGZ3q8uKJ422OA_7ivMKL2X');
+
+// Supabase tiene que estar listo ANTES de que exista cualquier pantalla,
+// porque el splash ya lo va a usar para restaurar la sesión guardada.
 Future<void> main() async {
   // Obligatorio cuando haces 'await' antes de runApp:
   // prepara el puente entre Flutter y el sistema operativo.
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Supabase.initialize(url: _supabaseUrl, anonKey: _supabaseKey);
 
   runApp(const PlantaPulseApp());
 }
 
 class PlantaPulseApp extends StatelessWidget {
   /// Solo para pruebas: permiten inyectar versiones falsas de los
-  /// contratos. En la app real son null y se crean las de Firebase.
+  /// contratos. En la app real son null y se crean las de Supabase.
   final SesionBloc? authBloc;
   final AutenticacionRepositorio? autenticacionRepositorio;
   final UsuarioRepositorio? usuarioRepository;
   final PlantaRepositorio? plantaRepository;
   final OrdenRepositorio? ordenRepository;
   final EquipoRepositorio? equipoRepository;
+  final CategoriaRepositorio? categoriaRepositorio;
+  final ZonaRepositorio? zonaRepositorio;
 
   const PlantaPulseApp({
     super.key,
@@ -50,6 +61,8 @@ class PlantaPulseApp extends StatelessWidget {
     this.plantaRepository,
     this.ordenRepository,
     this.equipoRepository,
+    this.categoriaRepositorio,
+    this.zonaRepositorio,
   });
 
   @override
@@ -61,19 +74,24 @@ class PlantaPulseApp extends StatelessWidget {
     // antes de que exista cualquier ruta, el feed es una ruta con nombre,
     // y así todas las pantallas (y las hojas inferiores) los ven con
     // context.read. Los RepositoryProvider son perezosos: un repositorio
-    // de Firebase solo se crea si alguien lo pide.
+    // de Supabase solo se crea si alguien lo pide (las pruebas no lo piden).
     // El CrearOrdenBloc NO va aquí: vive y muere dentro del asistente.
     return MultiRepositoryProvider(
       providers: [
         // ── Repositorios (contratos del dominio) ──
         RepositoryProvider<UsuarioRepositorio>(
-            create: (_) => usuarioRepository ?? UsuarioRepositorioFirestore()),
+            create: (_) => usuarioRepository ?? UsuarioRepositorioSupabase()),
         RepositoryProvider<PlantaRepositorio>(
-            create: (_) => plantaRepository ?? PlantaRepositorioFirestore()),
+            create: (_) => plantaRepository ?? PlantaRepositorioSupabase()),
         RepositoryProvider<OrdenRepositorio>(
-            create: (_) => ordenRepository ?? OrdenRepositorioFirestore()),
+            create: (_) => ordenRepository ?? OrdenRepositorioSupabase()),
         RepositoryProvider<EquipoRepositorio>(
-            create: (_) => equipoRepository ?? EquipoRepositorioFirestore()),
+            create: (_) => equipoRepository ?? EquipoRepositorioSupabase()),
+        RepositoryProvider<CategoriaRepositorio>(
+            create: (_) =>
+                categoriaRepositorio ?? CategoriaRepositorioSupabase()),
+        RepositoryProvider<ZonaRepositorio>(
+            create: (_) => zonaRepositorio ?? ZonaRepositorioSupabase()),
 
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
@@ -92,6 +110,15 @@ class PlantaPulseApp extends StatelessWidget {
         RepositoryProvider(
             create: (c) => PublicarOrden(c.read<OrdenRepositorio>())),
         RepositoryProvider(
+            create: (c) =>
+                ListarCategoriasDePlanta(c.read<CategoriaRepositorio>())),
+        RepositoryProvider(
+            create: (c) => CrearCategoria(c.read<CategoriaRepositorio>())),
+        RepositoryProvider(
+            create: (c) => ListarZonasDePlanta(c.read<ZonaRepositorio>())),
+        RepositoryProvider(
+            create: (c) => CrearEquipo(c.read<EquipoRepositorio>())),
+        RepositoryProvider(
             create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
       ],
       child: MultiBlocProvider(
@@ -109,6 +136,8 @@ class PlantaPulseApp extends StatelessWidget {
               return OrdenesBloc(
                 observarOrdenesDePlanta: ObservarOrdenesDePlanta(ordenes),
                 observarMisTareas: ObservarMisTareas(ordenes),
+                editarOrden: EditarOrden(ordenes),
+                asignarTecnico: AsignarTecnico(ordenes),
               );
             },
           ),
@@ -161,7 +190,7 @@ class PlantaPulseApp extends StatelessWidget {
 
   /// La cadena de autenticación: repositorio → casos de uso → Bloc.
   AuthBloc _crearAuthBloc(UsuarioRepositorio usuarios) {
-    final auth = autenticacionRepositorio ?? AutenticacionRepositorioFirebase();
+    final auth = autenticacionRepositorio ?? AutenticacionRepositorioSupabase();
     return AuthBloc(
       comprobarSesion: ComprobarSesion(auth, usuarios),
       iniciarSesion: IniciarSesion(auth, usuarios),

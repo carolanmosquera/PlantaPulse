@@ -37,7 +37,7 @@ class Reporte {
   final UsuarioRef autor;
 
   /// Texto del avance. Se llama 'detalles' y no 'texto' porque un campo con
-  /// ese nombre tapa al helper texto() de firestore_helpers dentro de la clase.
+  /// ese nombre tapa al helper texto() de json_helpers dentro de la clase.
   final String detalles;
   final EstadoTrabajo estadoTrabajo;
   final List<Evidencia> evidencias;   // máximo 4

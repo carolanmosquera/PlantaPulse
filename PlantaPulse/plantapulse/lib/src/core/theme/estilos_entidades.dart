@@ -26,16 +26,6 @@ extension PrioridadEstilo on Prioridad {
       };
 }
 
-extension CategoriaOrdenEstilo on CategoriaOrden {
-  IconData get icono => switch (this) {
-        CategoriaOrden.mecanico   => Icons.build_outlined,
-        CategoriaOrden.electrico  => Icons.bolt,
-        CategoriaOrden.hidraulico => Icons.water_drop_outlined,
-        CategoriaOrden.inspeccion => Icons.search,
-        CategoriaOrden.critico    => Icons.warning_amber_rounded,
-      };
-}
-
 extension TipoAlertaEstilo on TipoAlerta {
   IconData get icono => switch (this) {
         TipoAlerta.critica    => Icons.warning_amber_rounded,

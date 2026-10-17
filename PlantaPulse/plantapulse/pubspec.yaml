@@ -30,9 +30,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cloud_firestore: ^5.6.0
-  firebase_core: ^3.10.0
-  firebase_auth: ^5.4.0
+  supabase_flutter: ^2.8.0  # auth, base de datos y tiempo real
   http: ^1.2.0          # para subir a Cloudinary
   image_picker: ^1.1.2  # para tomar las fotos
   flutter_bloc: ^9.1.1  # manejo de estado (AuthBloc)

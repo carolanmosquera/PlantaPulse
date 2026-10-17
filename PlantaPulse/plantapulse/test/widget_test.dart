@@ -14,7 +14,7 @@ import 'fakes.dart';
 void main() {
   testWidgets('App inicia y muestra la pantalla de splash', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    // Se inyecta un AuthBloc con servicios falsos: en pruebas no hay Firebase.
+    // Se inyecta un AuthBloc con servicios falsos: en pruebas no hay Supabase.
     await tester.pumpWidget(PlantaPulseApp(
       authBloc: authBlocDe(FakeAuthService(), FakeUsuarioRepository()),
     ));

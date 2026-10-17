@@ -1,10 +1,9 @@
 // test/fakes.dart
 // Versiones en memoria de los contratos del dominio, para probar
-// los Blocs y las pantallas sin tocar Firebase.
+// los Blocs y las pantallas sin tocar Supabase.
 import 'dart:async';
 import 'package:plantapulse/src/core/core.dart';
-import 'package:plantapulse/src/core/data/models/orden_firestore.dart';
-import 'package:plantapulse/src/core/data/models/usuario_firestore.dart';
+import 'package:plantapulse/src/core/data/models/usuario_modelo.dart';
 import 'package:plantapulse/src/features/auth/auth.dart';
 import 'package:plantapulse/src/features/crear_orden/crear_orden.dart';
 import 'package:plantapulse/src/features/ordenes/ordenes.dart';
@@ -23,6 +22,22 @@ AuthBloc authBlocDe(AutenticacionRepositorio auth, UsuarioRepositorio usuarios) 
 OrdenesBloc ordenesBlocDe(OrdenRepositorio ordenes) => OrdenesBloc(
       observarOrdenesDePlanta: ObservarOrdenesDePlanta(ordenes),
       observarMisTareas: ObservarMisTareas(ordenes),
+      editarOrden: EditarOrden(ordenes),
+      asignarTecnico: AsignarTecnico(ordenes),
+    );
+
+/// Arma el CrearOrdenBloc con sus casos de uso, igual que P1.
+CrearOrdenBloc crearOrdenBlocDe({
+  required CategoriaRepositorio categorias,
+  required EquipoRepositorio equipos,
+  required UsuarioRepositorio usuarios,
+  required OrdenRepositorio ordenes,
+}) =>
+    CrearOrdenBloc(
+      listarCategorias: ListarCategoriasDePlanta(categorias),
+      listarEquipos: ListarEquiposDePlanta(equipos),
+      listarTecnicos: ListarTecnicosDePlanta(usuarios),
+      publicarOrden: PublicarOrden(ordenes),
     );
 
 /// Implementa el contrato AutenticacionRepositorio. Conserva el nombre
@@ -83,7 +98,7 @@ class FakeAuthService implements AutenticacionRepositorio {
 class FakeUsuarioRepository implements UsuarioRepositorio {
   final Map<String, Usuario> perfiles = {};
 
-  /// Lo que se habría escrito en Firestore, para revisar que no haya contraseña.
+  /// Lo que se habría escrito en la tabla, para revisar que no haya contraseña.
   final List<Map<String, dynamic>> escrituras = [];
 
   /// Avisa a los streams abiertos que algo cambió, como snapshots().
@@ -102,7 +117,7 @@ class FakeUsuarioRepository implements UsuarioRepositorio {
 
   @override
   Future<void> crear(Usuario usuario) async {
-    escrituras.add(usuario.aFirestore());
+    escrituras.add(UsuarioModelo.desdeEntidad(usuario).toJson());
     perfiles[usuario.uid] = usuario;
     _cambios.add(null);
   }
@@ -172,6 +187,31 @@ class FakeEquipoRepository implements EquipoRepositorio {
       .toList()
     ..sort((a, b) => a.nombre.compareTo(b.nombre));
 
+  /// Como el trigger del servidor: zona_nombre sale de la zona.
+  final Map<String, String> nombresDeZona = {};
+  int _siguienteEquipo = 1;
+
+  @override
+  Future<Equipo> crear(Equipo equipo) async {
+    if (equipo.serial.isNotEmpty &&
+        equipos.any((e) =>
+            e.plantaId == equipo.plantaId && e.serial == equipo.serial)) {
+      throw const FalloApp('Ya hay un equipo con ese serial en esta planta.');
+    }
+    final creado = Equipo(
+      id: 'eq-nuevo-${_siguienteEquipo++}',
+      plantaId: equipo.plantaId,
+      zonaId: equipo.zonaId,
+      zonaNombre: nombresDeZona[equipo.zonaId] ?? '',
+      nombre: equipo.nombre,
+      serial: equipo.serial,
+      modelo: equipo.modelo,
+      tipo: equipo.tipo,
+    );
+    equipos.add(creado);
+    return creado;
+  }
+
   @override
   Future<Equipo?> obtener(String equipoId) async =>
       equipos.where((e) => e.id == equipoId).firstOrNull;
@@ -194,8 +234,10 @@ class _Consulta {
 class FakeOrdenRepository implements OrdenRepositorio {
   final List<Orden> ordenes = [];
 
-  /// Lo que se habría escrito en Firestore con add().
-  final List<Map<String, dynamic>> escrituras = [];
+  /// Las órdenes que recibió crear(), tal como las entregó el Bloc.
+  /// Las pruebas revisan la entidad (el contrato), no el formato de la
+  /// tabla: así no dependen de cómo se llamen las columnas.
+  final List<Orden> creadas = [];
 
   /// Cuántas consultas se abrieron: los filtros en memoria no deben sumar.
   int consultas = 0;
@@ -226,7 +268,7 @@ class FakeOrdenRepository implements OrdenRepositorio {
     }
   }
 
-  /// Simula que el stream de Firestore falla (red caída, permisos...).
+  /// Simula que el stream de Supabase falla (red caída, permisos...).
   void fallar(Object error) {
     for (final c in List.of(_abiertas)) {
       c.ctrl.addError(error);
@@ -249,7 +291,7 @@ class FakeOrdenRepository implements OrdenRepositorio {
   @override
   Future<String> crear(Orden orden) async {
     final id = 'ord${_siguiente++}';
-    escrituras.add(orden.aFirestore());
+    creadas.add(orden);
     ordenes.add(conId(orden, id));
     _avisar();
     return id;
@@ -262,28 +304,112 @@ class FakeOrdenRepository implements OrdenRepositorio {
     _avisar();
   }
 
-  /// Orden no tiene copyWith(id): Firestore pone el id al crear.
-  static Orden conId(Orden o, String id) => Orden(
-        id: id,
+  @override
+  Future<void> editar({
+    required String ordenId,
+    required String titulo,
+    required String descripcion,
+    required String categoria,
+    required Prioridad prioridad,
+    required DateTime fechaLimite,
+  }) async {
+    final i = ordenes.indexWhere((o) => o.id == ordenId);
+    ordenes[i] = rehacer(ordenes[i],
+        titulo: titulo,
+        descripcion: descripcion,
+        categoria: categoria,
+        prioridad: prioridad,
+        fechaLimite: fechaLimite);
+    _avisar();
+  }
+
+  @override
+  Future<void> asignarTecnico(String ordenId, Usuario? tecnico) async {
+    final i = ordenes.indexWhere((o) => o.id == ordenId);
+    ordenes[i] = rehacer(ordenes[i],
+        cambiarResponsable: true, asignadoA: tecnico?.ref);
+    _avisar();
+  }
+
+  /// Orden no tiene copyWith(id): Postgres pone el id al crear.
+  static Orden conId(Orden o, String id) => rehacer(o, id: id);
+
+  /// copyWith no puede poner el responsable en null ni cambiar la
+  /// categoría: esta copia sí.
+  static Orden rehacer(
+    Orden o, {
+    String? id,
+    String? titulo,
+    String? descripcion,
+    String? categoria,
+    Prioridad? prioridad,
+    DateTime? fechaLimite,
+    bool cambiarResponsable = false,
+    UsuarioRef? asignadoA,
+  }) =>
+      Orden(
+        id: id ?? o.id,
         codigo: o.codigo,
         plantaId: o.plantaId,
-        titulo: o.titulo,
-        descripcion: o.descripcion,
-        categoria: o.categoria,
+        titulo: titulo ?? o.titulo,
+        descripcion: descripcion ?? o.descripcion,
+        categoria: categoria ?? o.categoria,
         zonaId: o.zonaId,
         zonaNombre: o.zonaNombre,
         equipoId: o.equipoId,
         equipoNombre: o.equipoNombre,
         creadoPor: o.creadoPor,
-        asignadoA: o.asignadoA,
-        asignadoAUid: o.asignadoAUid,
+        asignadoA: cambiarResponsable ? asignadoA : o.asignadoA,
+        asignadoAUid: cambiarResponsable ? asignadoA?.uid : o.asignadoAUid,
         estado: o.estado,
-        prioridad: o.prioridad,
+        prioridad: prioridad ?? o.prioridad,
         createdAt: o.createdAt,
-        fechaLimite: o.fechaLimite,
+        fechaLimite: fechaLimite ?? o.fechaLimite,
         ultimaActividad: o.ultimaActividad,
         portadaUrl: o.portadaUrl,
         totalReportes: o.totalReportes,
         totalAlertas: o.totalAlertas,
       );
+}
+
+class FakeCategoriaRepository implements CategoriaRepositorio {
+  final List<Categoria> categorias = [];
+  int _siguiente = 1;
+
+  @override
+  Future<List<Categoria>> deLaPlanta(String plantaId) async => categorias
+      .where((c) => c.plantaId == plantaId && c.activo)
+      .toList()
+    ..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+
+  /// Como el índice único (planta_id, lower(nombre)) y el trigger que
+  /// recorta espacios.
+  @override
+  Future<Categoria> crear(Categoria categoria) async {
+    final nombre = categoria.nombre.trim();
+    if (categorias.any((c) =>
+        c.plantaId == categoria.plantaId &&
+        c.nombre.toLowerCase() == nombre.toLowerCase())) {
+      throw const FalloApp('Ya existe una categoría con ese nombre.');
+    }
+    final creada = Categoria(
+      id: 'cat-nueva-${_siguiente++}',
+      plantaId: categoria.plantaId,
+      nombre: nombre,
+      icono: categoria.icono,
+      creadaPor: categoria.creadaPor,
+    );
+    categorias.add(creada);
+    return creada;
+  }
+}
+
+class FakeZonaRepository implements ZonaRepositorio {
+  final List<Zona> zonas = [];
+
+  @override
+  Future<List<Zona>> deLaPlanta(String plantaId) async => zonas
+      .where((z) => z.plantaId == plantaId && z.activo)
+      .toList()
+    ..sort((a, b) => a.nombre.compareTo(b.nombre));
 }

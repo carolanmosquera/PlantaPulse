@@ -9,7 +9,7 @@ extension RolUsuarioX on RolUsuario {
         RolUsuario.tecnico    => 'Técnico de Mantenimiento',
       };
 
-  /// Valor que se guarda en Firestore. Siempre texto, nunca el índice del enum:
+  /// Valor que se guarda en la base de datos. Siempre texto, nunca el índice del enum:
   /// si mañana agregas un rol en medio, los índices se corren y los datos
   /// viejos quedarían mal interpretados.
   String get db => switch (this) {
@@ -20,6 +20,10 @@ extension RolUsuarioX on RolUsuario {
 
   bool get esAdmin => this == RolUsuario.admin;
   bool get esSupervisor => this == RolUsuario.supervisor;
+
+  /// Crea y edita órdenes, categorías y equipos. Es el mismo criterio que
+  /// la función puede_operar() de la base: supervisor o admin.
+  bool get puedeOperar => esSupervisor || esAdmin;
 
   static RolUsuario desdeDb(String? valor) => switch (valor) {
         'admin'      => RolUsuario.admin,
@@ -39,7 +43,7 @@ extension EstadoCuentaX on EstadoCuenta {
         EstadoCuenta.rechazado => 'Acceso denegado',
       };
 
-  /// Valor que se guarda en Firestore (texto, nunca el índice).
+  /// Valor que se guarda en la base de datos (texto, nunca el índice).
   String get db => switch (this) {
         EstadoCuenta.pendiente => 'pendiente',
         EstadoCuenta.activo    => 'activo',
@@ -60,7 +64,7 @@ extension EstadoCuentaX on EstadoCuenta {
 ///
 /// Se copia dentro de la orden y del reporte para que el feed pueda mostrar
 /// "Creado por Carlos Mendoza" sin hacer una consulta extra por cada tarjeta.
-/// Firestore no tiene JOIN: esta es la forma de evitarlo.
+/// Postgres sí tiene JOIN, pero así el feed se pinta con una sola consulta.
 class UsuarioRef {
   final String uid;
   final String nombre;
@@ -83,7 +87,7 @@ class UsuarioRef {
 }
 
 class Usuario {
-  final String uid;              // el mismo uid de Firebase Auth
+  final String uid;              // el mismo id de auth.users (Supabase Auth)
   final String nombre;
   final String email;
   final RolUsuario rol;

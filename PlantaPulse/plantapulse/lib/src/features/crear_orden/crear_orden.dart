@@ -6,3 +6,5 @@ export 'domain/usecases/crear_orden_casos.dart';
 export 'ui/bloc/crear_orden_bloc.dart';
 export 'ui/screens/crear_orden_p1_screen.dart';
 export 'ui/screens/crear_orden_p2_screen.dart';
+export 'ui/widgets/alta_categoria_hoja.dart';
+export 'ui/widgets/alta_equipo_hoja.dart';

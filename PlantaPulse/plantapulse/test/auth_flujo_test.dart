@@ -51,7 +51,7 @@ void main() {
       authBloc: nuevoBloc(),
       usuarioRepository: repo,
       plantaRepository: plantas,
-      // El feed ahora lee órdenes: sin esto intentaría usar Firestore real
+      // El feed ahora lee órdenes: sin esto intentaría usar Supabase real
       ordenRepository: FakeOrdenRepository(),
       equipoRepository: FakeEquipoRepository(),
     ));
@@ -122,7 +122,7 @@ void main() {
       expect(doc.values.contains('secreta123'), isFalse);
     }
 
-    // Reabrir la app: Firebase recuerda la sesión → espera, no login
+    // Reabrir la app: Supabase recuerda la sesión → espera, no login
     await arrancar(tester);
     expect(find.text('Solicitud enviada'), findsOneWidget);
 

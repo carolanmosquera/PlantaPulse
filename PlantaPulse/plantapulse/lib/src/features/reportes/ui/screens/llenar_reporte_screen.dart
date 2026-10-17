@@ -60,7 +60,7 @@ class _LlenarReporteScreenState extends State<LlenarReporteScreen> {
   void _enviar() {
     final ahora = DateTime.now();
     final reporte = Reporte(
-      id: 'local-${ahora.microsecondsSinceEpoch}',   // Firestore dará el definitivo
+      id: 'local-${ahora.microsecondsSinceEpoch}',   // la base de datos dará el definitivo
       ordenId: _orden.id,
       autor: usuarioActualDemo,
       detalles: _detallesCtrl.text.trim(),

@@ -1,6 +1,7 @@
 // lib/src/features/ordenes/ui/bloc/ordenes_event.dart
 import 'package:equatable/equatable.dart';
 import '../../../../core/domain/entities/orden.dart';
+import '../../../../core/domain/entities/usuario.dart';
 
 sealed class OrdenesEvent extends Equatable {
   const OrdenesEvent();
@@ -40,6 +41,40 @@ class FiltroCambiado extends OrdenesEvent {
   List<Object?> get props => [indice];
 }
 
+/// Lo lanza "Editar orden" del detalle. Equipo y zona no se editan.
+class OrdenEditada extends OrdenesEvent {
+  final String ordenId;
+  final String titulo;
+  final String descripcion;
+  final String categoria;
+  final Prioridad prioridad;
+  final DateTime fechaLimite;
+
+  const OrdenEditada({
+    required this.ordenId,
+    required this.titulo,
+    required this.descripcion,
+    required this.categoria,
+    required this.prioridad,
+    required this.fechaLimite,
+  });
+
+  @override
+  List<Object?> get props =>
+      [ordenId, titulo, descripcion, categoria, prioridad, fechaLimite];
+}
+
+/// Lo lanza "Asignar técnico" del detalle. Con null, desasigna.
+class TecnicoAsignado extends OrdenesEvent {
+  final String ordenId;
+  final Usuario? tecnico;
+
+  const TecnicoAsignado(this.ordenId, this.tecnico);
+
+  @override
+  List<Object?> get props => [ordenId, tecnico?.uid];
+}
+
 /// Lo lanza el buscador del feed, por tecla.
 class BusquedaCambiada extends OrdenesEvent {
   final String texto;
@@ -50,7 +85,7 @@ class BusquedaCambiada extends OrdenesEvent {
   List<Object?> get props => [texto];
 }
 
-/// INTERNO: lo lanza el propio Bloc cuando el stream de Firestore responde.
+/// INTERNO: lo lanza el propio Bloc cuando el stream en tiempo real responde.
 /// Así los datos que llegan de afuera entran por la misma puerta que
 /// los toques del usuario.
 class OrdenesRecibidas extends OrdenesEvent {
@@ -62,7 +97,7 @@ class OrdenesRecibidas extends OrdenesEvent {
   List<Object?> get props => [ordenes];
 }
 
-/// INTERNO: el stream de Firestore falló (red, permisos, índice faltante).
+/// INTERNO: el stream en tiempo real falló (red, permisos).
 class OrdenesFallaron extends OrdenesEvent {
   final String mensaje;
 

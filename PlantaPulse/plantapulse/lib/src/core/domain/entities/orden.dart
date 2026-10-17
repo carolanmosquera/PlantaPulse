@@ -62,25 +62,6 @@ extension PrioridadX on Prioridad {
       };
 }
 
-enum CategoriaOrden { mecanico, electrico, hidraulico, inspeccion, critico }
-
-extension CategoriaOrdenX on CategoriaOrden {
-  String get etiqueta => switch (this) {
-        CategoriaOrden.mecanico   => 'Mecánico',
-        CategoriaOrden.electrico  => 'Eléctrico',
-        CategoriaOrden.hidraulico => 'Hidráulico',
-        CategoriaOrden.inspeccion => 'Inspección',
-        CategoriaOrden.critico    => 'Crítico',
-      };
-
-  String get db => name;   // 'mecanico', 'electrico', ...
-
-  static CategoriaOrden desdeDb(String? v) => CategoriaOrden.values.firstWhere(
-        (c) => c.name == v,
-        orElse: () => CategoriaOrden.mecanico,
-      );
-}
-
 // ─────────────────────────────────────────────────────────────
 // ORDEN — el "post" del feed
 // ─────────────────────────────────────────────────────────────
@@ -93,7 +74,10 @@ class Orden {
   // Contenido
   final String titulo;
   final String descripcion;
-  final CategoriaOrden categoria;
+  /// Nombre de la categoría tal como estaba el día que se creó la orden.
+  /// Es texto y no un id a propósito: si alguien renombra la categoría,
+  /// el historial conserva el nombre original.
+  final String categoria;
 
   // Ubicación (denormalizada: el feed la muestra sin consulta extra)
   final String zonaId;
@@ -103,8 +87,10 @@ class Orden {
 
   // Personas (denormalizadas)
   final UsuarioRef creadoPor;
-  final UsuarioRef asignadoA;      // NUNCA null: toda orden tiene responsable
-  final String asignadoAUid;       // copia plana, para poder filtrar en Firestore
+  /// null = orden sin asignar. No es un estado del trabajo: una orden
+  /// sin responsable puede estar en cualquier estado.
+  final UsuarioRef? asignadoA;
+  final String? asignadoAUid;      // copia plana, para poder filtrar por columna
 
   // Estado
   final EstadoOrden estado;
@@ -135,14 +121,14 @@ class Orden {
     required this.plantaId,
     required this.titulo,
     this.descripcion = '',
-    this.categoria = CategoriaOrden.mecanico,
+    this.categoria = '',
     this.zonaId = '',
     this.zonaNombre = '',
     this.equipoId,
     this.equipoNombre,
     required this.creadoPor,
-    required this.asignadoA,
-    required this.asignadoAUid,
+    this.asignadoA,
+    this.asignadoAUid,
     this.estado = EstadoOrden.pendiente,
     this.prioridad = Prioridad.media,
     required this.createdAt,
@@ -169,6 +155,8 @@ class Orden {
   String get horaCreacion => horaAmPm(createdAt);
 
   String get prioridadTexto => prioridad.etiqueta;
+
+  bool get sinAsignar => asignadoAUid == null;
 
   bool get estaVencida =>
       estado.estaAbierta && fechaLimite.isBefore(DateTime.now());
@@ -210,7 +198,7 @@ class Orden {
         equipoNombre: equipoNombre,
         creadoPor: creadoPor,
         asignadoA: asignadoA ?? this.asignadoA,
-        asignadoAUid: (asignadoA ?? this.asignadoA).uid,
+        asignadoAUid: (asignadoA ?? this.asignadoA)?.uid,
         estado: estado ?? this.estado,
         prioridad: prioridad ?? this.prioridad,
         createdAt: createdAt,

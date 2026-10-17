@@ -45,7 +45,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
       _passCtrl.text.length >= 8 &&
       _aceptaTerminos;
 
-  // La contraseña solo viaja a Firebase Auth; el perfil se guarda sin ella.
+  // La contraseña solo viaja a Supabase Auth; el perfil se guarda sin ella.
   void _registrar() {
     context.read<SesionBloc>().add(AuthRegistrarse(
       nombre: _nombreCtrl.text,

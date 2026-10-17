@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/errors/fallos.dart';
+import '../../domain/usecases/editar_orden.dart';
 import '../../domain/usecases/observar_ordenes.dart';
 import 'ordenes_event.dart';
 import 'ordenes_state.dart';
@@ -12,14 +13,22 @@ export 'ordenes_state.dart';
 
 /// Mantiene viva UNA suscripción a la base de datos (feed o mis tareas) y
 /// convierte cada emisión del stream en un evento interno.
+///
+/// Editar y asignar NO tocan la lista: el cambio vuelve solo por el
+/// stream. Así la pantalla muestra lo que de verdad quedó en el servidor
+/// (un update rechazado por RLS no da error, simplemente no cambia nada).
 class OrdenesBloc extends Bloc<OrdenesEvent, OrdenesState> {
   final ObservarOrdenesDePlanta _observarOrdenesDePlanta;
   final ObservarMisTareas _observarMisTareas;
+  final EditarOrden _editarOrden;
+  final AsignarTecnico _asignarTecnico;
   StreamSubscription<List<Orden>>? _suscripcion;
 
   OrdenesBloc({
     required this._observarOrdenesDePlanta,
     required this._observarMisTareas,
+    required this._editarOrden,
+    required this._asignarTecnico,
   }) : super(const OrdenesState()) {
     on<OrdenesSuscritas>((e, emit) => _suscribir(
         emit, () => _observarOrdenesDePlanta.ejecutar(e.plantaId)));
@@ -32,6 +41,37 @@ class OrdenesBloc extends Bloc<OrdenesEvent, OrdenesState> {
         (e, emit) => emit(state.copyWith(filtro: e.indice)));
     on<BusquedaCambiada>(
         (e, emit) => emit(state.copyWith(busqueda: e.texto)));
+    on<OrdenEditada>((e, emit) => _accion(
+        emit,
+        () => _editarOrden.ejecutar(
+              ordenId: e.ordenId,
+              titulo: e.titulo,
+              descripcion: e.descripcion,
+              categoria: e.categoria,
+              prioridad: e.prioridad,
+              fechaLimite: e.fechaLimite,
+            ),
+        'No se pudo guardar la orden.'));
+    on<TecnicoAsignado>((e, emit) => _accion(
+        emit,
+        () => _asignarTecnico.ejecutar(e.ordenId, e.tecnico),
+        'No se pudo asignar el técnico.'));
+  }
+
+  /// Sin mensaje de éxito a propósito: el resultado llega por el stream.
+  /// Solo un fallo con error explícito (red, permisos) se avisa.
+  Future<void> _accion(
+    Emitter<OrdenesState> emit,
+    Future<void> Function() operacion,
+    String porDefecto,
+  ) async {
+    // Se limpia antes: si el mismo error se repite, el aviso vuelve a salir
+    emit(state.copyWith(limpiarErrorAccion: true));
+    try {
+      await operacion();
+    } catch (e) {
+      emit(state.copyWith(errorAccion: e is FalloApp ? e.mensaje : porDefecto));
+    }
   }
 
   /// Feed y mis tareas comparten este Bloc. Al cambiar de consulta se
