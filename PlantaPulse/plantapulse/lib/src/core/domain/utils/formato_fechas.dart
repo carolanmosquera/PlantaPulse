@@ -36,3 +36,17 @@ String grupoRelativo(DateTime f) {
   if (diff <= 7) return 'ESTA SEMANA';
   return 'ANTERIORES';
 }
+
+/// "Hace un momento", "Hace 5 min", "Hace 2 h", "Ayer, 16:00", "24 May, 09:00"
+String haceCuanto(DateTime f) {
+  final diferencia = DateTime.now().difference(f);
+  if (diferencia.inMinutes < 1) return 'Hace un momento';
+  if (diferencia.inMinutes < 60) return 'Hace ${diferencia.inMinutes} min';
+  if (diferencia.inHours < 12) return 'Hace ${diferencia.inHours} h';
+  if (grupoRelativo(f) == 'AYER') {
+    final hhmm = '${f.hour.toString().padLeft(2, '0')}:'
+        '${f.minute.toString().padLeft(2, '0')}';
+    return 'Ayer, $hhmm';
+  }
+  return fechaCorta(f);
+}

@@ -54,6 +54,8 @@ void main() {
       // El feed ahora lee órdenes: sin esto intentaría usar Supabase real
       ordenRepository: FakeOrdenRepository(),
       equipoRepository: FakeEquipoRepository(),
+      reporteRepositorio: FakeReporteRepository(),
+      almacenamientoRepositorio: FakeAlmacenamientoRepository(),
     ));
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();

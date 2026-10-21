@@ -18,6 +18,8 @@ export '../components/tarjeta_blanca.dart';
 export '../components/paso_timeline.dart';
 export '../components/campo_dropdown.dart';
 export '../components/campo_seleccion.dart';
+export '../components/fotos.dart';
+export '../components/fotos_locales.dart';
 export '../components/hoja_formulario.dart';
 export '../components/iconos_categoria.dart';
 export '../components/selector_buscable.dart';

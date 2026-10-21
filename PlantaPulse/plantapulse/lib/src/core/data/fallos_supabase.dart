@@ -19,11 +19,30 @@ FalloApp falloDesdeSupabase(
     // 42501: RLS o un trigger proteger_* rechazó la escritura.
     // PGRST301/302: el token de sesión no es válido o venció.
     // 23505: violación de un índice único (nombre o serial repetido).
+    // P0001/P0002: 'raise exception' de una función nuestra (p. ej.
+    // eliminar_orden); su mensaje ya está en español y explica el motivo.
     return switch (e.code) {
       '42501' || 'PGRST301' || 'PGRST302' => FalloPermisos(permisos),
       '23505' => FalloApp(duplicado),
+      'P0001' || 'P0002' => FalloApp(e.message),
       _ => FalloApp(generico),
     };
+  }
+  if (e is StorageException) {
+    // 401/403: la política del bucket la rechazó (p. ej. la ruta no empieza
+    // por la planta del usuario). 413 y mime: límites del bucket.
+    final detalle = '${e.error ?? ''} ${e.message}'.toLowerCase();
+    if (e.statusCode == '401' || e.statusCode == '403' ||
+        detalle.contains('row-level security')) {
+      return FalloPermisos(permisos);
+    }
+    if (e.statusCode == '413' || detalle.contains('size')) {
+      return const FalloApp('La foto es demasiado grande (máximo 5 MB).');
+    }
+    if (detalle.contains('mime')) {
+      return const FalloApp('Formato de imagen no admitido. Usa JPG, PNG o WEBP.');
+    }
+    return FalloApp(generico);
   }
   // http convierte los SocketException en ClientException (también en web)
   if (e is ClientException ||

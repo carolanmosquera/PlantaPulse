@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
+import '../../domain/usecases/editar_orden.dart';
 import '../bloc/ordenes_bloc.dart';
 import '../widgets/editar_orden_hoja.dart';
-import '../../../../core/data/datos_demo.dart';
 
 class DetalleOrdenScreen extends StatefulWidget {
   /// Llega por `arguments`. Se usa por su id para buscar la versión viva
@@ -18,48 +18,11 @@ class DetalleOrdenScreen extends StatefulWidget {
 }
 
 class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
-  final _comentarioCtrl = TextEditingController();
-
-  // Los avances de la orden viven en su subcolección 'reportes'.
-  // El timeline y la evidencia se arman a partir de ellos.
-  late List<Reporte> _reportes;
-  late List<String> _fotos;
-
-  @override
-  void initState() {
-    super.initState();
-    _reportes = List.of(reportesDemo[widget.orden.id] ?? const <Reporte>[]);
-    _fotos = [
-      for (final r in _reportes)
-        for (final e in r.evidencias) e.thumbUrl,
-    ];
-    _comentarioCtrl.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _comentarioCtrl.dispose();
-    super.dispose();
-  }
-
-  void _enviarComentario() {
-    final contenido = _comentarioCtrl.text.trim();
-    if (contenido.isEmpty) return;
-
-    final ahora = DateTime.now();
-    setState(() {
-      _reportes.add(Reporte(
-        id: 'local-${ahora.microsecondsSinceEpoch}',   // la base de datos dará el definitivo
-        ordenId: widget.orden.id,
-        autor: usuarioActualDemo,
-        detalles: contenido,
-        createdAt: ahora,
-      ));
-      _comentarioCtrl.clear();
-    });
-
-    FocusScope.of(context).unfocus();   // cierra el teclado
-  }
+  // Los reportes llegan por stream, en orden cronológico. Se abre una vez:
+  // cada redibujado no debe abrir otra suscripción.
+  late final Stream<List<Reporte>> _reportes = context
+      .read<ObservarReportesDeOrden>()
+      .ejecutar(widget.orden.id);
 
   /// "Asignar técnico": cierra el ciclo de las órdenes sin asignar.
   /// Sin mensaje de éxito: la orden cambia sola cuando llega por el stream.
@@ -68,14 +31,16 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
     final avisos = ScaffoldMessenger.of(context);
     final List<Usuario> tecnicos;
     try {
-      tecnicos = await context
-          .read<ListarTecnicosDePlanta>()
-          .ejecutar(orden.plantaId);
+      tecnicos = await context.read<ListarTecnicosDePlanta>().ejecutar(
+        orden.plantaId,
+      );
     } catch (e) {
-      avisos.showSnackBar(SnackBar(
-        backgroundColor: AppColors.rojo,
-        content: Text(FalloApp.mensajeDe(e)),
-      ));
+      avisos.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.rojo,
+          content: Text(FalloApp.mensajeDe(e)),
+        ),
+      );
       return;
     }
     if (!mounted) return;
@@ -86,34 +51,121 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
       textoDe: (u) => u.nombre,
       subtituloDe: (u) => u.especialidad,
       iconoDe: (_) => Icons.engineering_outlined,
-      seleccionado: tecnicos.where((u) => u.uid == orden.asignadoAUid).firstOrNull,
+      seleccionado: tecnicos
+          .where((u) => u.uid == orden.asignadoAUid)
+          .firstOrNull,
       claveDe: (u) => u.uid,
       textoNinguno: 'Sin asignar',
     );
-    if (eleccion == null) return;                       // cerró sin elegir
-    if (eleccion.valor?.uid == orden.asignadoAUid) return;   // no cambió
+    if (eleccion == null) return; // cerró sin elegir
+    if (eleccion.valor?.uid == orden.asignadoAUid) return; // no cambió
     bloc.add(TecnicoAsignado(orden.id, eleccion.valor));
   }
 
-  /// Menú de tres puntos. Dos acciones separadas: son dos momentos
-  /// distintos (asignar es rutina; editar corrige la orden).
-  Widget _menu(Orden orden) => PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: (accion) => switch (accion) {
-          'asignar' => _asignarTecnico(orden),
-          _ => EditarOrdenHoja.mostrar(context, orden),
-        },
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'asignar', child: ListTile(
+  /// "Eliminar orden": solo para órdenes creadas por equivocación.
+  ///
+  /// Va directo al caso de uso (no por el Bloc) porque aquí sí hace falta
+  /// saber el resultado: si sale bien hay que salir del detalle. Y el
+  /// mensaje de éxito es fiable: la función del servidor devuelve error
+  /// explícito si no pudo eliminarla, nunca falla en silencio.
+  Future<void> _eliminar(Orden orden) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('¿Eliminar la orden ${orden.codigo}?'),
+        content: const Text(
+          'Úsalo solo si se creó por equivocación. Dejará de verse en el '
+          'feed y en Mis Tareas, pero queda registrado quién la eliminó y '
+          'cuándo.\n\nSolo se puede eliminar una orden pendiente, sin '
+          'reportes ni alertas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.rojo),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true || !mounted) return;
+
+    final eliminar = context.read<EliminarOrden>();
+    final navegador = Navigator.of(context);
+    final avisos = ScaffoldMessenger.of(context);
+    try {
+      await eliminar.ejecutar(orden.id);
+      navegador.pop(); // la orden ya no existe para la app: fuera del detalle
+      avisos.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.verde,
+          content: Text('Orden ${orden.codigo} eliminada'),
+        ),
+      );
+    } catch (e) {
+      // El motivo exacto viene del servidor: "tiene reportes", "ya empezó"...
+      avisos.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.rojo,
+          content: Text(FalloApp.mensajeDe(e)),
+        ),
+      );
+    }
+  }
+
+  /// Acciones de supervisor y admin. "Editar" va a la vista como lápiz:
+  /// escondido en el menú de tres puntos no se encontraba.
+  List<Widget> _acciones(Orden orden) => [
+    IconButton(
+      tooltip: 'Editar orden',
+      icon: const Icon(Icons.edit_outlined),
+      onPressed: () => EditarOrdenHoja.mostrar(context, orden),
+    ),
+    PopupMenuButton<String>(
+      tooltip: 'Más acciones',
+      icon: const Icon(Icons.more_vert),
+      onSelected: (accion) => switch (accion) {
+        'asignar' => _asignarTecnico(orden),
+        'eliminar' => _eliminar(orden),
+        _ => EditarOrdenHoja.mostrar(context, orden),
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'asignar',
+          child: ListTile(
             leading: Icon(Icons.engineering_outlined),
             title: Text('Asignar técnico'),
-            contentPadding: EdgeInsets.zero)),
-          PopupMenuItem(value: 'editar', child: ListTile(
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'editar',
+          child: ListTile(
             leading: Icon(Icons.edit_outlined),
             title: Text('Editar orden'),
-            contentPadding: EdgeInsets.zero)),
-        ],
-      );
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        // Solo se ofrece si puede funcionar; el servidor revisa el resto
+        if (orden.puedeEliminarse)
+          const PopupMenuItem(
+            value: 'eliminar',
+            child: ListTile(
+              leading: Icon(Icons.delete_outline, color: AppColors.rojo),
+              title: Text(
+                'Eliminar orden',
+                style: TextStyle(color: AppColors.rojo),
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+      ],
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -123,13 +175,14 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
       listenWhen: (antes, ahora) =>
           ahora.errorAccion != null && antes.errorAccion != ahora.errorAccion,
       listener: (context, state) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.rojo,
-            content: Text(state.errorAccion!)),
+        SnackBar(
+          backgroundColor: AppColors.rojo,
+          content: Text(state.errorAccion!),
+        ),
       ),
       builder: (context, state) {
-        final orden = state.ordenes
-                .where((o) => o.id == widget.orden.id)
-                .firstOrNull ??
+        final orden =
+            state.ordenes.where((o) => o.id == widget.orden.id).firstOrNull ??
             widget.orden;
         return _contenido(orden);
       },
@@ -141,12 +194,12 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
         context.watch<SesionBloc>().state.usuario?.rol.puedeOperar ?? false;
     return PantallaBase(
       titulo: 'Orden #${orden.codigo}',
-      // Supervisor y admin tienen su menú; el resto ve el de siempre
+      // Supervisor y admin tienen sus acciones; el resto ve el menú de siempre
       mostrarMenu: !puedeEditar,
-      accionesExtra: puedeEditar ? [_menu(orden)] : null,
+      accionesExtra: puedeEditar ? _acciones(orden) : null,
       conNavegacion: true,
       tabActiva: 0,
-      barraInferiorFija: _barraComentario(),
+      barraInferiorFija: _barraAcciones(orden),
       cuerpo: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
@@ -168,11 +221,15 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(orden.titulo,
-                  style: const TextStyle(fontSize: 20,
-                                         fontWeight: FontWeight.bold,
-                                         color: AppColors.texto,
-                                         height: 1.3)),
+                Text(
+                  orden.titulo,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.texto,
+                    height: 1.3,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 MetaRow(icono: Icons.place_outlined, texto: orden.ubicacion),
                 const SizedBox(height: 14),
@@ -186,10 +243,14 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                       color: AppColors.fondo,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(orden.descripcion,
-                      style: const TextStyle(fontSize: 14,
-                                             color: AppColors.texto,
-                                             height: 1.5)),
+                    child: Text(
+                      orden.descripcion,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.texto,
+                        height: 1.5,
+                      ),
+                    ),
                   ),
 
                 const SizedBox(height: 16),
@@ -219,38 +280,81 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
             ),
           ),
 
-          // ══ EVIDENCIA ══
-          SeccionHeader(
-            icono: Icons.photo_camera_outlined,
-            titulo: 'EVIDENCIA FOTOGRÁFICA',
-            accion: 'Añadir',
-            onAccion: () => setState(() => _fotos.add('nueva')),
-          ),
-          GridFotos(
-            urls: _fotos,
-            columnas: 2,
-            permiteAgregar: false,
-            onAgregar: () => setState(() => _fotos.add('nueva')),
-          ),
-
-          // ══ TIMELINE ══
-          const SeccionHeader(
-            icono: Icons.history,
-            titulo: 'REGISTRO DE ACTIVIDADES',
-          ),
-          TarjetaBlanca(
-            child: Column(
-              children: List.generate(_reportes.length, (i) {
-                final r = _reportes[i];
-                return PasoTimeline(
-                  titulo: r.detalles,
-                  subtitulo: 'Téc: ${r.autor.nombre}',
-                  hora: r.horaTexto,
-                  completado: r.estadoTrabajo != EstadoTrabajo.bloqueado,
-                  esUltimo: i == _reportes.length - 1,
-                );
-              }),
+          // ══ EVIDENCIA DEL HALLAZGO (fotos tomadas al crear la orden) ══
+          if (orden.evidencias.isNotEmpty) ...[
+            SeccionHeader(
+              icono: Icons.photo_camera_outlined,
+              titulo: 'EVIDENCIA DEL HALLAZGO',
+              accion: '${orden.evidencias.length}',
             ),
+            GaleriaFotos(urls: [
+              for (final e in orden.evidencias)
+                context.read<UrlDeEvidencia>().ejecutar(e.ruta),
+            ]),
+          ],
+
+          // ══ OBSERVACIONES DEL SUPERVISOR ══
+          // Al devolver la orden, el técnico tiene que ver qué corregir
+          if (orden.observacionesSupervisor != null) ...[
+            const SizedBox(height: 12),
+            TileAviso(
+              icono: Icons.rate_review_outlined,
+              titulo: orden.estado == EstadoOrden.completada
+                  ? 'Observaciones del supervisor'
+                  : 'Correcciones solicitadas',
+              subtitulo: orden.observacionesSupervisor,
+              color: orden.estado == EstadoOrden.completada
+                  ? AppColors.verde
+                  : AppColors.ambar,
+            ),
+          ],
+          if (orden.estado == EstadoOrden.completada &&
+              orden.validadaPor != null) ...[
+            const SizedBox(height: 12),
+            MetaRow(
+              icono: Icons.verified_outlined,
+              texto: 'Validada y cerrada por',
+              valor: orden.fechaCierre == null
+                  ? orden.validadaPor!.nombre
+                  : '${orden.validadaPor!.nombre} · ${fechaCorta(orden.fechaCierre!)}',
+            ),
+          ],
+
+          // ══ REPORTES DE AVANCE ══
+          StreamBuilder<List<Reporte>>(
+            stream: _reportes,
+            builder: (context, snap) {
+              final reportes = snap.data ?? const <Reporte>[];
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SeccionHeader(
+                    icono: Icons.history,
+                    titulo: 'REPORTES DE AVANCE',
+                    accion: reportes.isEmpty ? null : '${reportes.length}',
+                  ),
+                  if (snap.hasError)
+                    TileAviso(
+                      icono: Icons.cloud_off,
+                      titulo: FalloApp.mensajeDe(snap.error!),
+                      color: AppColors.rojo,
+                    )
+                  else if (!snap.hasData)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (reportes.isEmpty)
+                    const TileAviso(
+                      icono: Icons.forum_outlined,
+                      titulo: 'Aún no hay reportes de avance',
+                      color: AppColors.textoGris,
+                    )
+                  else
+                    for (final r in reportes) _TarjetaReporte(reporte: r),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
 
@@ -259,8 +363,6 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
             FilaOpcion(
               icono: Icons.build_outlined,
               titulo: 'EQUIPO: ${orden.equipoNombre}',
-              // Serial y modelo no viajan en la orden: salen del documento del equipo
-              subtitulo: equipoDemoPorId(orden.equipoId)?.subtitulo,
               onTap: () {},
             ),
 
@@ -271,81 +373,158 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
   }
 
   // ══════════ Barra fija inferior ══════════
-  Widget _barraComentario() {
-    final hayTexto = _comentarioCtrl.text.trim().isNotEmpty;
 
+  /// La acción que toca según quién mira y en qué estado está la orden:
+  /// validar (supervisor/admin, orden en "validando") o reportar avance
+  /// (técnico asignado o supervisor/admin, orden abierta).
+  Widget? _barraAcciones(Orden orden) {
+    final usuario = context.watch<SesionBloc>().state.usuario;
+    if (usuario == null || orden.eliminada) return null;
+    final opera = usuario.rol.puedeOperar;
+
+    final Widget boton;
+    if (opera && orden.estado == EstadoOrden.validando) {
+      boton = BotonAncho(
+        texto: 'VALIDAR EVIDENCIA',
+        icono: Icons.fact_check_outlined,
+        color: AppColors.verde,
+        onTap: () =>
+            Navigator.pushNamed(context, Rutas.validar, arguments: orden),
+      );
+    } else if (orden.estado.estaAbierta &&
+        (opera || orden.asignadoAUid == usuario.uid)) {
+      boton = BotonAncho(
+        texto: 'LLENAR REPORTE DE AVANCE',
+        icono: Icons.edit_note,
+        onTap: () =>
+            Navigator.pushNamed(context, Rutas.llenarReporte, arguments: orden),
+      );
+    } else {
+      return null;
+    }
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.borde),
-                borderRadius: BorderRadius.circular(10),
+      child: boton,
+    );
+  }
+}
+
+/// Un reporte: autor, hora relativa, estado del trabajo, texto y fotos.
+/// Si es alerta crítica, lleva la barra izquierda roja y la etiqueta.
+class _TarjetaReporte extends StatelessWidget {
+  final Reporte reporte;
+
+  const _TarjetaReporte({required this.reporte});
+
+  @override
+  Widget build(BuildContext context) {
+    final urlDe = context.read<UrlDeEvidencia>();
+    final r = reporte;
+    final colorEstado = switch (r.estadoTrabajo) {
+      EstadoTrabajo.resuelto => AppColors.verde,
+      EstadoTrabajo.bloqueado => AppColors.rojo,
+      _ => AppColors.ambar,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borde),
+      ),
+      // La barra roja va en un Stack y no en un Row con IntrinsicHeight:
+      // la cuadrícula de fotos no deja calcular alturas intrínsecas y la
+      // pantalla reventaba en cuanto un reporte traía fotos.
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Stack(
+          children: [
+            if (r.esAlertaCritica)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 4, color: AppColors.rojo),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                r.esAlertaCritica ? 18 : 14,
+                14,
+                14,
+                14,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Row(
-                      children: [
-                        Icon(Icons.chat_bubble_outline, size: 12,
-                             color: AppColors.textoGris),
-                        SizedBox(width: 6),
-                        Text('REPORTAR HALLAZGO',
-                          style: TextStyle(fontSize: 9,
-                                           letterSpacing: 0.8,
-                                           color: AppColors.textoGris)),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: AppColors.azul,
+                        child: Text(
+                          r.autor.inicial,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              r.autor.nombre,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.texto,
+                              ),
+                            ),
+                            Text(haceCuanto(r.createdAt), style: AppText.gris),
+                          ],
+                        ),
+                      ),
+                      PillEstado(
+                        texto: r.estadoTrabajo.etiqueta,
+                        color: colorEstado,
+                      ),
+                    ],
+                  ),
+                  if (r.esAlertaCritica) ...[
+                    const SizedBox(height: 8),
+                    const PillEstado(
+                      texto: 'Alerta crítica',
+                      color: AppColors.rojo,
+                      relleno: true,
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Text(
+                    r.detalles,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.texto,
+                      height: 1.45,
+                    ),
+                  ),
+                  if (r.evidencias.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    GaleriaFotos(
+                      urls: [
+                        for (final e in r.evidencias) urlDe.ejecutar(e.ruta),
                       ],
                     ),
-                  ),
-                  TextField(
-                    controller: _comentarioCtrl,
-                    maxLines: 2,
-                    minLines: 1,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe un comentario o actualización...',
-                      hintStyle: TextStyle(fontSize: 14,
-                                           color: AppColors.textoGris),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 6),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: hayTexto ? _enviarComentario : null,
-            child: Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                color: hayTexto ? AppColors.azul : AppColors.gris,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.send, color: Colors.white, size: 18),
-                  SizedBox(height: 2),
-                  Text('ENVIAR', style: TextStyle(color: Colors.white,
-                                                  fontSize: 8,
-                                                  letterSpacing: 0.5)),
-                ],
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

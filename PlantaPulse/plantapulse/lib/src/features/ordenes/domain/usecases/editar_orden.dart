@@ -29,6 +29,15 @@ class EditarOrden {
       );
 }
 
+/// Elimina una orden creada por equivocación (eliminación lógica).
+class EliminarOrden {
+  final OrdenRepositorio _ordenes;
+
+  const EliminarOrden(this._ordenes);
+
+  Future<void> ejecutar(String ordenId) => _ordenes.eliminar(ordenId);
+}
+
 /// Asigna el responsable de una orden. Con null la deja sin asignar.
 class AsignarTecnico {
   final OrdenRepositorio _ordenes;

@@ -28,9 +28,11 @@ extension EstadoTrabajoX on EstadoTrabajo {
       };
 }
 
-/// Un avance publicado por el técnico dentro de una orden.
-/// Vive en la SUBCOLECCIÓN ordenes/{ordenId}/reportes/{reporteId},
-/// porque nunca se consultan reportes fuera del contexto de su orden.
+/// Un avance publicado por el técnico dentro de una orden (tabla
+/// 'reportes', con orden_id). Nunca se consultan fuera de su orden.
+///
+/// Al insertarse, el servidor actualiza la orden solo (contadores,
+/// portada, estado): la app no debe hacerlo.
 class Reporte {
   final String id;
   final String ordenId;
@@ -59,6 +61,7 @@ class Reporte {
 
   String get horaTexto => horaAmPm(createdAt);
 
-  /// URL de la primera foto, para la portada de la orden
-  String? get portada => evidencias.isEmpty ? null : evidencias.first.thumbUrl;
+  /// RUTA de la primera foto (no una URL). La portada de la orden la fija
+  /// el servidor al publicar; esto es solo para la UI.
+  String? get portada => evidencias.isEmpty ? null : evidencias.first.ruta;
 }

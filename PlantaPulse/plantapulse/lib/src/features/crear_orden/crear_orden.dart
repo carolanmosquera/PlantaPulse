@@ -8,3 +8,4 @@ export 'ui/screens/crear_orden_p1_screen.dart';
 export 'ui/screens/crear_orden_p2_screen.dart';
 export 'ui/widgets/alta_categoria_hoja.dart';
 export 'ui/widgets/alta_equipo_hoja.dart';
+export 'ui/widgets/detalle_equipo_hoja.dart';

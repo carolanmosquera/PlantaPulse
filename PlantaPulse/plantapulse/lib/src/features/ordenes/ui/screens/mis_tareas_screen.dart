@@ -45,7 +45,8 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<OrdenesBloc>().state;
-    final tareas = state.ordenes;
+    // Una orden completada ya no es una tarea pendiente: sale de la lista
+    final tareas = state.ordenes.where((t) => t.estado.estaAbierta).toList();
     final visibles = _visibles(tareas);
     final criticas = tareas.where(_esUrgente).length;
 
@@ -140,7 +141,9 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
                 hora: t.hora,
                 prioridad: t.prioridadTexto,
                 estilo: EstiloOrden.conBarra,    // ← variante sin foto
-                onTap: () {},
+                reportes: t.totalReportes,
+                onTap: () => Navigator.pushNamed(
+                    context, Rutas.detalleOrden, arguments: t),
               ),
             )),
 

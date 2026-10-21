@@ -21,6 +21,9 @@ class OrdenCard extends StatelessWidget {
   /// La orden no tiene responsable: se marca en gris bajo la ubicación.
   final bool sinAsignar;
 
+  /// Reportes de avance publicados. Con 0 no se muestra nada.
+  final int reportes;
+
   const OrdenCard({
     super.key,
     required this.codigo,
@@ -34,6 +37,7 @@ class OrdenCard extends StatelessWidget {
     this.estilo = EstiloOrden.conFoto,
     this.onTap,
     this.sinAsignar = false,
+    this.reportes = 0,
   });
 
   @override
@@ -150,6 +154,14 @@ class OrdenCard extends StatelessWidget {
                       size: 14, color: AppColors.textoGris),
                   const SizedBox(width: 4),
                   Text(hora, style: AppText.gris),
+                  if (reportes > 0) ...[
+                    const SizedBox(width: 10),
+                    const Icon(Icons.forum_outlined,
+                        size: 14, color: AppColors.textoGris),
+                    const SizedBox(width: 4),
+                    Text(reportes == 1 ? '1 reporte' : '$reportes reportes',
+                        style: AppText.gris),
+                  ],
                   const SizedBox(width: 12),
                   Flexible(
                     child: PillEstado(texto: prioridad, color: estadoColor),

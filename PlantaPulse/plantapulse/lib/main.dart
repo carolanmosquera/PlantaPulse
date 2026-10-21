@@ -12,12 +12,14 @@ import 'src/features/reportes/reportes.dart';
 
 // Implementaciones concretas: main.dart es el ÚNICO archivo que las conoce.
 import 'src/core/data/planta_repositorio_supabase.dart';
+import 'src/core/data/repositories/almacenamiento_repositorio_supabase.dart';
 import 'src/core/data/repositories/categoria_repositorio_supabase.dart';
 import 'src/core/data/repositories/zona_repositorio_supabase.dart';
 import 'src/features/auth/data/repositories/autenticacion_repositorio_supabase.dart';
 import 'src/features/auth/data/repositories/usuario_repositorio_supabase.dart';
 import 'src/features/crear_orden/data/repositories/equipo_repositorio_supabase.dart';
 import 'src/features/ordenes/data/repositories/orden_repositorio_supabase.dart';
+import 'src/features/reportes/data/repositories/reporte_repositorio_supabase.dart';
 
 // Proyecto de Supabase. La clave es la PUBLISHABLE: está pensada para ir
 // en el cliente, y lo que protege los datos es RLS (supabase/esquema.sql).
@@ -52,6 +54,8 @@ class PlantaPulseApp extends StatelessWidget {
   final EquipoRepositorio? equipoRepository;
   final CategoriaRepositorio? categoriaRepositorio;
   final ZonaRepositorio? zonaRepositorio;
+  final ReporteRepositorio? reporteRepositorio;
+  final AlmacenamientoRepositorio? almacenamientoRepositorio;
 
   const PlantaPulseApp({
     super.key,
@@ -63,6 +67,8 @@ class PlantaPulseApp extends StatelessWidget {
     this.equipoRepository,
     this.categoriaRepositorio,
     this.zonaRepositorio,
+    this.reporteRepositorio,
+    this.almacenamientoRepositorio,
   });
 
   @override
@@ -92,6 +98,12 @@ class PlantaPulseApp extends StatelessWidget {
                 categoriaRepositorio ?? CategoriaRepositorioSupabase()),
         RepositoryProvider<ZonaRepositorio>(
             create: (_) => zonaRepositorio ?? ZonaRepositorioSupabase()),
+        RepositoryProvider<ReporteRepositorio>(
+            create: (_) =>
+                reporteRepositorio ?? ReporteRepositorioSupabase()),
+        RepositoryProvider<AlmacenamientoRepositorio>(
+            create: (_) =>
+                almacenamientoRepositorio ?? AlmacenamientoRepositorioSupabase()),
 
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
@@ -118,6 +130,28 @@ class PlantaPulseApp extends StatelessWidget {
             create: (c) => ListarZonasDePlanta(c.read<ZonaRepositorio>())),
         RepositoryProvider(
             create: (c) => CrearEquipo(c.read<EquipoRepositorio>())),
+        RepositoryProvider(
+            create: (c) => EditarEquipo(c.read<EquipoRepositorio>())),
+        RepositoryProvider(
+            create: (c) => DarDeBajaEquipo(c.read<EquipoRepositorio>())),
+        RepositoryProvider(
+            create: (c) => NuevoIdDeOrden(c.read<OrdenRepositorio>())),
+        RepositoryProvider(
+            create: (c) => EliminarOrden(c.read<OrdenRepositorio>())),
+        // Reportes y evidencia
+        RepositoryProvider(
+            create: (c) =>
+                ObservarReportesDeOrden(c.read<ReporteRepositorio>())),
+        RepositoryProvider(
+            create: (c) => UrlDeEvidencia(c.read<AlmacenamientoRepositorio>())),
+        RepositoryProvider(
+            create: (c) => SubirEvidencia(c.read<AlmacenamientoRepositorio>())),
+        RepositoryProvider(
+            create: (c) => PublicarReporte(c.read<ReporteRepositorio>())),
+        RepositoryProvider(
+            create: (c) => CerrarOrden(c.read<OrdenRepositorio>())),
+        RepositoryProvider(
+            create: (c) => DevolverOrden(c.read<OrdenRepositorio>())),
         RepositoryProvider(
             create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
       ],
@@ -167,21 +201,24 @@ class PlantaPulseApp extends StatelessWidget {
             Rutas.ajustes:       (_) => const AjustesScreen(),
             Rutas.crearOrden:    (_) => const CrearOrdenP1Screen(),
             Rutas.resumenTurno:  (_) => const ResumenTurnoScreen(),
-            Rutas.validar:       (_) => const ValidarEvidenciaScreen(),
             Rutas.misTareas:     (_) => const MisTareasScreen(),
-            Rutas.llenarReporte: (_) => const LlenarReporteScreen(),
             Rutas.emergencia:    (_) => const EmergenciaScreen(),
             Rutas.espera:        (_) => const EsperaAprobacionScreen(),
             Rutas.solicitudes:   (_) => const SolicitudesScreen(),
           },
-          // Rutas que necesitan parámetros
+          // Rutas que necesitan la orden como parámetro
           onGenerateRoute: (settings) {
-            if (settings.name == Rutas.detalleOrden) {
-              final orden = settings.arguments as Orden;
-              return MaterialPageRoute(
-                builder: (_) => DetalleOrdenScreen(orden: orden));
-            }
-            return null;
+            final orden = settings.arguments;
+            if (orden is! Orden) return null;
+            final Widget? pantalla = switch (settings.name) {
+              Rutas.detalleOrden  => DetalleOrdenScreen(orden: orden),
+              Rutas.llenarReporte => LlenarReporteScreen(orden: orden),
+              Rutas.validar       => ValidarEvidenciaScreen(orden: orden),
+              _                   => null,
+            };
+            return pantalla == null
+                ? null
+                : MaterialPageRoute(builder: (_) => pantalla, settings: settings);
           },
         ),
       ),

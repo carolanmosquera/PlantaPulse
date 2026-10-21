@@ -1,5 +1,6 @@
 // lib/src/features/ordenes/data/repositories/orden_repositorio_supabase.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/data/data.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
@@ -39,7 +40,13 @@ class OrdenRepositorioSupabase implements OrdenRepositorio {
           .stream(primaryKey: ['id'])
           .eq('planta_id', plantaId)
           .order(columnaOrden, ascending: ascendente)
-          .map((filas) => filas.map(OrdenModelo.fromJson).toList())
+          // Las eliminadas siguen llegando (RLS las deja leer a propósito,
+          // para que el evento de la eliminación alcance a todos) y se
+          // descartan aquí: así desaparecen de todas las pantallas abiertas.
+          .map((filas) => filas
+              .map(OrdenModelo.fromJson)
+              .where((o) => !o.eliminada)
+              .toList())
           .traducirErrores(_falloDeLectura);
 
   /// Feed de la planta en tiempo real, las más nuevas primero.
@@ -57,7 +64,11 @@ class OrdenRepositorioSupabase implements OrdenRepositorio {
           ordenes.where((o) => o.asignadoAUid == uid).toList()
             ..sort((a, b) => a.fechaLimite.compareTo(b.fechaLimite)));
 
-  /// Crea la orden y devuelve el id que generó Postgres.
+  /// UUID v4, el mismo tipo que genera Postgres con gen_random_uuid().
+  @override
+  String nuevoId() => const Uuid().v4();
+
+  /// Crea la orden y devuelve su id (el que traía o el que generó Postgres).
   /// Aquí SÍ va .select('id'): el supervisor puede leer las órdenes de su
   /// planta. created_at y ultima_actividad los pone el trigger.
   @override
@@ -93,6 +104,38 @@ class OrdenRepositorioSupabase implements OrdenRepositorio {
             'categoria': categoria,
             'prioridad': prioridad.db,
             'fecha_limite': aIso(fechaLimite),
+          }).eq('id', ordenId));
+
+  /// Por la función del servidor, no con update ni delete: valida que la
+  /// orden sea virgen y, si no, devuelve el motivo como error (P0001).
+  @override
+  Future<void> eliminar(String ordenId) => traducirSupabase(
+      () => _db.rpc<void>('eliminar_orden', params: {'p_orden_id': ordenId}));
+
+  /// Sin .select(). fecha_cierre en UTC con aIso, como el resto.
+  /// El último mantenimiento del equipo lo escribe el trigger al_cerrar_orden.
+  @override
+  Future<void> cerrar({
+    required String ordenId,
+    required UsuarioRef validadaPor,
+    String observaciones = '',
+  }) =>
+      traducirSupabase(() => _tabla.update({
+            'estado': EstadoOrden.completada.db,
+            'fecha_cierre': aIso(DateTime.now()),
+            'validada_por': refAJson(validadaPor),
+            'observaciones_supervisor':
+                observaciones.trim().isEmpty ? null : observaciones.trim(),
+          }).eq('id', ordenId));
+
+  @override
+  Future<void> devolver({
+    required String ordenId,
+    required String observaciones,
+  }) =>
+      traducirSupabase(() => _tabla.update({
+            'estado': EstadoOrden.enProgreso.db,
+            'observaciones_supervisor': observaciones.trim(),
           }).eq('id', ordenId));
 
   /// Con null, los dos campos vuelven a null: la orden queda sin asignar.

@@ -4,7 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../bloc/ordenes_bloc.dart';
 
-/// "Editar orden": título, descripción, categoría, prioridad y fecha límite.
+/// "Editar orden": título, descripción, categoría, prioridad, fecha límite
+/// y técnico responsable. El técnico también se cambia desde "Asignar
+/// técnico" en el menú del detalle: aquí está por si alguien lo busca al
+/// editar.
 ///
 /// Equipo y zona NO se editan: cambiarlos convierte la orden en otra y deja
 /// el historial del equipo mintiendo. Si se equivocaron de equipo, se
@@ -38,8 +41,20 @@ class _EditarOrdenHojaState extends State<EditarOrdenHoja> {
   late Prioridad _prioridad = widget.orden.prioridad;
   late DateTime _fechaLimite = widget.orden.fechaLimite;
 
+  /// Lo que muestra el campo. Empieza con el responsable actual de la orden.
+  late UsuarioRef? _responsable = widget.orden.asignadoA;
+
+  /// Solo si el usuario eligió algo distinto se manda la reasignación:
+  /// así guardar un cambio de título no toca el técnico.
+  bool _tecnicoCambiado = false;
+  Usuario? _tecnicoNuevo;
+
   late final Future<List<Categoria>> _categorias = context
       .read<ListarCategoriasDePlanta>()
+      .ejecutar(widget.orden.plantaId);
+
+  late final Future<List<Usuario>> _tecnicos = context
+      .read<ListarTecnicosDePlanta>()
       .ejecutar(widget.orden.plantaId);
 
   @override
@@ -69,6 +84,30 @@ class _EditarOrdenHojaState extends State<EditarOrdenHoja> {
     if (c != null && mounted) setState(() => _categoria = c.nombre);
   }
 
+  /// El mismo selector que "Asignar técnico", con "Sin asignar" primero.
+  Future<void> _elegirTecnico(List<Usuario> tecnicos) async {
+    final eleccion = await SelectorBuscable.mostrar<Usuario>(
+      context,
+      titulo: 'Técnico Responsable',
+      opciones: tecnicos,
+      textoDe: (u) => u.nombre,
+      subtituloDe: (u) => u.especialidad,
+      iconoDe: (_) => Icons.engineering_outlined,
+      seleccionado:
+          tecnicos.where((u) => u.uid == _responsable?.uid).firstOrNull,
+      claveDe: (u) => u.uid,
+      textoNinguno: 'Sin asignar',
+    );
+    if (eleccion == null || !mounted) return;       // cerró sin elegir
+    final tecnico = eleccion.valor;
+    setState(() {
+      _responsable = tecnico?.ref;
+      _tecnicoNuevo = tecnico;
+      // Volver a elegir el mismo que ya tenía no cuenta como cambio
+      _tecnicoCambiado = tecnico?.uid != widget.orden.asignadoAUid;
+    });
+  }
+
   Future<void> _elegirFecha() async {
     final hoy = DateTime.now();
     final elegida = await showDatePicker(
@@ -94,6 +133,10 @@ class _EditarOrdenHojaState extends State<EditarOrdenHoja> {
       prioridad: _prioridad,
       fechaLimite: _fechaLimite,
     ));
+    // Mismo evento que "Asignar técnico": una sola forma de reasignar
+    if (_tecnicoCambiado) {
+      widget.bloc.add(TecnicoAsignado(widget.orden.id, _tecnicoNuevo));
+    }
     Navigator.pop(context);
   }
 
@@ -140,6 +183,19 @@ class _EditarOrdenHojaState extends State<EditarOrdenHoja> {
               '${f.month.toString().padLeft(2, '0')}/${f.year}',
           vacio: '',
           onTap: _elegirFecha,
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<List<Usuario>>(
+          future: _tecnicos,
+          builder: (context, snap) => CampoSeleccion(
+            label: 'TÉCNICO RESPONSABLE',
+            icono: Icons.engineering_outlined,
+            valor: _responsable?.nombre,
+            vacio: snap.hasError
+                ? 'No se pudieron cargar los técnicos'
+                : 'Sin asignar',
+            onTap: snap.hasData ? () => _elegirTecnico(snap.data!) : null,
+          ),
         ),
         const SizedBox(height: 16),
       ],

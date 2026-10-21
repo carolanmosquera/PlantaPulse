@@ -4,7 +4,7 @@ import '../json_helpers.dart';
 import 'evidencia_modelo.dart';
 import 'usuario_modelo.dart';
 
-/// Fila de la tabla 'reportes' (antes la subcolección ordenes/{id}/reportes).
+/// Fila de la tabla 'reportes'. El texto va en la columna 'detalles'.
 class ReporteModelo extends Reporte {
   const ReporteModelo({
     required super.id,
@@ -17,6 +17,18 @@ class ReporteModelo extends Reporte {
     super.generadoPorIA,
     required super.createdAt,
   });
+
+  factory ReporteModelo.desdeEntidad(Reporte r) => ReporteModelo(
+        id: r.id,
+        ordenId: r.ordenId,
+        autor: r.autor,
+        detalles: r.detalles,
+        estadoTrabajo: r.estadoTrabajo,
+        evidencias: r.evidencias,
+        esAlertaCritica: r.esAlertaCritica,
+        generadoPorIA: r.generadoPorIA,
+        createdAt: r.createdAt,
+      );
 
   factory ReporteModelo.fromJson(Map<String, dynamic> j) => ReporteModelo(
         id: texto(j['id']),

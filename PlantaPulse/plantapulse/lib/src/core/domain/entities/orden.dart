@@ -1,5 +1,6 @@
 // lib/src/core/domain/entities/orden.dart
 import '../utils/formato_fechas.dart';
+import 'evidencia.dart';
 import 'usuario.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -103,6 +104,9 @@ class Orden {
   final DateTime ultimaActividad;  // la IA busca órdenes estancadas por aquí
 
   // Visual y contadores (denormalizados)
+  /// RUTA de la foto de portada (no una URL). La fija el servidor con la
+  /// última foto de cada reporte; al crear la orden, la app pone la última
+  /// foto del hallazgo.
   final String? portadaUrl;
   final int totalReportes;
   final int totalAlertas;
@@ -111,9 +115,17 @@ class Orden {
   final bool generadaPorIA;
   final String? notaOriginal;      // lo que dictó el supervisor antes de estructurar
 
+  /// Fotos del hallazgo, tomadas al crear la orden (máximo 4). Las del
+  /// trabajo van en cada reporte.
+  final List<Evidencia> evidencias;
+
   // Cierre
   final UsuarioRef? validadaPor;
   final String? observacionesSupervisor;
+
+  /// Eliminación lógica: la fila sigue en la base (es historial), pero la
+  /// app ya no la muestra. Solo la pone la función eliminar_orden().
+  final DateTime? eliminadaEn;
 
   const Orden({
     required this.id,
@@ -140,8 +152,10 @@ class Orden {
     this.totalAlertas = 0,
     this.generadaPorIA = false,
     this.notaOriginal,
+    this.evidencias = const [],
     this.validadaPor,
     this.observacionesSupervisor,
+    this.eliminadaEn,
   });
 
   // ── Getters para la UI que ya tienes ──────────────────────
@@ -157,6 +171,13 @@ class Orden {
   String get prioridadTexto => prioridad.etiqueta;
 
   bool get sinAsignar => asignadoAUid == null;
+
+  bool get eliminada => eliminadaEn != null;
+
+  /// Lo mismo que exige eliminar_orden() en la base, para no ofrecer la
+  /// opción cuando ya se sabe que va a fallar. Reportes, alertas y
+  /// novedades vinculadas solo los puede comprobar el servidor.
+  bool get puedeEliminarse => !eliminada && estado == EstadoOrden.pendiente;
 
   bool get estaVencida =>
       estado.estaAbierta && fechaLimite.isBefore(DateTime.now());
@@ -210,8 +231,10 @@ class Orden {
         totalAlertas: totalAlertas ?? this.totalAlertas,
         generadaPorIA: generadaPorIA,
         notaOriginal: notaOriginal,
+        evidencias: evidencias,
         validadaPor: validadaPor ?? this.validadaPor,
         observacionesSupervisor:
             observacionesSupervisor ?? this.observacionesSupervisor,
+        eliminadaEn: eliminadaEn,
       );
 }

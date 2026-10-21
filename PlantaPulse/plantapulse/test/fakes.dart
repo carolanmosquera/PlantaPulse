@@ -2,6 +2,7 @@
 // Versiones en memoria de los contratos del dominio, para probar
 // los Blocs y las pantallas sin tocar Supabase.
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:plantapulse/src/core/core.dart';
 import 'package:plantapulse/src/core/data/models/usuario_modelo.dart';
 import 'package:plantapulse/src/features/auth/auth.dart';
@@ -32,12 +33,15 @@ CrearOrdenBloc crearOrdenBlocDe({
   required EquipoRepositorio equipos,
   required UsuarioRepositorio usuarios,
   required OrdenRepositorio ordenes,
+  AlmacenamientoRepositorio? almacen,
 }) =>
     CrearOrdenBloc(
       listarCategorias: ListarCategoriasDePlanta(categorias),
       listarEquipos: ListarEquiposDePlanta(equipos),
       listarTecnicos: ListarTecnicosDePlanta(usuarios),
       publicarOrden: PublicarOrden(ordenes),
+      nuevoIdDeOrden: NuevoIdDeOrden(ordenes),
+      subirEvidencia: SubirEvidencia(almacen ?? FakeAlmacenamientoRepository()),
     );
 
 /// Implementa el contrato AutenticacionRepositorio. Conserva el nombre
@@ -212,6 +216,43 @@ class FakeEquipoRepository implements EquipoRepositorio {
     return creado;
   }
 
+  /// Como el trigger trg_b_equipo_zona y el índice único del serial.
+  @override
+  Future<Equipo> editar(Equipo equipo) async {
+    if (equipo.serial.isNotEmpty &&
+        equipos.any((e) =>
+            e.id != equipo.id &&
+            e.plantaId == equipo.plantaId &&
+            e.serial == equipo.serial)) {
+      throw const FalloApp('Ya hay un equipo con ese serial en esta planta.');
+    }
+    final i = equipos.indexWhere((e) => e.id == equipo.id);
+    final editado = _copia(equipo,
+        zonaNombre: nombresDeZona[equipo.zonaId] ?? equipos[i].zonaNombre);
+    equipos[i] = editado;
+    return editado;
+  }
+
+  @override
+  Future<void> darDeBaja(String equipoId) async {
+    final i = equipos.indexWhere((e) => e.id == equipoId);
+    equipos[i] = _copia(equipos[i], activo: false);
+  }
+
+  static Equipo _copia(Equipo e, {String? zonaNombre, bool? activo}) => Equipo(
+        id: e.id,
+        plantaId: e.plantaId,
+        zonaId: e.zonaId,
+        zonaNombre: zonaNombre ?? e.zonaNombre,
+        nombre: e.nombre.trim(),
+        serial: e.serial.trim(),
+        modelo: e.modelo.trim(),
+        tipo: e.tipo,
+        estado: e.estado,
+        ultimoMantenimiento: e.ultimoMantenimiento,
+        activo: activo ?? e.activo,
+      );
+
   @override
   Future<Equipo?> obtener(String equipoId) async =>
       equipos.where((e) => e.id == equipoId).firstOrNull;
@@ -232,6 +273,35 @@ class _Consulta {
 /// Simula snapshots(): cada consulta abierta recibe la lista de nuevo
 /// cuando se crea o cambia una orden, sin que nadie la relance.
 class FakeOrdenRepository implements OrdenRepositorio {
+  /// Cuántas veces se intentó cambiar una orden (estado, edición,
+  /// asignación, eliminación, cierre...). Publicar un reporte NO debe
+  /// sumar: eso lo hace el trigger del servidor.
+  int mutaciones = 0;
+
+  /// Lo último que recibió cerrar() / devolver().
+  ({String ordenId, UsuarioRef validadaPor, String observaciones})? cierre;
+  ({String ordenId, String observaciones})? devolucion;
+
+  @override
+  Future<void> cerrar({
+    required String ordenId,
+    required UsuarioRef validadaPor,
+    String observaciones = '',
+  }) async {
+    mutaciones++;
+    cierre = (ordenId: ordenId, validadaPor: validadaPor,
+        observaciones: observaciones);
+  }
+
+  @override
+  Future<void> devolver({
+    required String ordenId,
+    required String observaciones,
+  }) async {
+    mutaciones++;
+    devolucion = (ordenId: ordenId, observaciones: observaciones);
+  }
+
   final List<Orden> ordenes = [];
 
   /// Las órdenes que recibió crear(), tal como las entregó el Bloc.
@@ -278,19 +348,26 @@ class FakeOrdenRepository implements OrdenRepositorio {
   @override
   Stream<List<Orden>> deLaPlanta(String plantaId, {EstadoOrden? estado}) =>
       _consultar(
-        (o) => o.plantaId == plantaId && (estado == null || o.estado == estado),
+        (o) => !o.eliminada &&
+            o.plantaId == plantaId && (estado == null || o.estado == estado),
         (a, b) => b.createdAt.compareTo(a.createdAt),
       );
 
   @override
   Stream<List<Orden>> asignadasA(String uid, String plantaId) => _consultar(
-        (o) => o.plantaId == plantaId && o.asignadoAUid == uid,
+        (o) => !o.eliminada && o.plantaId == plantaId && o.asignadoAUid == uid,
         (a, b) => a.fechaLimite.compareTo(b.fechaLimite),
       );
 
+  int _reservados = 1;
+
+  @override
+  String nuevoId() => 'ord-reservado-${_reservados++}';
+
+  /// Como Postgres: usa el id que trae la orden, o genera uno.
   @override
   Future<String> crear(Orden orden) async {
-    final id = 'ord${_siguiente++}';
+    final id = orden.id.isNotEmpty ? orden.id : 'ord${_siguiente++}';
     creadas.add(orden);
     ordenes.add(conId(orden, id));
     _avisar();
@@ -299,6 +376,7 @@ class FakeOrdenRepository implements OrdenRepositorio {
 
   @override
   Future<void> actualizarEstado(String ordenId, EstadoOrden estado) async {
+    mutaciones++;
     final i = ordenes.indexWhere((o) => o.id == ordenId);
     ordenes[i] = ordenes[i].copyWith(estado: estado);
     _avisar();
@@ -313,6 +391,7 @@ class FakeOrdenRepository implements OrdenRepositorio {
     required Prioridad prioridad,
     required DateTime fechaLimite,
   }) async {
+    mutaciones++;
     final i = ordenes.indexWhere((o) => o.id == ordenId);
     ordenes[i] = rehacer(ordenes[i],
         titulo: titulo,
@@ -325,9 +404,34 @@ class FakeOrdenRepository implements OrdenRepositorio {
 
   @override
   Future<void> asignarTecnico(String ordenId, Usuario? tecnico) async {
+    mutaciones++;
     final i = ordenes.indexWhere((o) => o.id == ordenId);
     ordenes[i] = rehacer(ordenes[i],
         cambiarResponsable: true, asignadoA: tecnico?.ref);
+    _avisar();
+  }
+
+  /// Órdenes con reportes, alertas o novedades (lo que en la base son
+  /// filas que la referencian). eliminar() las rechaza, como el servidor.
+  final Set<String> conDependientes = {};
+
+  /// Las mismas reglas que la función eliminar_orden() de la base.
+  @override
+  Future<void> eliminar(String ordenId) async {
+    mutaciones++;
+    final i = ordenes.indexWhere((o) => o.id == ordenId);
+    if (i < 0) throw const FalloApp('La orden no existe.');
+    final o = ordenes[i];
+    if (o.eliminada) return;                      // idempotente
+    if (o.estado != EstadoOrden.pendiente) {
+      throw const FalloApp('Solo se puede eliminar una orden pendiente. Esta '
+          'ya tiene trabajo en curso: ciérrala en lugar de eliminarla.');
+    }
+    if (conDependientes.contains(ordenId)) {
+      throw const FalloApp(
+          'La orden tiene reportes de avance y no se puede eliminar.');
+    }
+    ordenes[i] = rehacer(o, eliminadaEn: DateTime.now());
     _avisar();
   }
 
@@ -346,6 +450,7 @@ class FakeOrdenRepository implements OrdenRepositorio {
     DateTime? fechaLimite,
     bool cambiarResponsable = false,
     UsuarioRef? asignadoA,
+    DateTime? eliminadaEn,
   }) =>
       Orden(
         id: id ?? o.id,
@@ -369,6 +474,8 @@ class FakeOrdenRepository implements OrdenRepositorio {
         portadaUrl: o.portadaUrl,
         totalReportes: o.totalReportes,
         totalAlertas: o.totalAlertas,
+        evidencias: o.evidencias,
+        eliminadaEn: eliminadaEn ?? o.eliminadaEn,
       );
 }
 
@@ -412,4 +519,60 @@ class FakeZonaRepository implements ZonaRepositorio {
       .where((z) => z.plantaId == plantaId && z.activo)
       .toList()
     ..sort((a, b) => a.nombre.compareTo(b.nombre));
+}
+
+/// Storage en memoria. Devuelve rutas como el de verdad
+/// (planta/orden/archivo.ext) y puede fallar en la subida N.
+class FakeAlmacenamientoRepository implements AlmacenamientoRepositorio {
+  /// Rutas subidas con éxito, en orden.
+  final List<String> subidas = [];
+
+  /// Número de llamada (1, 2, ...) que debe fallar. null = ninguna.
+  int? fallarEnLlamada;
+  int _llamadas = 0;
+
+  @override
+  Future<String> subir({
+    required String plantaId,
+    required String ordenId,
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    _llamadas++;
+    if (_llamadas == fallarEnLlamada) {
+      throw const FalloRed('Sin conexión. Revisa tu internet.');
+    }
+    final ruta = '$plantaId/$ordenId/foto-$_llamadas.$extension';
+    subidas.add(ruta);
+    return ruta;
+  }
+
+  @override
+  String urlDe(String ruta) => 'https://almacen.falso/$ruta';
+}
+
+/// Reportes en memoria, con stream por orden como el de Supabase.
+class FakeReporteRepository implements ReporteRepositorio {
+  final List<Reporte> creadas = [];
+  bool fallarAlCrear = false;
+  final _cambios = StreamController<void>.broadcast();
+
+  List<Reporte> _de(String ordenId) =>
+      creadas.where((r) => r.ordenId == ordenId).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+  @override
+  Stream<List<Reporte>> deLaOrden(String ordenId) async* {
+    yield _de(ordenId);
+    yield* _cambios.stream.map((_) => _de(ordenId));
+  }
+
+  @override
+  Future<void> crear(Reporte reporte) async {
+    if (fallarAlCrear) {
+      throw const FalloApp('No se pudo publicar el reporte.');
+    }
+    creadas.add(reporte);
+    _cambios.add(null);
+  }
 }

@@ -67,6 +67,9 @@ class _FeedScreenState extends State<FeedScreen> {
       cuerpo: BlocBuilder<OrdenesBloc, OrdenesState>(
         builder: (context, state) {
           final visibles = state.visibles;
+          // La portada la fija el servidor con la RUTA de la primera foto:
+          // aquí se convierte en URL (si ya fuera una URL, se respeta)
+          final urlDe = context.read<UrlDeEvidencia>();
 
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -153,7 +156,10 @@ class _FeedScreenState extends State<FeedScreen> {
                     estadoColor: orden.estado.color,
                     hora: orden.hora,
                     prioridad: orden.prioridadTexto,
-                    fotoUrl: orden.portadaUrl,
+                    fotoUrl: orden.portadaUrl == null
+                        ? null
+                        : urlDe.ejecutar(orden.portadaUrl!),
+                    reportes: orden.totalReportes,
                     estilo: EstiloOrden.conFoto,
                     sinAsignar: orden.sinAsignar,
                     onTap: () => Navigator.pushNamed(

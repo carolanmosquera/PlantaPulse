@@ -22,6 +22,15 @@ class ListarEquiposDePlanta {
       _equipos.deLaPlanta(plantaId);
 }
 
+/// Reserva el id de una orden que aún no existe, para subir antes sus fotos.
+class NuevoIdDeOrden {
+  final OrdenRepositorio _ordenes;
+
+  const NuevoIdDeOrden(this._ordenes);
+
+  String ejecutar() => _ordenes.nuevoId();
+}
+
 /// Publica la orden y devuelve el id que le asignó la base de datos.
 class PublicarOrden {
   final OrdenRepositorio _ordenes;
@@ -48,6 +57,24 @@ class ListarZonasDePlanta {
   const ListarZonasDePlanta(this._zonas);
 
   Future<List<Zona>> ejecutar(String plantaId) => _zonas.deLaPlanta(plantaId);
+}
+
+/// Cambia los datos de un equipo y lo devuelve como quedó.
+class EditarEquipo {
+  final EquipoRepositorio _equipos;
+
+  const EditarEquipo(this._equipos);
+
+  Future<Equipo> ejecutar(Equipo equipo) => _equipos.editar(equipo);
+}
+
+/// Da de baja un equipo (no lo borra: su historial se conserva).
+class DarDeBajaEquipo {
+  final EquipoRepositorio _equipos;
+
+  const DarDeBajaEquipo(this._equipos);
+
+  Future<void> ejecutar(String equipoId) => _equipos.darDeBaja(equipoId);
 }
 
 /// Registra un equipo. Un equipo recién registrado siempre está operativo.

@@ -1,6 +1,7 @@
 // lib/src/core/data/models/orden_modelo.dart
 import '../../domain/entities/orden.dart';
 import '../json_helpers.dart';
+import 'evidencia_modelo.dart';
 import 'usuario_modelo.dart';
 
 /// Fila de la tabla 'ordenes'.
@@ -31,8 +32,10 @@ class OrdenModelo extends Orden {
     super.totalAlertas,
     super.generadaPorIA,
     super.notaOriginal,
+    super.evidencias,
     super.validadaPor,
     super.observacionesSupervisor,
+    super.eliminadaEn,
   });
 
   factory OrdenModelo.desdeEntidad(Orden o) => OrdenModelo(
@@ -60,8 +63,10 @@ class OrdenModelo extends Orden {
         totalAlertas: o.totalAlertas,
         generadaPorIA: o.generadaPorIA,
         notaOriginal: o.notaOriginal,
+        evidencias: o.evidencias,
         validadaPor: o.validadaPor,
         observacionesSupervisor: o.observacionesSupervisor,
+        eliminadaEn: o.eliminadaEn,
       );
 
   factory OrdenModelo.fromJson(Map<String, dynamic> j) {
@@ -93,14 +98,24 @@ class OrdenModelo extends Orden {
       totalAlertas: entero(j['total_alertas']),
       generadaPorIA: booleano(j['generada_por_ia']),
       notaOriginal: textoOpcional(j['nota_original']),
+      evidencias: evidenciasDesdeJson(j['evidencias']),
       validadaPor: UsuarioRefModelo.fromJsonOpcional(j['validada_por']),
       observacionesSupervisor: textoOpcional(j['observaciones_supervisor']),
+      eliminadaEn: fechaOpcional(j['eliminada_en']),
     );
   }
 
   /// Para insertar: sin id (lo genera Postgres) y sin created_at ni
   /// ultima_actividad (los pone el trigger con la hora del servidor).
+  /// eliminada_en tampoco: solo la pone la función eliminar_orden().
+  ///
+  /// El id SÍ se envía si la app ya lo generó (OrdenRepositorio.nuevoId):
+  /// las fotos del hallazgo se suben antes, a la carpeta de esa orden.
+  /// 'evidencias' solo va si hay fotos, así crear una orden sin fotos no
+  /// depende de que exista la columna.
   Map<String, dynamic> toJson() => {
+        if (id.isNotEmpty) 'id': id,
+        if (evidencias.isNotEmpty) 'evidencias': evidenciasAJson(evidencias),
         'codigo': codigo,
         'planta_id': plantaId,
         'titulo': titulo,

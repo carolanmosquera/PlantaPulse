@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>PlantaPulse usa la cámara para tomar fotos de evidencia del trabajo de mantenimiento en los reportes de avance.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PlantaPulse accede a tus fotos para adjuntar evidencia del trabajo de mantenimiento a los reportes de avance.</string>
 </dict>
 </plist>

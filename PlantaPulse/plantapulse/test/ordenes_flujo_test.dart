@@ -18,6 +18,8 @@ void main() {
   late FakeEquipoRepository equipos;
   late FakeCategoriaRepository categorias;
   late FakeZonaRepository zonas;
+  late FakeReporteRepository reportes;
+  late FakeAlmacenamientoRepository almacen;
 
   const supervisor = UsuarioRef(uid: 'sup1', nombre: 'Laura Vega');
 
@@ -43,6 +45,8 @@ void main() {
     equipos = FakeEquipoRepository();
     categorias = FakeCategoriaRepository();
     zonas = FakeZonaRepository();
+    reportes = FakeReporteRepository();
+    almacen = FakeAlmacenamientoRepository();
 
     // Desordenadas a propósito: el repositorio las entrega por nombre
     categorias.categorias.addAll(const [
@@ -142,6 +146,8 @@ void main() {
       equipoRepository: equipos,
       categoriaRepositorio: categorias,
       zonaRepositorio: zonas,
+      reporteRepositorio: reportes,
+      almacenamientoRepositorio: almacen,
     ));
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
@@ -532,5 +538,136 @@ void main() {
     // Sin recargar: el cambio llega por el stream
     expect(ordenes.ordenes.single.asignadoAUid, 'tec1');
     expect(find.text('Luis Pérez'), findsOneWidget);
+  });
+
+  // ═══════════ Editar visible y eliminar ═══════════
+
+  // 21
+  probar('el supervisor ve el lápiz de editar en el detalle', (tester) async {
+    sembrar('o1', 'Cambio de rodamientos del motor');
+    await entrarComo(tester, 'sup1');
+    await tocar(tester, 'Cambio de rodamientos del motor');
+
+    // A la vista, no escondido en el menú de tres puntos
+    await tester.tap(find.byTooltip('Editar orden'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar orden'), findsOneWidget);   // título de la hoja
+    expect(find.text('Cambio de rodamientos del motor'), findsWidgets);
+  });
+
+  // 21b
+  probar('el técnico no ve acciones de edición en el detalle', (tester) async {
+    sembrar('o1', 'Cambio de rodamientos del motor');
+    await entrarComo(tester, 'tec1');
+    await tocar(tester, 'Cambio de rodamientos del motor');
+    expect(find.byTooltip('Editar orden'), findsNothing);
+    expect(find.byTooltip('Más acciones'), findsNothing);
+  });
+
+  // 22
+  probar('eliminar una orden pendiente la saca del feed y vuelve a él',
+      (tester) async {
+    sembrar('o1', 'Orden creada por error');
+    sembrar('o2', 'Orden que se queda', codigo: 'WO-2026-0002');
+    await entrarComo(tester, 'sup1');
+    await tocar(tester, 'Orden creada por error');
+
+    await tester.tap(find.byTooltip('Más acciones'));
+    await tester.pumpAndSettle();
+    await tocar(tester, 'Eliminar orden');
+
+    // Pide confirmación; cancelar no hace nada
+    expect(find.text('¿Eliminar la orden WO-2026-0001?'), findsOneWidget);
+    await tocar(tester, 'Cancelar');
+    expect(ordenes.ordenes.first.eliminada, isFalse);
+
+    await tester.tap(find.byTooltip('Más acciones'));
+    await tester.pumpAndSettle();
+    await tocar(tester, 'Eliminar orden');
+    await tocar(tester, 'Eliminar');
+
+    // De vuelta en el feed, sin la orden, y con el aviso
+    expect(find.text('PlantaPulse Feed'), findsOneWidget);
+    expect(find.text('Orden creada por error'), findsNothing);
+    expect(find.text('Orden que se queda'), findsOneWidget);
+    expect(find.text('Orden WO-2026-0001 eliminada'), findsOneWidget);
+
+    // No se borró la fila: queda marcada (historial, sin huérfanos)
+    expect(ordenes.ordenes, hasLength(2));
+    expect(ordenes.ordenes.first.eliminada, isTrue);
+  });
+
+  // 23
+  probar('una orden con trabajo no se puede eliminar', (tester) async {
+    sembrar('o1', 'Revisión ya empezada', estado: EstadoOrden.enProgreso);
+    sembrar('o2', 'Pendiente con reportes', codigo: 'WO-2026-0002');
+    ordenes.conDependientes.add('o2');
+    await entrarComo(tester, 'sup1');
+
+    // En progreso: ni siquiera se ofrece la opción
+    await tocar(tester, 'Revisión ya empezada');
+    await tester.tap(find.byTooltip('Más acciones'));
+    await tester.pumpAndSettle();
+    expect(find.text('Asignar técnico'), findsOneWidget);
+    expect(find.text('Eliminar orden'), findsNothing);
+    await tester.tapAt(const Offset(5, 5));            // cierra el menú
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.text('Revisión ya empezada').first)).pop();
+    await tester.pumpAndSettle();
+
+    // Pendiente pero con reportes: el servidor lo rechaza con el motivo,
+    // y la orden sigue ahí
+    await tocar(tester, 'Pendiente con reportes');
+    await tester.tap(find.byTooltip('Más acciones'));
+    await tester.pumpAndSettle();
+    await tocar(tester, 'Eliminar orden');
+    await tocar(tester, 'Eliminar');
+    expect(find.text('La orden tiene reportes de avance y no se puede eliminar.'),
+        findsOneWidget);
+    expect(find.text('Orden #WO-2026-0002'), findsOneWidget);   // sigue en el detalle
+    expect(ordenes.ordenes.every((o) => !o.eliminada), isTrue);
+  });
+
+  // 24
+  probar('"Editar orden" también reasigna el técnico', (tester) async {
+    sembrar('o1', 'Cambio de rodamientos del motor', asignadoA: 'tec1');
+    await entrarComo(tester, 'sup1');
+    await tocar(tester, 'Cambio de rodamientos del motor');
+    await tester.tap(find.byTooltip('Editar orden'));
+    await tester.pumpAndSettle();
+
+    // El campo muestra al responsable actual; se cambia por Ana
+    await tester.scrollUntilVisible(find.text('TÉCNICO RESPONSABLE'), 200,
+        scrollable: find.byType(Scrollable).last);
+    // 'tec1' (nombre que puso sembrar) sale también en el detalle de
+    // detrás: el último es el campo de la hoja
+    await tester.tap(find.text('tec1').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ana Ruiz').last);
+    await tester.pumpAndSettle();
+    await tocar(tester, 'GUARDAR');
+
+    expect(ordenes.ordenes.single.asignadoAUid, 'tec2');
+    expect(find.text('Ana Ruiz'), findsOneWidget);   // el detalle, por stream
+  });
+
+  // 25
+  probar('guardar "Editar orden" sin tocar el técnico no lo reasigna',
+      (tester) async {
+    sembrar('o1', 'Cambio de rodamientos del motor', asignadoA: 'tec1');
+    await entrarComo(tester, 'sup1');
+    await tocar(tester, 'Cambio de rodamientos del motor');
+    await tester.tap(find.byTooltip('Editar orden'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextField,
+        'Cambio de rodamientos del motor'), 'Cambio de rodamientos y sellos');
+    await tocar(tester, 'GUARDAR');
+
+    final orden = ordenes.ordenes.single;
+    expect(orden.titulo, 'Cambio de rodamientos y sellos');
+    // Sigue con el mismo responsable (el nombre que puso sembrar)
+    expect(orden.asignadoAUid, 'tec1');
+    expect(orden.asignadoA?.nombre, 'tec1');
   });
 }

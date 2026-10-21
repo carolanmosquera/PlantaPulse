@@ -2,6 +2,8 @@
 import 'package:equatable/equatable.dart';
 import '../../../../core/domain/entities/categoria.dart';
 import '../../../../core/domain/entities/equipo.dart';
+import '../../../../core/domain/entities/evidencia.dart';
+import '../../../../core/domain/entities/foto_pendiente.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
 
@@ -27,6 +29,18 @@ class CrearOrdenState extends Equatable {
   final Usuario? tecnico;
   final String observaciones;
 
+  /// Fotos del hallazgo (P2, "Evidencia y notas"). Máximo 4.
+  final List<FotoPendiente> fotos;
+
+  /// Progreso de la subida: "Subiendo [subiendo] de [totalSubir]".
+  final int subiendo;
+  final int totalSubir;
+
+  /// Id que la app reservó para la orden y con el que subió las fotos.
+  /// Se conserva entre reintentos: las fotos ya subidas están en la
+  /// carpeta de ESE id, y la orden no se puede crear con otro.
+  final String? ordenIdReservado;
+
   // Resultado
   final String? mensajeError;
   final String? ordenIdCreada;
@@ -45,6 +59,10 @@ class CrearOrdenState extends Equatable {
     required this.fechaLimite,
     this.tecnico,
     this.observaciones = '',
+    this.fotos = const [],
+    this.subiendo = 0,
+    this.totalSubir = 0,
+    this.ordenIdReservado,
     this.mensajeError,
     this.ordenIdCreada,
     this.codigoCreado,
@@ -62,6 +80,12 @@ class CrearOrdenState extends Equatable {
 
   bool get publicando => status == EstadoCrearOrden.publicando;
 
+  bool get puedeAgregarFoto => fotos.length < maxFotosPorReporte && !publicando;
+
+  String? get progresoTexto => publicando && totalSubir > 0
+      ? 'Subiendo foto $subiendo de $totalSubir'
+      : null;
+
   CrearOrdenState copyWith({
     EstadoCrearOrden? status,
     String? plantaId,
@@ -75,6 +99,10 @@ class CrearOrdenState extends Equatable {
     DateTime? fechaLimite,
     Usuario? tecnico,
     String? observaciones,
+    List<FotoPendiente>? fotos,
+    int? subiendo,
+    int? totalSubir,
+    String? ordenIdReservado,
     String? mensajeError,
     String? ordenIdCreada,
     String? codigoCreado,
@@ -97,6 +125,10 @@ class CrearOrdenState extends Equatable {
         fechaLimite: fechaLimite ?? this.fechaLimite,
         tecnico: limpiarTecnico ? null : (tecnico ?? this.tecnico),
         observaciones: observaciones ?? this.observaciones,
+        fotos: fotos ?? this.fotos,
+        subiendo: subiendo ?? this.subiendo,
+        totalSubir: totalSubir ?? this.totalSubir,
+        ordenIdReservado: ordenIdReservado ?? this.ordenIdReservado,
         mensajeError: limpiarError ? null : (mensajeError ?? this.mensajeError),
         ordenIdCreada: ordenIdCreada ?? this.ordenIdCreada,
         codigoCreado: codigoCreado ?? this.codigoCreado,
@@ -117,6 +149,10 @@ class CrearOrdenState extends Equatable {
         fechaLimite,
         tecnico?.uid,
         observaciones,
+        fotos,
+        subiendo,
+        totalSubir,
+        ordenIdReservado,
         mensajeError,
         ordenIdCreada,
         codigoCreado,

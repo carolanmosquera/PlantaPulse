@@ -16,7 +16,6 @@ class CrearOrdenP2Screen extends StatefulWidget {
 
 class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
   final _obsCtrl = TextEditingController();
-  final List<String> _fotos = ['hallazgo1'];   // visual: la subida es otra tajada
 
   static const _prioridades = ['BAJA', 'MEDIA', 'CRÍTICA'];
   static const _prioridadesModelo = [
@@ -78,6 +77,13 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
     bloc.add(tecnico == null
         ? const TecnicoQuitado()
         : TecnicoSeleccionado(tecnico));
+  }
+
+  /// Foto del hallazgo: cámara o galería, ya comprimida.
+  Future<void> _agregarFoto() async {
+    final bloc = context.read<CrearOrdenBloc>();
+    final foto = await elegirFoto(context);
+    if (foto != null) bloc.add(FotoHallazgoAgregada(foto.bytes, foto.extension));
   }
 
   void _publicar() {
@@ -204,12 +210,19 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
               SeccionHeader(
                 icono: Icons.photo_camera_outlined,
                 titulo: 'EVIDENCIA Y NOTAS',
-                accion: '${_fotos.length} Adjuntos',
+                accion: '${state.fotos.length}/$maxFotosPorReporte · OPCIONAL',
               ),
-              GridFotos(
-                urls: _fotos,
-                columnas: 2,
-                onAgregar: () => setState(() => _fotos.add('nueva')),
+              // Las fotos se suben al publicar, antes de crear la orden:
+              // si una falla, la orden no se crea
+              CuadriculaFotosLocales(
+                imagenes: [for (final f in state.fotos) f.bytes],
+                subidas: [for (final f in state.fotos) f.subida],
+                puedeAgregar: state.puedeAgregarFoto,
+                bloqueada: state.publicando,
+                onAgregar: _agregarFoto,
+                onQuitar: (i) => context
+                    .read<CrearOrdenBloc>()
+                    .add(FotoHallazgoQuitada(state.fotos[i].id)),
               ),
               const SizedBox(height: 16),
 
@@ -235,7 +248,8 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
 
               const SizedBox(height: 20),
               BotonAncho(
-                texto: state.publicando ? 'PUBLICANDO...' : 'PUBLICAR ORDEN',
+                texto: state.progresoTexto ??
+                    (state.publicando ? 'PUBLICANDO...' : 'PUBLICAR ORDEN'),
                 icono: Icons.arrow_forward,
                 onTap: state.paso2Valido && !state.publicando ? _publicar : null,
               ),

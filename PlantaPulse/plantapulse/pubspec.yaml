@@ -33,6 +33,7 @@ dependencies:
   supabase_flutter: ^2.8.0  # auth, base de datos y tiempo real
   http: ^1.2.0          # para subir a Cloudinary
   image_picker: ^1.1.2  # para tomar las fotos
+  uuid: ^4.5.1          # nombre de cada foto en Storage (no confiar en que llegue de otra dependencia)
   flutter_bloc: ^9.1.1  # manejo de estado (AuthBloc)
   equatable: ^2.0.7     # comparación de estados y eventos
 

@@ -2,9 +2,13 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/domain/entities/categoria.dart';
 import '../../../../core/domain/entities/equipo.dart';
+import '../../../../core/domain/entities/evidencia.dart';
+import '../../../../core/domain/entities/foto_pendiente.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
 import '../../../../core/domain/usecases/catalogos.dart';
+import '../../../../core/domain/usecases/evidencias.dart';
+import '../../../../core/errors/fallos.dart';
 import '../../domain/usecases/crear_orden_casos.dart';
 import 'crear_orden_event.dart';
 import 'crear_orden_state.dart';
@@ -24,12 +28,17 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
   final ListarEquiposDePlanta _listarEquipos;
   final ListarTecnicosDePlanta _listarTecnicos;
   final PublicarOrden _publicarOrden;
+  final NuevoIdDeOrden _nuevoIdDeOrden;
+  final SubirEvidencia _subirEvidencia;
+  int _siguienteFoto = 0;
 
   CrearOrdenBloc({
     required this._listarCategorias,
     required this._listarEquipos,
     required this._listarTecnicos,
     required this._publicarOrden,
+    required this._nuevoIdDeOrden,
+    required this._subirEvidencia,
   }) : super(CrearOrdenState.inicial()) {
     on<CrearOrdenIniciada>(_alIniciar);
     on<DescripcionCambiada>(
@@ -48,6 +57,22 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
         (e, emit) => emit(state.copyWith(limpiarTecnico: true)));
     on<CategoriaAgregada>(_alAgregarCategoria);
     on<EquipoAgregado>(_alAgregarEquipo);
+    on<EquipoActualizado>(_alActualizarEquipo);
+    on<EquipoDadoDeBaja>(_alDarDeBajaEquipo);
+    on<FotoHallazgoAgregada>((e, emit) {
+      if (!state.puedeAgregarFoto) return;       // tope de 4, como en la base
+      emit(state.copyWith(fotos: [
+        ...state.fotos,
+        FotoPendiente(id: _siguienteFoto++, bytes: e.bytes, extension: e.extension),
+      ]));
+    });
+    // Quitar una foto ya subida (tras un fallo) la deja huérfana en el
+    // bucket: no hay política para borrar evidencias.
+    on<FotoHallazgoQuitada>((e, emit) {
+      if (state.publicando) return;
+      emit(state.copyWith(
+          fotos: state.fotos.where((f) => f.id != e.id).toList()));
+    });
     on<ObservacionesCambiadas>(
         (e, emit) => emit(state.copyWith(observaciones: e.texto)));
     on<OrdenPublicada>(_alPublicar);
@@ -105,6 +130,23 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     emit(state.copyWith(equipos: lista, equipo: e.equipo));
   }
 
+  void _alActualizarEquipo(EquipoActualizado e, Emitter<CrearOrdenState> emit) {
+    final lista = [
+      for (final x in state.equipos) x.id == e.equipo.id ? e.equipo : x,
+    ]..sort(_porNombre<Equipo>((x) => x.nombre));
+    emit(state.copyWith(
+      equipos: lista,
+      equipo: state.equipo?.id == e.equipo.id ? e.equipo : null,
+    ));
+  }
+
+  void _alDarDeBajaEquipo(EquipoDadoDeBaja e, Emitter<CrearOrdenState> emit) {
+    emit(state.copyWith(
+      equipos: state.equipos.where((x) => x.id != e.equipoId).toList(),
+      limpiarEquipo: state.equipo?.id == e.equipoId,
+    ));
+  }
+
   /// Mismo orden que trae la base (por nombre, sin distinguir mayúsculas):
   /// así lo recién creado queda donde estará al reabrir el asistente.
   static int Function(T, T) _porNombre<T>(String Function(T) nombre) =>
@@ -118,8 +160,51 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     final tecnico = state.tecnico;      // null = la orden nace sin asignar
     if (!state.paso2Valido || equipo == null) return;
 
-    emit(state.copyWith(status: EstadoCrearOrden.publicando, limpiarError: true));
+    // El id se reserva una vez y se reutiliza en cada reintento: las fotos
+    // ya subidas están en la carpeta de ESE id
+    final ordenId = state.ordenIdReservado ?? _nuevoIdDeOrden.ejecutar();
+    final fotos = [...state.fotos];
+    emit(state.copyWith(
+      status: EstadoCrearOrden.publicando,
+      ordenIdReservado: ordenId,
+      subiendo: 0,
+      totalSubir: fotos.where((f) => !f.subida).length,
+      limpiarError: true,
+    ));
 
+    // ── Fase 1: subir las fotos del hallazgo ──
+    // Si una falla, la orden NO se crea: no queda una orden a medias.
+    var hechas = 0;
+    for (var i = 0; i < fotos.length; i++) {
+      final foto = fotos[i];
+      if (foto.subida) continue;
+      emit(state.copyWith(subiendo: hechas + 1));
+      try {
+        final ruta = await _subirEvidencia.ejecutar(
+          plantaId: state.plantaId,
+          ordenId: ordenId,
+          bytes: foto.bytes,
+          extension: foto.extension,
+        );
+        fotos[i] = foto.subidaA(ruta, DateTime.now());
+        hechas++;
+        emit(state.copyWith(fotos: List.of(fotos)));
+      } catch (err) {
+        emit(state.copyWith(
+          status: EstadoCrearOrden.error,
+          fotos: List.of(fotos),
+          mensajeError: 'La orden no se publicó: no se pudo subir la foto '
+              '${i + 1}. ${FalloApp.mensajeDe(err)}',
+        ));
+        return;
+      }
+    }
+    final evidencias = [
+      for (final f in fotos)
+        Evidencia(ruta: f.ruta!, subidaEn: f.subidaEn!, autorUid: e.creadoPor.uid),
+    ];
+
+    // ── Fase 2: crear la orden, ya con sus fotos ──
     final ahora = DateTime.now();
     final sufijo =
         (ahora.millisecondsSinceEpoch % 10000).toString().padLeft(4, '0');
@@ -127,7 +212,7 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     final f = state.fechaLimite;
 
     final orden = Orden(
-      id: '',                              // lo genera la base de datos
+      id: ordenId,                         // reservado: sus fotos ya están en su carpeta
       codigo: codigo,
       plantaId: state.plantaId,
       titulo: state.descripcion.trim(),
@@ -149,7 +234,10 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
       createdAt: ahora,                    // el repositorio pone la del servidor
       fechaLimite: DateTime(f.year, f.month, f.day, 23, 59),
       ultimaActividad: ahora,
-      portadaUrl: null,
+      evidencias: evidencias,
+      // Portada = la última foto subida (ruta, no URL). Los reportes la
+      // irán reemplazando con la suya desde el servidor.
+      portadaUrl: evidencias.isEmpty ? null : evidencias.last.ruta,
       totalReportes: 0,
       totalAlertas: 0,
     );
@@ -161,10 +249,13 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
         ordenIdCreada: id,
         codigoCreado: codigo,
       ));
-    } catch (_) {
+    } catch (err) {
+      // Las fotos ya subidas conservan su ruta (y el id reservado): el
+      // reintento solo vuelve a intentar crear la orden. Si se abandona,
+      // quedan huérfanas en el bucket (costo aceptado, como en reportes).
       emit(state.copyWith(
         status: EstadoCrearOrden.error,
-        mensajeError: 'No se pudo publicar la orden. Intenta de nuevo.',
+        mensajeError: 'No se pudo publicar la orden. ${FalloApp.mensajeDe(err)}',
       ));
     }
   }

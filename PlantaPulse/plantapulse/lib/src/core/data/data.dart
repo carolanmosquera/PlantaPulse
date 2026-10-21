@@ -13,5 +13,6 @@ export 'models/planta_modelo.dart';
 export 'models/reporte_modelo.dart';
 export 'models/usuario_modelo.dart';
 export 'planta_repositorio_supabase.dart';
+export 'repositories/almacenamiento_repositorio_supabase.dart';
 export 'repositories/categoria_repositorio_supabase.dart';
 export 'repositories/zona_repositorio_supabase.dart';

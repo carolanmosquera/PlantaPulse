@@ -6,6 +6,7 @@ import '../../domain/usecases/crear_orden_casos.dart';
 import '../bloc/crear_orden_bloc.dart';
 import '../widgets/alta_categoria_hoja.dart';
 import '../widgets/alta_equipo_hoja.dart';
+import '../widgets/detalle_equipo_hoja.dart';
 import 'crear_orden_p2_screen.dart';
 
 /// Primer paso del asistente. Crea el CrearOrdenBloc, que vive solo
@@ -22,6 +23,8 @@ class CrearOrdenP1Screen extends StatelessWidget {
         listarEquipos: context.read<ListarEquiposDePlanta>(),
         listarTecnicos: context.read<ListarTecnicosDePlanta>(),
         publicarOrden: context.read<PublicarOrden>(),
+        nuevoIdDeOrden: context.read<NuevoIdDeOrden>(),
+        subirEvidencia: context.read<SubirEvidencia>(),
       )..add(CrearOrdenIniciada(plantaId)),
       child: const _CrearOrdenP1Vista(),
     );
@@ -37,6 +40,12 @@ class _CrearOrdenP1Vista extends StatefulWidget {
 class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
   final _descCtrl = TextEditingController();
 
+  // La lista de equipos se queda en una ventana de 5 filas con su propio
+  // scroll: con muchos equipos ya no empuja todo lo demás hacia abajo.
+  static const _altoFila = 76.0;
+  static const _filasVisibles = 5;
+  final _listaEquipos = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +57,7 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
   @override
   void dispose() {
     _descCtrl.dispose();
+    _listaEquipos.dispose();
     super.dispose();
   }
 
@@ -118,9 +128,34 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
   static String _subtituloEquipo(Equipo e) =>
       e.serial.isEmpty ? e.zonaNombre : '${e.zonaNombre} • ${e.serial}';
 
+  void _mostrarEquipoElegido(CrearOrdenState state) {
+    final i = state.equipos.indexWhere((e) => e.id == state.equipo?.id);
+    if (i < 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_listaEquipos.hasClients) return;
+      final destino = (i * _altoFila - _altoFila)    // una fila de contexto arriba
+          .clamp(0.0, _listaEquipos.position.maxScrollExtent);
+      _listaEquipos.animateTo(destino,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    });
+  }
+
+  /// La ficha del equipo, con editar y dar de baja.
+  void _verEquipo(Equipo equipo) {
+    final bloc = context.read<CrearOrdenBloc>();
+    DetalleEquipoHoja.mostrar(
+      context,
+      equipo: equipo,
+      alEditar: (e) => bloc.add(EquipoActualizado(e)),
+      alDarDeBaja: (id) => bloc.add(EquipoDadoDeBaja(id)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<CrearOrdenBloc, CrearOrdenState>(
+    return BlocConsumer<CrearOrdenBloc, CrearOrdenState>(
+      listenWhen: (antes, ahora) => antes.equipo?.id != ahora.equipo?.id,
+      listener: (context, state) => _mostrarEquipoElegido(state),
       builder: (context, state) {
         final largo = state.descripcion.trim().length;
         final cargando = state.status == EstadoCrearOrden.cargando;
@@ -241,14 +276,32 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
                   color: state.mensajeError != null
                       ? AppColors.rojo : AppColors.textoGris,
                 )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: state.equipos.length,
-                  itemBuilder: (context, i) =>
-                      _equipo(state.equipos[i], state.equipo),
+              else ...[
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                      maxHeight: _altoFila * _filasVisibles),
+                  child: Scrollbar(
+                    controller: _listaEquipos,
+                    thumbVisibility: state.equipos.length > _filasVisibles,
+                    child: ListView.builder(
+                      controller: _listaEquipos,
+                      shrinkWrap: true,       // con menos de 5 no deja hueco
+                      padding: EdgeInsets.zero,
+                      itemCount: state.equipos.length,
+                      itemBuilder: (context, i) =>
+                          _equipo(state.equipos[i], state.equipo),
+                    ),
+                  ),
                 ),
+                if (state.equipos.length > _filasVisibles)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${state.equipos.length} equipos · desliza la lista o '
+                      'usa BUSCAR TODOS',
+                      style: AppText.gris),
+                  ),
+              ],
 
               const SizedBox(height: 20),
               const Center(child: Text('PLANTAPULSE INDUSTRIAL CORE V3.4',
@@ -282,10 +335,28 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
       titulo: equipo.nombre,
       subtitulo: _subtituloEquipo(equipo),
       color: seleccionado ? AppColors.azul : AppColors.textoGris,
-      trailing: Icon(
-        seleccionado ? Icons.check_circle : Icons.chevron_right,
-        color: seleccionado ? AppColors.verde : AppColors.textoGris,
-        size: seleccionado ? 22 : 20,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // La ficha del equipo: ver, editar o dar de baja
+          InkWell(
+            onTap: () => _verEquipo(equipo),
+            customBorder: const CircleBorder(),
+            child: Tooltip(
+              message: 'Ver detalle del equipo',
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.info_outline, size: 20,
+                    color: AppColors.textoGris),
+              ),
+            ),
+          ),
+          Icon(
+            seleccionado ? Icons.check_circle : Icons.chevron_right,
+            color: seleccionado ? AppColors.verde : AppColors.textoGris,
+            size: seleccionado ? 22 : 20,
+          ),
+        ],
       ),
       onTap: () =>
           context.read<CrearOrdenBloc>().add(EquipoSeleccionado(equipo)),
