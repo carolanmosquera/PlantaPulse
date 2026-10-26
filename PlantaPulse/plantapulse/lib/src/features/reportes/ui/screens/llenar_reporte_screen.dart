@@ -68,10 +68,24 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
     super.dispose();
   }
 
+  /// La hoja pregunta de dónde; la foto llega por el caso de uso. Si la
+  /// cámara falla (p. ej. sin permiso), se avisa en vez de no hacer nada.
   Future<void> _agregarFoto() async {
     final bloc = context.read<LlenarReporteBloc>();
-    final foto = await elegirFoto(context);
-    if (foto != null) bloc.add(FotoAgregada(foto.bytes, foto.extension));
+    final obtener = context.read<ObtenerFoto>();
+    final avisos = ScaffoldMessenger.of(context);
+    final origen = await elegirOrigenFoto(context,
+        camara: OrigenFoto.camara, galeria: OrigenFoto.galeria);
+    if (origen == null) return;
+    try {
+      final foto = await obtener.ejecutar(origen);
+      if (foto != null) bloc.add(FotoAgregada(foto.bytes, foto.extension));
+    } catch (e) {
+      avisos.showSnackBar(SnackBar(
+        backgroundColor: AppColors.rojo,
+        content: Text(FalloApp.mensajeDe(e)),
+      ));
+    }
   }
 
   void _publicar() {
@@ -224,7 +238,7 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
   Widget _cuadriculaFotos(LlenarReporteState state) {
     final bloc = context.read<LlenarReporteBloc>();
     return CuadriculaFotosLocales(
-      imagenes: [for (final f in state.fotos) f.bytes],
+      imagenes: [for (final f in state.fotos) f.foto.bytes],
       subidas: [for (final f in state.fotos) f.subida],
       puedeAgregar: state.puedeAgregarFoto,
       bloqueada: state.publicando,

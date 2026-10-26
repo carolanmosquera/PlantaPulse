@@ -5,6 +5,7 @@ export 'entities/alerta_critica.dart';
 export 'entities/categoria.dart';
 export 'entities/equipo.dart';
 export 'entities/evidencia.dart';
+export 'entities/foto_elegida.dart';
 export 'entities/foto_pendiente.dart';
 export 'entities/novedad.dart';
 export 'entities/orden.dart';

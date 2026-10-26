@@ -79,11 +79,24 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
         : TecnicoSeleccionado(tecnico));
   }
 
-  /// Foto del hallazgo: cámara o galería, ya comprimida.
+  /// La hoja pregunta de dónde; la foto llega por el caso de uso. Si la
+  /// cámara falla (p. ej. sin permiso), se avisa en vez de no hacer nada.
   Future<void> _agregarFoto() async {
     final bloc = context.read<CrearOrdenBloc>();
-    final foto = await elegirFoto(context);
-    if (foto != null) bloc.add(FotoHallazgoAgregada(foto.bytes, foto.extension));
+    final obtener = context.read<ObtenerFoto>();
+    final avisos = ScaffoldMessenger.of(context);
+    final origen = await elegirOrigenFoto(context,
+        camara: OrigenFoto.camara, galeria: OrigenFoto.galeria);
+    if (origen == null) return;
+    try {
+      final foto = await obtener.ejecutar(origen);
+      if (foto != null) bloc.add(FotoHallazgoAgregada(foto.bytes, foto.extension));
+    } catch (e) {
+      avisos.showSnackBar(SnackBar(
+        backgroundColor: AppColors.rojo,
+        content: Text(FalloApp.mensajeDe(e)),
+      ));
+    }
   }
 
   void _publicar() {
@@ -215,7 +228,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
               // Las fotos se suben al publicar, antes de crear la orden:
               // si una falla, la orden no se crea
               CuadriculaFotosLocales(
-                imagenes: [for (final f in state.fotos) f.bytes],
+                imagenes: [for (final f in state.fotos) f.foto.bytes],
                 subidas: [for (final f in state.fotos) f.subida],
                 puedeAgregar: state.puedeAgregarFoto,
                 bloqueada: state.publicando,

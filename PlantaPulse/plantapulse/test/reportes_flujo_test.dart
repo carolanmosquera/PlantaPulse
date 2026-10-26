@@ -13,10 +13,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:plantapulse/main.dart';
 import 'package:plantapulse/src/core/core.dart';
-import 'package:plantapulse/src/core/data/models/evidencia_modelo.dart';
-import 'package:plantapulse/src/core/data/models/reporte_modelo.dart';
-import 'package:plantapulse/src/core/data/repositories/almacenamiento_repositorio_supabase.dart';
-import 'package:plantapulse/src/features/ordenes/data/repositories/orden_repositorio_supabase.dart';
+import 'package:plantapulse/src/core/data/data.dart';
+import 'package:plantapulse/src/features/ordenes/data/datasources/orden_fuente_supabase.dart';
+import 'package:plantapulse/src/features/ordenes/data/repositories/orden_repositorio_impl.dart';
 import 'package:plantapulse/src/features/reportes/reportes.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -88,7 +87,10 @@ void main() {
         jsonEncode({'Key': 'evidencias/lo-que-diga-storage', 'Id': 'x'}), 200,
         headers: {'content-type': 'application/json'}));
     addTearDown(cliente.dispose);
-    final repo = AlmacenamientoRepositorioSupabase(cliente: cliente);
+    final repo = AlmacenamientoRepositorioImpl(
+      dispositivo: FotoFuenteDispositivo(),
+      almacen: AlmacenamientoFuenteSupabase(cliente: cliente),
+    );
 
     final ruta = await repo.subir(
       plantaId: 'planta_norte',
@@ -185,7 +187,7 @@ void main() {
     final peticiones = <http.Request>[];
     final cliente = clienteFalso(peticiones, (_) => http.Response('', 204));
     addTearDown(cliente.dispose);
-    final repo = OrdenRepositorioSupabase(cliente: cliente);
+    final repo = OrdenRepositorioImpl(OrdenFuenteSupabase(cliente: cliente));
 
     const supervisor = UsuarioRef(uid: 'sup1', nombre: 'Laura Vega');
     final antes = DateTime.now().toUtc();

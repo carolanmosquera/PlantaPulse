@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/domain/entities/categoria.dart';
 import '../../../../core/domain/entities/equipo.dart';
 import '../../../../core/domain/entities/evidencia.dart';
+import '../../../../core/domain/entities/foto_elegida.dart';
 import '../../../../core/domain/entities/foto_pendiente.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
@@ -63,7 +64,10 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
       if (!state.puedeAgregarFoto) return;       // tope de 30, como en la base
       emit(state.copyWith(fotos: [
         ...state.fotos,
-        FotoPendiente(id: _siguienteFoto++, bytes: e.bytes, extension: e.extension),
+        FotoPendiente(
+          id: _siguienteFoto++,
+          foto: FotoElegida(bytes: e.bytes, extension: e.extension),
+        ),
       ]));
     });
     // Quitar una foto ya subida (tras un fallo) la deja huérfana en el
@@ -183,8 +187,8 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
         final ruta = await _subirEvidencia.ejecutar(
           plantaId: state.plantaId,
           ordenId: ordenId,
-          bytes: foto.bytes,
-          extension: foto.extension,
+          bytes: foto.foto.bytes,
+          extension: foto.foto.extension,
         );
         fotos[i] = foto.subidaA(ruta, DateTime.now());
         hechas++;

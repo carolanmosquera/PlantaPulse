@@ -1,6 +1,7 @@
 // lib/src/features/reportes/ui/bloc/llenar_reporte_bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/domain/entities/evidencia.dart';
+import '../../../../core/domain/entities/foto_elegida.dart';
 import '../../../../core/domain/entities/reporte.dart';
 import '../../../../core/domain/usecases/evidencias.dart';
 import '../../../../core/errors/fallos.dart';
@@ -49,7 +50,10 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
     if (!state.puedeAgregarFoto) return;        // el tope de 30 es de la base
     emit(state.copyWith(fotos: [
       ...state.fotos,
-      FotoPendiente(id: _siguienteFoto++, bytes: e.bytes, extension: e.extension),
+      FotoPendiente(
+          id: _siguienteFoto++,
+          foto: FotoElegida(bytes: e.bytes, extension: e.extension),
+        ),
     ]));
   }
 
@@ -86,8 +90,8 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
         final ruta = await _subirEvidencia.ejecutar(
           plantaId: plantaId,
           ordenId: ordenId,
-          bytes: foto.bytes,
-          extension: foto.extension,
+          bytes: foto.foto.bytes,
+          extension: foto.foto.extension,
         );
         fotos[i] = foto.subidaA(ruta, DateTime.now());
         hechas++;

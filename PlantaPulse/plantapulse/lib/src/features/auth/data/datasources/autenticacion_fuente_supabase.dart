@@ -1,44 +1,50 @@
-// lib/src/features/auth/data/repositories/autenticacion_repositorio_supabase.dart
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+// lib/src/features/auth/data/datasources/autenticacion_fuente_supabase.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/data/fallos_supabase.dart';
 import '../../../../core/errors/fallos.dart';
-import '../../domain/repositories/autenticacion_repositorio.dart';
-import '../datasources/autenticacion_datasource_supabase.dart';
 
-/// Implementa el contrato con Supabase Auth y traduce sus excepciones a
-/// FalloAutenticacion / FalloRed: el dominio nunca ve un AuthException.
-class AutenticacionRepositorioSupabase implements AutenticacionRepositorio {
-  final AutenticacionDatasourceSupabase _datasource;
+/// El único lugar que habla con Supabase Auth: cuentas, contraseñas,
+/// sesión. No sabe nada de la tabla 'usuarios' ni del modelo Usuario.
+///
+/// Traduce sus excepciones a FalloAutenticacion / FalloRed: hacia arriba
+/// nunca sale un AuthException. Devuelve datos crudos (uid, correo...),
+/// no entidades.
+class AutenticacionFuenteSupabase {
+  final GoTrueClient _auth;
 
-  AutenticacionRepositorioSupabase({AutenticacionDatasourceSupabase? datasource})
-      : _datasource = datasource ?? AutenticacionDatasourceSupabase();
+  AutenticacionFuenteSupabase({GoTrueClient? auth})
+      : _auth = auth ?? Supabase.instance.client.auth;
 
-  @override
-  String? get uidActual => _datasource.usuarioActual?.id;
+  /// supabase_flutter guarda la sesión en el teléfono: al reabrir la app
+  /// ya está aquí, igual que antes.
+  String? get uidActual => _auth.currentUser?.id;
 
-  @override
-  CuentaAuth? get cuentaActual {
-    final u = _datasource.usuarioActual;
+  /// Los datos de la cuenta conectada, o null si no hay nadie.
+  ({String uid, String? email, String? nombre})? get cuentaActual {
+    final u = _auth.currentUser;
     if (u == null) return null;
-    return CuentaAuth(
+    return (
       uid: u.id,
       email: u.email,
       nombre: u.userMetadata?['nombre'] as String?,
     );
   }
 
-  @override
-  bool get haySesion => _datasource.usuarioActual != null;
-
-  @override
+  /// Emite el uid cada vez que alguien entra, sale (null) o se renueva el
+  /// token.
   Stream<String?> get cambiosDeSesion =>
-      _datasource.cambiosDeSesion.map((e) => e.session?.user.id);
+      _auth.onAuthStateChange.map((e) => e.session?.user.id);
 
-  @override
-  Future<String> registrar({required String email, required String password}) =>
+  /// Crea la cuenta y devuelve el uid. Con "Confirm email" desactivado en
+  /// el panel, signUp deja la sesión iniciada: sin ella no se podría
+  /// escribir el perfil.
+  Future<String> registrar({
+    required String email,
+    required String password,
+  }) =>
       _traducir(() async {
         final res =
-            await _datasource.registrar(email: email, password: password);
+            await _auth.signUp(email: email.trim(), password: password);
         final usuario = res.user;
         // Sin sesión el perfil no se puede escribir (RLS exige auth.uid()).
         // Pasa si "Confirm email" está activo en el panel de Supabase.
@@ -50,19 +56,20 @@ class AutenticacionRepositorioSupabase implements AutenticacionRepositorio {
         return usuario.id;
       });
 
-  @override
-  Future<String> entrar({required String email, required String password}) =>
+  Future<String> entrar({
+    required String email,
+    required String password,
+  }) =>
       _traducir(() async {
-        final res = await _datasource.entrar(email: email, password: password);
+        final res = await _auth.signInWithPassword(
+            email: email.trim(), password: password);
         return res.user!.id;
       });
 
-  @override
-  Future<void> salir() => _traducir(_datasource.salir);
+  Future<void> salir() => _traducir(_auth.signOut);
 
-  @override
   Future<void> enviarCorreoDeRecuperacion(String email) =>
-      _traducir(() => _datasource.enviarCorreoDeRecuperacion(email));
+      _traducir(() => _auth.resetPasswordForEmail(email.trim()));
 
   Future<T> _traducir<T>(Future<T> Function() operacion) async {
     try {

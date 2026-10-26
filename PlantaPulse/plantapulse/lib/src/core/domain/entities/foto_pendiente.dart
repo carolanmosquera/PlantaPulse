@@ -1,23 +1,22 @@
 // lib/src/core/domain/entities/foto_pendiente.dart
-// dart:typed_data es del SDK de Dart, no de Flutter.
-import 'dart:typed_data';
+import 'foto_elegida.dart';
 
-/// Una foto tomada en el teléfono que todavía puede no estar subida.
+/// Una foto elegida en el teléfono que todavía puede no estar subida.
 /// Mientras no tenga ruta vive solo en memoria; al subirse guarda la ruta
 /// y la hora, y un reintento ya no la vuelve a subir.
 ///
+/// La foto en sí es una [FotoElegida]; esto añade lo que necesita la
+/// interfaz: un id local y el estado de subida.
 /// La usan el reporte de avance y el paso 2 de crear orden.
 class FotoPendiente {
   final int id;               // clave local, para quitarla sin confundirla
-  final Uint8List bytes;
-  final String extension;
+  final FotoElegida foto;
   final String? ruta;
   final DateTime? subidaEn;
 
   const FotoPendiente({
     required this.id,
-    required this.bytes,
-    required this.extension,
+    required this.foto,
     this.ruta,
     this.subidaEn,
   });
@@ -26,8 +25,7 @@ class FotoPendiente {
 
   FotoPendiente subidaA(String ruta, DateTime cuando) => FotoPendiente(
         id: id,
-        bytes: bytes,
-        extension: extension,
+        foto: foto,
         ruta: ruta,
         subidaEn: cuando,
       );

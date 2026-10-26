@@ -3,6 +3,7 @@
 // de una orden, subir fotos y pintarlas. Los usan ordenes, reportes y
 // crear_orden.
 import 'dart:typed_data';
+import '../entities/foto_elegida.dart';
 import '../entities/reporte.dart';
 import '../repositories/almacenamiento_repositorio.dart';
 import '../repositories/reporte_repositorio.dart';
@@ -15,6 +16,16 @@ class ObservarReportesDeOrden {
 
   Stream<List<Reporte>> ejecutar(String ordenId) =>
       _reportes.deLaOrden(ordenId);
+}
+
+/// Toma una foto con la cámara o la elige de la galería. null si se canceló.
+class ObtenerFoto {
+  final AlmacenamientoRepositorio _almacenamiento;
+
+  const ObtenerFoto(this._almacenamiento);
+
+  Future<FotoElegida?> ejecutar(OrigenFoto origen) =>
+      _almacenamiento.obtenerFoto(origen);
 }
 
 /// Sube una foto y devuelve su RUTA (no una URL).

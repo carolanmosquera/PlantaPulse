@@ -11,15 +11,19 @@ import 'src/features/perfil/perfil.dart';
 import 'src/features/reportes/reportes.dart';
 
 // Implementaciones concretas: main.dart es el ÚNICO archivo que las conoce.
-import 'src/core/data/planta_repositorio_supabase.dart';
-import 'src/core/data/repositories/almacenamiento_repositorio_supabase.dart';
-import 'src/core/data/repositories/categoria_repositorio_supabase.dart';
-import 'src/core/data/repositories/zona_repositorio_supabase.dart';
-import 'src/features/auth/data/repositories/autenticacion_repositorio_supabase.dart';
-import 'src/features/auth/data/repositories/usuario_repositorio_supabase.dart';
-import 'src/features/crear_orden/data/repositories/equipo_repositorio_supabase.dart';
-import 'src/features/ordenes/data/repositories/orden_repositorio_supabase.dart';
-import 'src/features/reportes/data/repositories/reporte_repositorio_supabase.dart';
+// Cada repositorio (Impl) recibe la fuente que habla con el sistema
+// externo; la tecnología solo aparece en las fuentes.
+import 'src/core/data/data.dart';
+import 'src/features/auth/data/datasources/autenticacion_fuente_supabase.dart';
+import 'src/features/auth/data/datasources/usuario_fuente_supabase.dart';
+import 'src/features/auth/data/repositories/autenticacion_repositorio_impl.dart';
+import 'src/features/auth/data/repositories/usuario_repositorio_impl.dart';
+import 'src/features/crear_orden/data/datasources/equipo_fuente_supabase.dart';
+import 'src/features/crear_orden/data/repositories/equipo_repositorio_impl.dart';
+import 'src/features/ordenes/data/datasources/orden_fuente_supabase.dart';
+import 'src/features/ordenes/data/repositories/orden_repositorio_impl.dart';
+import 'src/features/reportes/data/datasources/reporte_fuente_supabase.dart';
+import 'src/features/reportes/data/repositories/reporte_repositorio_impl.dart';
 
 // Proyecto de Supabase. La clave es la PUBLISHABLE: está pensada para ir
 // en el cliente, y lo que protege los datos es RLS (supabase/esquema.sql).
@@ -45,7 +49,7 @@ Future<void> main() async {
 
 class PlantaPulseApp extends StatelessWidget {
   /// Solo para pruebas: permiten inyectar versiones falsas de los
-  /// contratos. En la app real son null y se crean las de Supabase.
+  /// contratos. En la app real son null y se crean las de verdad (Impl + fuente).
   final SesionBloc? authBloc;
   final AutenticacionRepositorio? autenticacionRepositorio;
   final UsuarioRepositorio? usuarioRepository;
@@ -86,24 +90,36 @@ class PlantaPulseApp extends StatelessWidget {
       providers: [
         // ── Repositorios (contratos del dominio) ──
         RepositoryProvider<UsuarioRepositorio>(
-            create: (_) => usuarioRepository ?? UsuarioRepositorioSupabase()),
+            create: (_) => usuarioRepository ??
+                UsuarioRepositorioImpl(UsuarioFuenteSupabase())),
         RepositoryProvider<PlantaRepositorio>(
-            create: (_) => plantaRepository ?? PlantaRepositorioSupabase()),
+            create: (_) => plantaRepository ??
+                PlantaRepositorioImpl(PlantaFuenteSupabase())),
         RepositoryProvider<OrdenRepositorio>(
-            create: (_) => ordenRepository ?? OrdenRepositorioSupabase()),
+            create: (_) => ordenRepository ??
+                OrdenRepositorioImpl(OrdenFuenteSupabase())),
         RepositoryProvider<EquipoRepositorio>(
-            create: (_) => equipoRepository ?? EquipoRepositorioSupabase()),
+            create: (_) => equipoRepository ??
+                EquipoRepositorioImpl(EquipoFuenteSupabase())),
         RepositoryProvider<CategoriaRepositorio>(
             create: (_) =>
-                categoriaRepositorio ?? CategoriaRepositorioSupabase()),
+                categoriaRepositorio ??
+                CategoriaRepositorioImpl(CategoriaFuenteSupabase())),
         RepositoryProvider<ZonaRepositorio>(
-            create: (_) => zonaRepositorio ?? ZonaRepositorioSupabase()),
+            create: (_) => zonaRepositorio ??
+                ZonaRepositorioImpl(ZonaFuenteSupabase())),
         RepositoryProvider<ReporteRepositorio>(
             create: (_) =>
-                reporteRepositorio ?? ReporteRepositorioSupabase()),
+                reporteRepositorio ??
+                ReporteRepositorioImpl(ReporteFuenteSupabase())),
         RepositoryProvider<AlmacenamientoRepositorio>(
             create: (_) =>
-                almacenamientoRepositorio ?? AlmacenamientoRepositorioSupabase()),
+                almacenamientoRepositorio ??
+                // Dos fuentes: la cámara del teléfono y Supabase Storage
+                AlmacenamientoRepositorioImpl(
+                  dispositivo: FotoFuenteDispositivo(),
+                  almacen: AlmacenamientoFuenteSupabase(),
+                )),
 
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
@@ -144,6 +160,8 @@ class PlantaPulseApp extends StatelessWidget {
                 ObservarReportesDeOrden(c.read<ReporteRepositorio>())),
         RepositoryProvider(
             create: (c) => UrlDeEvidencia(c.read<AlmacenamientoRepositorio>())),
+        RepositoryProvider(
+            create: (c) => ObtenerFoto(c.read<AlmacenamientoRepositorio>())),
         RepositoryProvider(
             create: (c) => SubirEvidencia(c.read<AlmacenamientoRepositorio>())),
         RepositoryProvider(
@@ -227,7 +245,8 @@ class PlantaPulseApp extends StatelessWidget {
 
   /// La cadena de autenticación: repositorio → casos de uso → Bloc.
   AuthBloc _crearAuthBloc(UsuarioRepositorio usuarios) {
-    final auth = autenticacionRepositorio ?? AutenticacionRepositorioSupabase();
+    final auth = autenticacionRepositorio ??
+        AutenticacionRepositorioImpl(AutenticacionFuenteSupabase());
     return AuthBloc(
       comprobarSesion: ComprobarSesion(auth, usuarios),
       iniciarSesion: IniciarSesion(auth, usuarios),

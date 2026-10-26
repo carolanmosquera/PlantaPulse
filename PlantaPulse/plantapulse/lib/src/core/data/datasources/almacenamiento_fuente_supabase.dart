@@ -1,8 +1,7 @@
-// lib/src/core/data/repositories/almacenamiento_repositorio_supabase.dart
+// lib/src/core/data/datasources/almacenamiento_fuente_supabase.dart
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import '../../domain/repositories/almacenamiento_repositorio.dart';
 import '../fallos_supabase.dart';
 
 /// Formatos que acepta el bucket, con su tipo MIME.
@@ -33,19 +32,19 @@ String rutaEvidencia({
 }) =>
     '$plantaId/$ordenId/${id ?? const Uuid().v4()}.${normalizarExtension(extension)}';
 
-/// Supabase Storage, bucket 'evidencias' (público, 5 MB, jpeg/png/webp).
-class AlmacenamientoRepositorioSupabase implements AlmacenamientoRepositorio {
+/// El único lugar que habla con Supabase Storage, bucket 'evidencias'
+/// (público, 5 MB, jpeg/png/webp). Los errores ya salen como FalloApp.
+class AlmacenamientoFuenteSupabase {
   static const bucket = 'evidencias';
 
   final SupabaseClient _db;
 
-  AlmacenamientoRepositorioSupabase({SupabaseClient? cliente})
+  AlmacenamientoFuenteSupabase({SupabaseClient? cliente})
       : _db = cliente ?? Supabase.instance.client;
 
   /// Devuelve la ruta que se armó aquí, NO la 'Key' que responde Storage:
   /// esa incluye el nombre del bucket ("evidencias/planta/...") y no es lo
   /// que se guarda.
-  @override
   Future<String> subir({
     required String plantaId,
     required String ordenId,
@@ -67,10 +66,6 @@ class AlmacenamientoRepositorioSupabase implements AlmacenamientoRepositorio {
         return ruta;
       });
 
-  /// La URL se calcula siempre desde la ruta. Si algún dato viejo ya trae
-  /// una URL completa, se respeta tal cual.
-  @override
-  String urlDe(String ruta) => ruta.startsWith('http')
-      ? ruta
-      : _db.storage.from(bucket).getPublicUrl(ruta);
+  /// La URL pública de una ruta del bucket.
+  String urlPublica(String ruta) => _db.storage.from(bucket).getPublicUrl(ruta);
 }

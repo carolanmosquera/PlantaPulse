@@ -1,50 +1,39 @@
 // lib/src/core/components/fotos_locales.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:plantapulse/src/core/components/dotted_box.dart';
 import 'package:plantapulse/src/core/theme/app_colors.dart';
 
-/// Pregunta "Tomar foto" / "Elegir de la galería" y devuelve la foto ya
-/// comprimida, o null si se canceló.
-///
-/// maxWidth e imageQuality comprimen dentro del propio image_picker: una
-/// foto de varios MB baja a unos cientos de KB, lejos del límite de 5 MB.
-Future<({Uint8List bytes, String extension})?> elegirFoto(
-    BuildContext context) async {
-  final fuente = await showModalBottomSheet<ImageSource>(
-    context: context,
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.photo_camera_outlined),
-            title: const Text('Tomar foto'),
-            onTap: () => Navigator.pop(ctx, ImageSource.camera),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: const Text('Elegir de la galería'),
-            onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-          ),
-        ],
+/// Pregunta "Tomar foto" / "Elegir de la galería" y devuelve la opción
+/// elegida, o null si se cerró la hoja. Es solo presentación: no abre la
+/// cámara (eso lo hace la fuente del dispositivo, por el caso de uso
+/// ObtenerFoto). Genérica para no depender de tipos del dominio: quien la
+/// llama dice qué valor representa cada opción.
+Future<T?> elegirOrigenFoto<T>(
+  BuildContext context, {
+  required T camara,
+  required T galeria,
+}) =>
+    showModalBottomSheet<T>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Tomar foto'),
+              onTap: () => Navigator.pop(ctx, camara),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Elegir de la galería'),
+              onTap: () => Navigator.pop(ctx, galeria),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-  if (fuente == null) return null;
-
-  final XFile? foto = await ImagePicker().pickImage(
-    source: fuente,
-    maxWidth: 1600,
-    imageQuality: 80,
-  );
-  if (foto == null) return null;
-  final bytes = await foto.readAsBytes();
-  final extension =
-      foto.name.contains('.') ? foto.name.split('.').last : 'jpg';
-  return (bytes: bytes, extension: extension);
-}
+    );
 
 /// Cuadrícula de fotos tomadas en el teléfono (aún en memoria), con la X
 /// para quitarlas y el recuadro de agregar, que desaparece al llegar al

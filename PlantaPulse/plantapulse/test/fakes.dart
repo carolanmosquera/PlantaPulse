@@ -527,6 +527,16 @@ class FakeAlmacenamientoRepository implements AlmacenamientoRepositorio {
   /// Rutas subidas con éxito, en orden.
   final List<String> subidas = [];
 
+  /// Lo que "toma" la cámara o la galería. null = el usuario canceló.
+  FotoElegida? fotoDelDispositivo;
+  final List<OrigenFoto> pedidas = [];
+
+  @override
+  Future<FotoElegida?> obtenerFoto(OrigenFoto origen) async {
+    pedidas.add(origen);
+    return fotoDelDispositivo;
+  }
+
   /// Número de llamada (1, 2, ...) que debe fallar. null = ninguna.
   int? fallarEnLlamada;
   int _llamadas = 0;
