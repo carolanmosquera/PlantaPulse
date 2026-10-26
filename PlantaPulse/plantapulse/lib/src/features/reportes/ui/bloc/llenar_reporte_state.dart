@@ -39,7 +39,7 @@ class LlenarReporteState extends Equatable {
   /// son opcionales ("bloqueado esperando repuesto" no tiene qué fotografiar).
   bool get valido => detalles.trim().length >= 10;
 
-  /// La base rechaza la quinta foto: la UI no deja llegar ahí.
+  /// La base rechaza la foto 31: la UI no deja llegar ahí.
   bool get puedeAgregarFoto =>
       fotos.length < maxFotosPorReporte && !publicando;
 

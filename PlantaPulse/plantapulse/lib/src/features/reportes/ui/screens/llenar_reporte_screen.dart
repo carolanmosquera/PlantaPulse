@@ -5,7 +5,7 @@ import '../../../../core/core.dart';
 import '../../domain/usecases/reportes_casos.dart';
 import '../bloc/llenar_reporte_bloc.dart';
 
-/// Reporte de avance de una orden: texto, estado del trabajo, hasta cuatro
+/// Reporte de avance de una orden: texto, estado del trabajo, hasta treinta
 /// fotos y la bandera de alerta crítica.
 ///
 /// Al publicar NO se actualiza la orden desde aquí: el servidor sube los
@@ -220,7 +220,7 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
     );
   }
 
-  /// Hasta cuatro fotos. El recuadro de agregar desaparece al llenarse.
+  /// Hasta treinta fotos. El recuadro de agregar desaparece al llenarse.
   Widget _cuadriculaFotos(LlenarReporteState state) {
     final bloc = context.read<LlenarReporteBloc>();
     return CuadriculaFotosLocales(

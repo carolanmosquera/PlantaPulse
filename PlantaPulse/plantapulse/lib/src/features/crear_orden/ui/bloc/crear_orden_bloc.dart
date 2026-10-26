@@ -60,7 +60,7 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     on<EquipoActualizado>(_alActualizarEquipo);
     on<EquipoDadoDeBaja>(_alDarDeBajaEquipo);
     on<FotoHallazgoAgregada>((e, emit) {
-      if (!state.puedeAgregarFoto) return;       // tope de 4, como en la base
+      if (!state.puedeAgregarFoto) return;       // tope de 30, como en la base
       emit(state.copyWith(fotos: [
         ...state.fotos,
         FotoPendiente(id: _siguienteFoto++, bytes: e.bytes, extension: e.extension),

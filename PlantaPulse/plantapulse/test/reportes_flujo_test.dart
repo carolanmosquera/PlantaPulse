@@ -240,13 +240,14 @@ void main() {
 
   // ═══════════ Extras: límites y el flujo en pantalla ═══════════
 
-  test('no se puede publicar con menos de 10 caracteres ni pasar de 4 fotos',
+  test('no se puede publicar con menos de 10 caracteres ni pasar de 30 fotos',
       () async {
     final bloc = nuevoBloc();
     addTearDown(bloc.close);
 
     bloc.add(const DetallesCambiados('corto'));
-    for (var i = 0; i < 6; i++) {
+    // Dos más que el tope: las que sobran se rechazan antes de subir
+    for (var i = 0; i < maxFotosPorReporte + 2; i++) {
       bloc.add(FotoAgregada(Uint8List.fromList([i]), 'jpg'));
     }
     bloc.add(const ReportePublicado(tecnico));
@@ -256,6 +257,27 @@ void main() {
     expect(bloc.state.puedeAgregarFoto, isFalse);
     expect(bloc.state.valido, isFalse);
     expect(reportes.creadas, isEmpty);
+  });
+
+  test('la foto 31 se rechaza antes de subirla', () async {
+    final bloc = nuevoBloc();
+    addTearDown(bloc.close);
+
+    bloc.add(const DetallesCambiados('Cambio técnico con evidencia visual'));
+    for (var i = 0; i < 31; i++) {
+      bloc.add(FotoAgregada(Uint8List.fromList([i]), 'jpg'));
+    }
+    await Future<void>.delayed(Duration.zero);
+
+    expect(bloc.state.fotos, hasLength(30));
+    expect(bloc.state.puedeAgregarFoto, isFalse);
+
+    bloc.add(const ReportePublicado(tecnico));
+    final fin = await bloc.stream.firstWhere(
+        (s) => s.status == EstadoLlenarReporte.publicado);
+    expect(almacen.subidas, hasLength(30));
+    expect(reportes.creadas.single.evidencias, hasLength(30));
+    expect(fin.fotos, hasLength(30));
   });
 
   group('en pantalla', () {

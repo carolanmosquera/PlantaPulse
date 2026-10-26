@@ -115,7 +115,7 @@ class Orden {
   final bool generadaPorIA;
   final String? notaOriginal;      // lo que dictó el supervisor antes de estructurar
 
-  /// Fotos del hallazgo, tomadas al crear la orden (máximo 4). Las del
+  /// Fotos del hallazgo, tomadas al crear la orden (máximo 30). Las del
   /// trabajo van en cada reporte.
   final List<Evidencia> evidencias;
 

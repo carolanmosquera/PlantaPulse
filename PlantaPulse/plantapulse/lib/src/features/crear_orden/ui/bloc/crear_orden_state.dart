@@ -29,7 +29,7 @@ class CrearOrdenState extends Equatable {
   final Usuario? tecnico;
   final String observaciones;
 
-  /// Fotos del hallazgo (P2, "Evidencia y notas"). Máximo 4.
+  /// Fotos del hallazgo (P2, "Evidencia y notas"). Máximo 30.
   final List<FotoPendiente> fotos;
 
   /// Progreso de la subida: "Subiendo [subiendo] de [totalSubir]".
@@ -83,7 +83,7 @@ class CrearOrdenState extends Equatable {
   bool get puedeAgregarFoto => fotos.length < maxFotosPorReporte && !publicando;
 
   String? get progresoTexto => publicando && totalSubir > 0
-      ? 'Subiendo foto $subiendo de $totalSubir'
+      ? 'Subiendo $subiendo de $totalSubir'
       : null;
 
   CrearOrdenState copyWith({

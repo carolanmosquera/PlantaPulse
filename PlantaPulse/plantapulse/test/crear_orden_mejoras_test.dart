@@ -141,9 +141,10 @@ void main() {
     expect(json['id'], 'ord-reservado-1');
   });
 
-  test('no se pasa de 4 fotos', () async {
+  test('no se pasa de 30 fotos', () async {
     final bloc = await asistenteListo();
-    for (var i = 0; i < 6; i++) {
+    // Dos más que el tope: las que sobran se rechazan antes de subir
+    for (var i = 0; i < maxFotosPorReporte + 2; i++) {
       bloc.add(FotoHallazgoAgregada(Uint8List.fromList([i]), 'jpg'));
     }
     await Future<void>.delayed(Duration.zero);

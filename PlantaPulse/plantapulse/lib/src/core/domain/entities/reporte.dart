@@ -42,7 +42,7 @@ class Reporte {
   /// ese nombre tapa al helper texto() de json_helpers dentro de la clase.
   final String detalles;
   final EstadoTrabajo estadoTrabajo;
-  final List<Evidencia> evidencias;   // máximo 4
+  final List<Evidencia> evidencias;   // máximo 30
   final bool esAlertaCritica;
   final bool generadoPorIA;
   final DateTime createdAt;

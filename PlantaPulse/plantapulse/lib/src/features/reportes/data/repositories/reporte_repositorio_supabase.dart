@@ -38,7 +38,7 @@ class ReporteRepositorioSupabase implements ReporteRepositorio {
       .traducirErrores(_falloDeLectura);
 
   /// Sin .select(): nadie necesita la fila de vuelta. La política de
-  /// inserción rechaza más de 4 evidencias; la UI no deja llegar ahí.
+  /// inserción rechaza más de 30 evidencias; la UI no deja llegar ahí.
   @override
   Future<void> crear(Reporte reporte) => traducirSupabase(
       () => _tabla.insert(ReporteModelo.desdeEntidad(reporte).toJson()));

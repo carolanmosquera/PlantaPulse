@@ -23,6 +23,6 @@ class Evidencia {
 }
 
 /// Tope de fotos por reporte. La política de inserción de 'reportes' lo
-/// comprueba (jsonb_array_length(evidencias) <= 4) y rechaza la quinta,
+/// comprueba (jsonb_array_length(evidencias) <= 30) y rechaza la número 31,
 /// así que la UI no debe dejar llegar a ese punto.
-const int maxFotosPorReporte = 4;
+const int maxFotosPorReporte = 30;

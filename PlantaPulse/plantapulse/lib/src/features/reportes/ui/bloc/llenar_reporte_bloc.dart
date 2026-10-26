@@ -46,7 +46,7 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
   }
 
   void _alAgregarFoto(FotoAgregada e, Emitter<LlenarReporteState> emit) {
-    if (!state.puedeAgregarFoto) return;        // el tope de 4 es de la base
+    if (!state.puedeAgregarFoto) return;        // el tope de 30 es de la base
     emit(state.copyWith(fotos: [
       ...state.fotos,
       FotoPendiente(id: _siguienteFoto++, bytes: e.bytes, extension: e.extension),

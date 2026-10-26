@@ -69,7 +69,7 @@ class Novedad {
   final String descripcion;      // NO se llama 'texto': chocaría con la función texto()
   final CategoriaNovedad categoria;
   final UsuarioRef autor;
-  final List<Evidencia> evidencias;   // opcional, máximo 4
+  final List<Evidencia> evidencias;   // opcional, máximo 30
   final EstadoNovedad estado;
   final String? ordenId;         // si se convirtió en orden, cuál
   final UsuarioRef? revisadaPor;
