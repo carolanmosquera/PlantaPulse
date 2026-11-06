@@ -52,7 +52,8 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
 
     return PantallaBase(
       titulo: 'Mis Tareas',
-      mostrarAtras: false,
+      // Se abre encima del feed: "atrás" vuelve a él
+      mostrarAtras: true,
       mostrarMenu: true,
       tabActiva: 0,
       fab: FloatingActionButton(

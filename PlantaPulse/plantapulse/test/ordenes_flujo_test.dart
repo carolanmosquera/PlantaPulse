@@ -670,4 +670,92 @@ void main() {
     expect(orden.asignadoAUid, 'tec1');
     expect(orden.asignadoA?.nombre, 'tec1');
   });
+
+  // ═══════════ Acceso a Mis Tareas ═══════════
+
+  // 26
+  probar('el técnico llega a Mis Tareas desde el feed y al volver ve toda la planta',
+      (tester) async {
+    sembrar('o1', 'Tarea de Luis', asignadoA: 'tec1');
+    sembrar('o2', 'Otra de Luis', codigo: 'WO-2026-0002', asignadoA: 'tec1');
+    sembrar('o3', 'Tarea de Ana', codigo: 'WO-2026-0003', asignadoA: 'tec2');
+    await entrarComo(tester, 'tec1');
+
+    // El acceso está a la vista, con sus tareas abiertas contadas
+    expect(find.text('Mis tareas asignadas'), findsOneWidget);
+    expect(find.text('2 tareas abiertas'), findsOneWidget);
+    expect(find.byTooltip('Mis tareas'), findsOneWidget);
+
+    await tocar(tester, 'Mis tareas asignadas');
+    expect(find.text('Mis Tareas'), findsOneWidget);
+    expect(find.text('ÓRDENES ASIGNADAS (2)'), findsOneWidget);
+    expect(find.text('Tarea de Ana'), findsNothing);
+
+    // Atrás: el feed vuelve a mostrar las de toda la planta, no solo las suyas
+    Navigator.of(tester.element(find.text('Mis Tareas'))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('PlantaPulse Feed'), findsOneWidget);
+    expect(find.text('Tarea de Ana'), findsOneWidget);
+    expect(find.text('Tarea de Luis'), findsOneWidget);
+
+    // El ícono de la barra lleva al mismo sitio
+    await tester.tap(find.byTooltip('Mis tareas'));
+    await tester.pumpAndSettle();
+    expect(find.text('ÓRDENES ASIGNADAS (2)'), findsOneWidget);
+  });
+
+  // 27
+  probar('el supervisor no ve el acceso a Mis Tareas', (tester) async {
+    sembrar('o1', 'Tarea de Luis', asignadoA: 'tec1');
+    await entrarComo(tester, 'sup1');
+    expect(find.text('Mis tareas asignadas'), findsNothing);
+    expect(find.byTooltip('Mis tareas'), findsNothing);
+  });
+
+  // 28
+  test('el filtro 5 del feed devuelve solo las órdenes por validar', () {
+    sembrar('o1', 'Pendiente', estado: EstadoOrden.pendiente);
+    sembrar('o2', 'Resuelta por Luis', codigo: 'WO-2026-0002',
+        estado: EstadoOrden.validando);
+    sembrar('o3', 'En curso', codigo: 'WO-2026-0003',
+        estado: EstadoOrden.enProgreso);
+
+    final estado = OrdenesState(
+      status: EstadoOrdenes.listo,
+      ordenes: ordenes.ordenes,
+      filtro: 5,
+    );
+    expect(estado.visibles.map((o) => o.id), ['o2']);
+  });
+
+  // 29
+  probar('el supervisor abre "Órdenes por validar" y solo quedan esas',
+      (tester) async {
+    sembrar('o1', 'Revisar bomba', estado: EstadoOrden.pendiente);
+    sembrar('o2', 'Cambio de filtro', codigo: 'WO-2026-0002',
+        estado: EstadoOrden.validando);
+    sembrar('o3', 'Ajuste de banda', codigo: 'WO-2026-0003',
+        estado: EstadoOrden.validando);
+    await entrarComo(tester, 'sup1');
+
+    expect(find.text('Órdenes por validar'), findsOneWidget);
+    expect(find.text('2 órdenes esperan tu revisión'), findsOneWidget);
+    expect(find.text('Revisar bomba'), findsOneWidget);
+
+    await tocar(tester, 'Órdenes por validar');
+    expect(find.text('Revisar bomba'), findsNothing);
+    expect(find.text('Cambio de filtro'), findsOneWidget);
+    expect(find.text('Ajuste de banda'), findsOneWidget);
+
+    // Dentro de la orden está la acción de validar
+    await tocar(tester, 'Cambio de filtro');
+    expect(find.text('VALIDAR EVIDENCIA'), findsOneWidget);
+  });
+
+  // 30
+  probar('el técnico no ve el acceso a órdenes por validar', (tester) async {
+    sembrar('o1', 'Cambio de filtro', estado: EstadoOrden.validando);
+    await entrarComo(tester, 'tec1');
+    expect(find.text('Órdenes por validar'), findsNothing);
+  });
 }

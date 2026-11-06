@@ -45,6 +45,9 @@ class OrdenesState extends Equatable {
       case 4:
         // "Sin asignar" no es un estado: se deriva de no tener técnico
         lista = lista.where((o) => o.asignadoAUid == null).toList();
+      case 5:
+        // El técnico las marcó como resueltas: esperan al supervisor
+        lista = lista.where((o) => o.estado == EstadoOrden.validando).toList();
     }
 
     final texto = busqueda.trim().toLowerCase();

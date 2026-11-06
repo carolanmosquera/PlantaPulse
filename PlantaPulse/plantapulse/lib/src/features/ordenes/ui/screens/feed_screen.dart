@@ -13,10 +13,13 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   final _busquedaCtrl = TextEditingController();
 
-  // Alineadas con el switch de OrdenesState.visibles: índice 4 = sin técnico
+  // Alineadas con el switch de OrdenesState.visibles: índice 4 = sin
+  // técnico, 5 = por validar. Si se añade una, se añade allá su caso.
   static const _filtros = [
     'Todos', 'Pendiente', 'En Progreso', 'Urgente', 'Sin asignar',
+    'Por validar',
   ];
+  static const _filtroPorValidar = 5;
 
   @override
   void initState() {
@@ -39,11 +42,23 @@ class _FeedScreenState extends State<FeedScreen> {
     super.dispose();
   }
 
+  /// Mis Tareas usa el mismo OrdenesBloc y le cambia la consulta: al
+  /// volver, el feed pide otra vez las órdenes de toda la planta (si no,
+  /// se quedaría mostrando solo las del técnico).
+  Future<void> _abrirMisTareas() async {
+    final ordenes = context.read<OrdenesBloc>();
+    final plantaId = context.read<SesionBloc>().state.usuario?.plantaId ?? '';
+    await Navigator.pushNamed(context, Rutas.misTareas);
+    if (mounted) ordenes.add(OrdenesSuscritas(plantaId));
+  }
+
   @override
   Widget build(BuildContext context) {
     // Supervisor o admin: el mismo criterio que puede_operar() en la base
-    final puedeCrear =
-        context.watch<SesionBloc>().state.usuario?.rol.puedeOperar ?? false;
+    final usuario = context.watch<SesionBloc>().state.usuario;
+    final puedeCrear = usuario?.rol.puedeOperar ?? false;
+    // El técnico trabaja sobre lo que tiene asignado: su acceso va a la vista
+    final esTecnico = usuario?.rol == RolUsuario.tecnico;
 
     return PantallaBase(
       titulo: 'PlantaPulse Feed',
@@ -51,6 +66,13 @@ class _FeedScreenState extends State<FeedScreen> {
       mostrarMenu: true,
       tabActiva: 0,
       accionesExtra: [
+        if (esTecnico)
+          IconButton(
+            tooltip: 'Mis tareas',
+            icon: const Icon(Icons.assignment_ind_outlined,
+                color: AppColors.texto),
+            onPressed: _abrirMisTareas,
+          ),
         IconButton(
           icon: const Icon(Icons.notifications_none, color: AppColors.texto),
           onPressed: () => Navigator.pushReplacementNamed(context, Rutas.alertas),
@@ -71,10 +93,66 @@ class _FeedScreenState extends State<FeedScreen> {
           // aquí se convierte en URL (si ya fuera una URL, se respeta)
           final urlDe = context.read<UrlDeEvidencia>();
 
+          // Las suyas, abiertas, de entre todas las de la planta que ya
+          // trae el feed: contarlas no cuesta una consulta extra
+          // Las que el técnico dio por resueltas y esperan validación
+          final porValidar = puedeCrear
+              ? state.ordenes
+                  .where((o) => o.estado == EstadoOrden.validando)
+                  .length
+              : 0;
+
+          final misAbiertas = esTecnico
+              ? state.ordenes
+                  .where((o) =>
+                      o.asignadoAUid == usuario!.uid && o.estado.estaAbierta)
+                  .length
+              : 0;
+
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             children: [
               const SizedBox(height: 12),
+
+              // ══ MIS TAREAS (técnico) ══
+              if (esTecnico) ...[
+                FilaOpcion(
+                  icono: Icons.assignment_ind_outlined,
+                  titulo: 'Mis tareas asignadas',
+                  subtitulo: switch (misAbiertas) {
+                    0 => 'No tienes tareas abiertas',
+                    1 => '1 tarea abierta',
+                    final n => '$n tareas abiertas',
+                  },
+                  color: AppColors.azul,
+                  onTap: _abrirMisTareas,
+                ),
+                const SizedBox(height: 4),
+              ],
+
+              // ══ POR VALIDAR (supervisor y admin) ══
+              // Aplica el filtro "Por validar": la lista queda con las que
+              // esperan revisión, y dentro de cada una está "Validar evidencia"
+              if (puedeCrear) ...[
+                FilaOpcion(
+                  icono: Icons.fact_check_outlined,
+                  titulo: 'Órdenes por validar',
+                  subtitulo: switch (porValidar) {
+                    0 => 'Nada pendiente de revisión',
+                    1 => '1 orden espera tu revisión',
+                    final n => '$n órdenes esperan tu revisión',
+                  },
+                  color: porValidar > 0 ? AppColors.verde : AppColors.textoGris,
+                  trailing: state.filtro == _filtroPorValidar
+                      ? const Icon(Icons.check_circle,
+                          color: AppColors.verde, size: 22)
+                      : null,
+                  onTap: () => context
+                      .read<OrdenesBloc>()
+                      .add(const FiltroCambiado(_filtroPorValidar)),
+                ),
+                const SizedBox(height: 4),
+              ],
 
               // ══ BÚSQUEDA ══
               CampoTexto(
