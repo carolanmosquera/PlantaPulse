@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'src/core/core.dart';
 import 'src/features/auth/auth.dart';
 import 'src/features/crear_orden/crear_orden.dart';
+import 'src/features/notificaciones/notificaciones.dart';
 import 'src/features/novedades/novedades.dart';
 import 'src/features/ordenes/ordenes.dart';
 import 'src/features/perfil/perfil.dart';
@@ -20,6 +21,8 @@ import 'src/features/auth/data/repositories/autenticacion_repositorio_impl.dart'
 import 'src/features/auth/data/repositories/usuario_repositorio_impl.dart';
 import 'src/features/crear_orden/data/datasources/equipo_fuente_supabase.dart';
 import 'src/features/crear_orden/data/repositories/equipo_repositorio_impl.dart';
+import 'src/features/notificaciones/data/datasources/push_fuente_fcm.dart';
+import 'src/features/notificaciones/data/repositories/push_repositorio_impl.dart';
 import 'src/features/ordenes/data/datasources/orden_fuente_supabase.dart';
 import 'src/features/ordenes/data/repositories/orden_repositorio_impl.dart';
 import 'src/features/reportes/data/datasources/reporte_fuente_supabase.dart';
@@ -44,6 +47,10 @@ Future<void> main() async {
 
   await Supabase.initialize(url: _supabaseUrl, anonKey: _supabaseKey);
 
+  // Notificaciones push (KAN-96). Solo en Android; si falla, la app
+  // sigue funcionando sin notificaciones.
+  await PushFuenteFcm.inicializar();
+
   runApp(const PlantaPulseApp());
 }
 
@@ -60,6 +67,11 @@ class PlantaPulseApp extends StatelessWidget {
   final ZonaRepositorio? zonaRepositorio;
   final ReporteRepositorio? reporteRepositorio;
   final AlmacenamientoRepositorio? almacenamientoRepositorio;
+  final PushRepositorio? pushRepositorio;
+
+  /// El Navigator del MaterialApp. Lo usa EscuchaPush, que está por
+  /// encima del MaterialApp, para abrir la orden de una notificación.
+  static final navegador = GlobalKey<NavigatorState>();
 
   const PlantaPulseApp({
     super.key,
@@ -73,6 +85,7 @@ class PlantaPulseApp extends StatelessWidget {
     this.zonaRepositorio,
     this.reporteRepositorio,
     this.almacenamientoRepositorio,
+    this.pushRepositorio,
   });
 
   @override
@@ -120,6 +133,9 @@ class PlantaPulseApp extends StatelessWidget {
                   dispositivo: FotoFuenteDispositivo(),
                   almacen: AlmacenamientoFuenteSupabase(),
                 )),
+        RepositoryProvider<PushRepositorio>(
+            create: (_) =>
+                pushRepositorio ?? PushRepositorioImpl(PushFuenteFcm())),
 
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
@@ -172,6 +188,10 @@ class PlantaPulseApp extends StatelessWidget {
             create: (c) => DevolverOrden(c.read<OrdenRepositorio>())),
         RepositoryProvider(
             create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
+        // Notificaciones push: guarda el token en el perfil (KAN-96)
+        RepositoryProvider(
+            create: (c) => SincronizarTokenPush(
+                c.read<PushRepositorio>(), c.read<UsuarioRepositorio>())),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -179,7 +199,9 @@ class PlantaPulseApp extends StatelessWidget {
           // sin importar el feature auth.
           BlocProvider<SesionBloc>(
             create: (context) =>
-                (authBloc ?? _crearAuthBloc(context.read<UsuarioRepositorio>()))
+                (authBloc ??
+                    _crearAuthBloc(context.read<UsuarioRepositorio>(),
+                        context.read<SincronizarTokenPush>()))
                   ..add(const AuthComprobarSesion()),
           ),
           BlocProvider<OrdenesBloc>(
@@ -194,57 +216,62 @@ class PlantaPulseApp extends StatelessWidget {
             },
           ),
         ],
-        child: MaterialApp(
-          title: 'PlantaPulse',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            scaffoldBackgroundColor: AppColors.fondo,
-            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.azul),
-          ),
-          // Simula ancho de celular en Chrome — una sola vez para las 15
-          builder: (context, child) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: child,
+        child: EscuchaPush(
+          navegador: navegador,
+          child: MaterialApp(
+            navigatorKey: navegador,
+            title: 'PlantaPulse',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              scaffoldBackgroundColor: AppColors.fondo,
+              colorScheme: ColorScheme.fromSeed(seedColor: AppColors.azul),
             ),
+            // Simula ancho de celular en Chrome — una sola vez para las 15
+            builder: (context, child) => Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: child,
+              ),
+            ),
+            initialRoute: Rutas.splash,
+            routes: {
+              Rutas.splash:        (_) => const SplashScreen(),
+              Rutas.login:         (_) => const LoginScreen(),
+              Rutas.registro:      (_) => const RegistroScreen(),
+              Rutas.feed:          (_) => const FeedScreen(),
+              Rutas.alertas:       (_) => const AlertasScreen(),
+              Rutas.perfil:        (_) => const PerfilScreen(),
+              Rutas.ajustes:       (_) => const AjustesScreen(),
+              Rutas.crearOrden:    (_) => const CrearOrdenP1Screen(),
+              Rutas.resumenTurno:  (_) => const ResumenTurnoScreen(),
+              Rutas.misTareas:     (_) => const MisTareasScreen(),
+              Rutas.emergencia:    (_) => const EmergenciaScreen(),
+              Rutas.espera:        (_) => const EsperaAprobacionScreen(),
+              Rutas.solicitudes:   (_) => const SolicitudesScreen(),
+            },
+            // Rutas que necesitan la orden como parámetro
+            onGenerateRoute: (settings) {
+              final orden = settings.arguments;
+              if (orden is! Orden) return null;
+              final Widget? pantalla = switch (settings.name) {
+                Rutas.detalleOrden  => DetalleOrdenScreen(orden: orden),
+                Rutas.llenarReporte => LlenarReporteScreen(orden: orden),
+                Rutas.validar       => ValidarEvidenciaScreen(orden: orden),
+                _                   => null,
+              };
+              return pantalla == null
+                  ? null
+                  : MaterialPageRoute(builder: (_) => pantalla, settings: settings);
+            },
           ),
-          initialRoute: Rutas.splash,
-          routes: {
-            Rutas.splash:        (_) => const SplashScreen(),
-            Rutas.login:         (_) => const LoginScreen(),
-            Rutas.registro:      (_) => const RegistroScreen(),
-            Rutas.feed:          (_) => const FeedScreen(),
-            Rutas.alertas:       (_) => const AlertasScreen(),
-            Rutas.perfil:        (_) => const PerfilScreen(),
-            Rutas.ajustes:       (_) => const AjustesScreen(),
-            Rutas.crearOrden:    (_) => const CrearOrdenP1Screen(),
-            Rutas.resumenTurno:  (_) => const ResumenTurnoScreen(),
-            Rutas.misTareas:     (_) => const MisTareasScreen(),
-            Rutas.emergencia:    (_) => const EmergenciaScreen(),
-            Rutas.espera:        (_) => const EsperaAprobacionScreen(),
-            Rutas.solicitudes:   (_) => const SolicitudesScreen(),
-          },
-          // Rutas que necesitan la orden como parámetro
-          onGenerateRoute: (settings) {
-            final orden = settings.arguments;
-            if (orden is! Orden) return null;
-            final Widget? pantalla = switch (settings.name) {
-              Rutas.detalleOrden  => DetalleOrdenScreen(orden: orden),
-              Rutas.llenarReporte => LlenarReporteScreen(orden: orden),
-              Rutas.validar       => ValidarEvidenciaScreen(orden: orden),
-              _                   => null,
-            };
-            return pantalla == null
-                ? null
-                : MaterialPageRoute(builder: (_) => pantalla, settings: settings);
-          },
         ),
       ),
     );
   }
 
   /// La cadena de autenticación: repositorio → casos de uso → Bloc.
-  AuthBloc _crearAuthBloc(UsuarioRepositorio usuarios) {
+  AuthBloc _crearAuthBloc(
+      UsuarioRepositorio usuarios, SincronizarTokenPush push) {
     final auth = autenticacionRepositorio ??
         AutenticacionRepositorioImpl(AutenticacionFuenteSupabase());
     return AuthBloc(
@@ -252,7 +279,8 @@ class PlantaPulseApp extends StatelessWidget {
       iniciarSesion: IniciarSesion(auth, usuarios),
       registrarSolicitud: RegistrarSolicitud(auth, usuarios),
       recargarPerfil: RecargarPerfil(auth, usuarios),
-      cerrarSesion: CerrarSesion(auth),
+      // El token se borra del perfil antes de salir (KAN-96)
+      cerrarSesion: CerrarSesion(auth, antesDeSalir: push.detener),
     );
   }
 }

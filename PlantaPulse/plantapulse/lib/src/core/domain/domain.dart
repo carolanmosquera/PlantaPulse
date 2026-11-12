@@ -16,6 +16,7 @@ export 'repositories/almacenamiento_repositorio.dart';
 export 'repositories/categoria_repositorio.dart';
 export 'repositories/orden_repositorio.dart';
 export 'repositories/planta_repositorio.dart';
+export 'repositories/push_repositorio.dart';
 export 'repositories/reporte_repositorio.dart';
 export 'repositories/usuario_repositorio.dart';
 export 'repositories/zona_repositorio.dart';

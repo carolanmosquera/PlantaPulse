@@ -2,6 +2,8 @@
     <!-- Supabase necesita red. Antes lo agregaban los plugins de Firebase;
          sin esto la versión release no tendría internet. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+: pedir permiso para mostrar notificaciones push -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="plantapulse"
         android:name="${applicationName}"

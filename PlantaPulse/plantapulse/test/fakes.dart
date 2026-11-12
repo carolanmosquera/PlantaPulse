@@ -362,6 +362,14 @@ class FakeOrdenRepository implements OrdenRepositorio {
   int _reservados = 1;
 
   @override
+  Future<Orden?> obtener(String ordenId) async {
+    for (final o in ordenes) {
+      if (o.id == ordenId && !o.eliminada) return o;
+    }
+    return null;
+  }
+
+  @override
   String nuevoId() => 'ord-reservado-${_reservados++}';
 
   /// Como Postgres: usa el id que trae la orden, o genera uno.
