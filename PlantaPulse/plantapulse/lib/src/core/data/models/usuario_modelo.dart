@@ -1,4 +1,5 @@
 // lib/src/core/data/models/usuario_modelo.dart
+import '../../domain/entities/preferencias_avisos.dart';
 import '../../domain/entities/usuario.dart';
 import '../json_helpers.dart';
 
@@ -57,6 +58,7 @@ class UsuarioModelo extends Usuario {
     super.estado,
     super.aprobadoPor,
     super.aprobadoEn,
+    super.preferenciasAvisos,
   });
 
   factory UsuarioModelo.desdeEntidad(Usuario u) => UsuarioModelo(
@@ -75,6 +77,7 @@ class UsuarioModelo extends Usuario {
         estado: u.estado,
         aprobadoPor: u.aprobadoPor,
         aprobadoEn: u.aprobadoEn,
+        preferenciasAvisos: u.preferenciasAvisos,
       );
 
   factory UsuarioModelo.fromJson(Map<String, dynamic> j) => UsuarioModelo(
@@ -93,9 +96,13 @@ class UsuarioModelo extends Usuario {
         estado: EstadoCuentaX.desdeDb(textoOpcional(j['estado'])),
         aprobadoPor: UsuarioRefModelo.fromJsonOpcional(j['aprobado_por']),
         aprobadoEn: fechaOpcional(j['aprobado_en']),
+        preferenciasAvisos:
+            PreferenciasAvisos.fromJson(j['preferencias_avisos']),
       );
 
   /// created_at y aprobado_en no se envían: los ponen los triggers.
+  /// preferencias_avisos tampoco: nace con su valor por defecto y solo se
+  /// cambia desde Ajustes.
   Map<String, dynamic> toJson() => {
         'id': uid,
         'nombre': nombre,

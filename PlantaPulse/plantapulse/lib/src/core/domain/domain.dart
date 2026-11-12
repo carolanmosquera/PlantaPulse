@@ -10,6 +10,7 @@ export 'entities/foto_pendiente.dart';
 export 'entities/novedad.dart';
 export 'entities/orden.dart';
 export 'entities/planta.dart';
+export 'entities/preferencias_avisos.dart';
 export 'entities/reporte.dart';
 export 'entities/usuario.dart';
 export 'repositories/almacenamiento_repositorio.dart';

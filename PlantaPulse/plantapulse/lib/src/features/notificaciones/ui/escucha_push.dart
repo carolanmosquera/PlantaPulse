@@ -49,7 +49,10 @@ class _EscuchaPushState extends State<EscuchaPush> {
     final usuario = state.usuario;
     if (state.sesion != EstadoSesion.activa || usuario == null) return;
 
-    await context.read<SincronizarTokenPush>().iniciar(usuario.uid);
+    // KAN-100: con el push apagado en Ajustes no se registra el dispositivo
+    if (usuario.preferenciasAvisos.push) {
+      await context.read<SincronizarTokenPush>().iniciar(usuario.uid);
+    }
     if (!mounted) return;
 
     // La notificación que abrió la app se lee una sola vez, cuando ya hay

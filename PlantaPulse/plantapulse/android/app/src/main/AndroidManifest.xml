@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13+: pedir permiso para mostrar notificaciones push -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Ubicación de la alerta crítica (KAN-90). Es opcional: sin ella la
+         alerta se envía sin GPS. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="plantapulse"
         android:name="${applicationName}"

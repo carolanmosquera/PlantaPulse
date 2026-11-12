@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
+import '../../../notificaciones/notificaciones.dart';
+import '../../domain/usecases/actualizar_perfil.dart';
 
 class AjustesScreen extends StatefulWidget {
   const AjustesScreen({super.key});
@@ -10,14 +12,74 @@ class AjustesScreen extends StatefulWidget {
 }
 
 class _AjustesScreenState extends State<AjustesScreen> {
-  bool _push = true;
-  bool _mantenimiento = true;
-  bool _soloCriticas = false;
+  // Avisos (KAN-100): se guardan en el perfil, no en la pantalla.
+  PreferenciasAvisos _avisos = const PreferenciasAvisos();
+  bool _guardando = false;
+
   bool _modoOscuro = false;
   bool _modoOffline = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Se muestra al instante lo que trajo la sesión y enseguida se lee el
+    // perfil guardado: así, al volver a abrir la app o esta pantalla, el
+    // interruptor refleja lo último que el usuario eligió.
+    _avisos = context.read<SesionBloc>().state.usuario?.preferenciasAvisos ??
+        const PreferenciasAvisos();
+    _cargarGuardadas();
+  }
+
+  Future<void> _cargarGuardadas() async {
+    final uid = context.read<SesionBloc>().state.usuario?.uid;
+    if (uid == null) return;
+    try {
+      final perfil = await context.read<UsuarioRepositorio>().obtener(uid);
+      if (!mounted || perfil == null || _guardando) return;
+      setState(() => _avisos = perfil.preferenciasAvisos);
+    } catch (_) {
+      // Sin red: se queda lo que trajo la sesión
+    }
+  }
+
+  /// Aplica el cambio al instante y lo guarda en el perfil. Si no se
+  /// puede guardar, el interruptor vuelve a su valor anterior.
+  Future<void> _cambiar(PreferenciasAvisos nuevas) async {
+    final uid = context.read<SesionBloc>().state.usuario?.uid;
+    if (uid == null) return;
+    final anteriores = _avisos;
+    final mensajes = ScaffoldMessenger.of(context);
+    final actualizar = context.read<ActualizarPerfil>();
+    final push = context.read<SincronizarTokenPush>();
+
+    setState(() {
+      _avisos = nuevas;
+      _guardando = true;
+    });
+    try {
+      await actualizar.ejecutar(uid, {'preferenciasAvisos': nuevas.toJson()});
+      // Push apagado: el token sale del perfil y el teléfono deja de
+      // recibir avisos. Al encenderlo, se registra de nuevo.
+      if (nuevas.push != anteriores.push) {
+        if (nuevas.push) {
+          await push.iniciar(uid);
+        } else {
+          await push.detener();
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _avisos = anteriores);
+      mensajes.showSnackBar(SnackBar(
+          content: Text(
+              'No se pudo guardar tu preferencia. ${FalloApp.mensajeDe(e)}')));
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final usuario = context.watch<SesionBloc>().state.usuario;
     return PantallaBase(
       titulo: 'Ajustes de PlantaPulse',
       tabActiva: 2,
@@ -25,26 +87,31 @@ class _AjustesScreenState extends State<AjustesScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           const SizedBox(height: 12),
-          const TarjetaOscura(
-            icono: CircleAvatar(radius: 22, backgroundColor: Colors.white24,
+          TarjetaOscura(
+            icono: const CircleAvatar(radius: 22, backgroundColor: Colors.white24,
               child: Icon(Icons.person, color: Colors.white)),
             etiqueta: 'PRO',
-            titulo: 'Ing. Carlos Méndez',
-            subtitulo: 'Supervisor de Planta • ID: #44892',
+            titulo: usuario?.nombre ?? 'Mi cuenta',
+            subtitulo: usuario?.rol.etiqueta ?? '',
           ),
 
           const SeccionHeader(titulo: 'NOTIFICACIONES'),
           _switch(Icons.notifications_none, 'Notificaciones Push',
             'Recibir alertas generales en el dispositivo',
-            _push, (v) => setState(() => _push = v)),
+            _avisos.push, (v) => _cambiar(_avisos.copyWith(push: v)),
+            clave: 'switch-push'),
           const SizedBox(height: 10),
           _switch(Icons.build_outlined, 'Alertas de Mantenimiento',
             'Estatus de órdenes de trabajo',
-            _mantenimiento, (v) => setState(() => _mantenimiento = v)),
+            _avisos.mantenimiento,
+            (v) => _cambiar(_avisos.copyWith(mantenimiento: v)),
+            clave: 'switch-mantenimiento'),
           const SizedBox(height: 10),
           _switch(Icons.warning_amber_rounded, 'Solo Críticas',
             'Filtrar alertas por prioridad alta/urgente',
-            _soloCriticas, (v) => setState(() => _soloCriticas = v)),
+            _avisos.soloCriticas,
+            (v) => _cambiar(_avisos.copyWith(soloCriticas: v)),
+            clave: 'switch-criticas'),
 
           const SeccionHeader(titulo: 'PREFERENCIAS TÉCNICAS'),
           _switch(Icons.dark_mode_outlined, 'Modo Oscuro',
@@ -116,12 +183,13 @@ class _AjustesScreenState extends State<AjustesScreen> {
   }
 
   Widget _switch(IconData icono, String titulo, String subtitulo,
-                 bool valor, ValueChanged<bool> onCambio) {
+                 bool valor, ValueChanged<bool> onCambio, {String? clave}) {
     return FilaOpcion(
       icono: icono,
       titulo: titulo,
       subtitulo: subtitulo,
       trailing: Switch(
+        key: clave == null ? null : Key(clave),
         value: valor,
         activeColor: AppColors.azul,
         onChanged: onCambio,

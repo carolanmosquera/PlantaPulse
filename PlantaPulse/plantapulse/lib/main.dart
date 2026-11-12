@@ -22,6 +22,9 @@ import 'src/features/auth/data/repositories/usuario_repositorio_impl.dart';
 import 'src/features/crear_orden/data/datasources/equipo_fuente_supabase.dart';
 import 'src/features/crear_orden/data/repositories/equipo_repositorio_impl.dart';
 import 'src/features/notificaciones/data/datasources/push_fuente_fcm.dart';
+import 'src/features/novedades/data/datasources/alerta_critica_fuente_supabase.dart';
+import 'src/features/novedades/data/datasources/ubicacion_fuente_geolocator.dart';
+import 'src/features/novedades/data/repositories/alerta_critica_repositorio_impl.dart';
 import 'src/features/notificaciones/data/repositories/push_repositorio_impl.dart';
 import 'src/features/ordenes/data/datasources/orden_fuente_supabase.dart';
 import 'src/features/ordenes/data/repositories/orden_repositorio_impl.dart';
@@ -68,6 +71,8 @@ class PlantaPulseApp extends StatelessWidget {
   final ReporteRepositorio? reporteRepositorio;
   final AlmacenamientoRepositorio? almacenamientoRepositorio;
   final PushRepositorio? pushRepositorio;
+  final AlertaCriticaRepositorio? alertaCriticaRepositorio;
+  final UbicacionRepositorio? ubicacionRepositorio;
 
   /// El Navigator del MaterialApp. Lo usa EscuchaPush, que está por
   /// encima del MaterialApp, para abrir la orden de una notificación.
@@ -86,6 +91,8 @@ class PlantaPulseApp extends StatelessWidget {
     this.reporteRepositorio,
     this.almacenamientoRepositorio,
     this.pushRepositorio,
+    this.alertaCriticaRepositorio,
+    this.ubicacionRepositorio,
   });
 
   @override
@@ -136,6 +143,15 @@ class PlantaPulseApp extends StatelessWidget {
         RepositoryProvider<PushRepositorio>(
             create: (_) =>
                 pushRepositorio ?? PushRepositorioImpl(PushFuenteFcm())),
+        // Alertas críticas y ubicación (KAN-90)
+        RepositoryProvider<AlertaCriticaRepositorio>(
+            create: (_) =>
+                alertaCriticaRepositorio ??
+                AlertaCriticaRepositorioImpl(AlertaCriticaFuenteSupabase())),
+        RepositoryProvider<UbicacionRepositorio>(
+            create: (_) =>
+                ubicacionRepositorio ??
+                UbicacionRepositorioImpl(UbicacionFuenteGeolocator())),
 
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
@@ -188,6 +204,14 @@ class PlantaPulseApp extends StatelessWidget {
             create: (c) => DevolverOrden(c.read<OrdenRepositorio>())),
         RepositoryProvider(
             create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
+        RepositoryProvider(
+            create: (c) =>
+                EnviarAlertaCritica(c.read<AlertaCriticaRepositorio>())),
+        RepositoryProvider(
+            create: (c) =>
+                ObservarAlertasCriticas(c.read<AlertaCriticaRepositorio>())),
+        RepositoryProvider(
+            create: (c) => ObtenerUbicacion(c.read<UbicacionRepositorio>())),
         // Notificaciones push: guarda el token en el perfil (KAN-96)
         RepositoryProvider(
             create: (c) => SincronizarTokenPush(
@@ -218,7 +242,9 @@ class PlantaPulseApp extends StatelessWidget {
         ],
         child: EscuchaPush(
           navegador: navegador,
-          child: MaterialApp(
+          child: EscuchaAlertasCriticas(
+            navegador: navegador,
+            child: MaterialApp(
             navigatorKey: navegador,
             title: 'PlantaPulse',
             debugShowCheckedModeBanner: false,
@@ -263,6 +289,7 @@ class PlantaPulseApp extends StatelessWidget {
                   ? null
                   : MaterialPageRoute(builder: (_) => pantalla, settings: settings);
             },
+          ),
           ),
         ),
       ),
