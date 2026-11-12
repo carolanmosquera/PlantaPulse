@@ -177,9 +177,9 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(3),
-                      child: const LinearProgressIndicator(
+                      child: LinearProgressIndicator(
                         value: 0.5, minHeight: 4,
-                        backgroundColor: AppColors.borde,
+                        backgroundColor: AppColors.borde.segunTema(context),
                         color: AppColors.azul,
                       ),
                     ),
@@ -188,14 +188,14 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
               ),
               const SizedBox(height: 20),
 
-              const Text('¿Cuál es el problema?',
+              Text('¿Cuál es el problema?',
                 style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold,
-                                color: AppColors.texto)),
+                                color: AppColors.texto.segunTema(context))),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Describe el hallazgo o falla técnica. Puedes usar el dictado '
                 'por voz para mayor rapidez.',
-                style: TextStyle(fontSize: 13.5, color: AppColors.textoGris,
+                style: TextStyle(fontSize: 13.5, color: AppColors.textoGris.segunTema(context),
                                 height: 1.4)),
               const SizedBox(height: 16),
 
@@ -211,12 +211,12 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
               Row(
                 children: [
                   Icon(Icons.info_outline, size: 13,
-                    color: largo >= 10 ? AppColors.textoGris : AppColors.rojo),
+                    color: largo >= 10 ? AppColors.textoGris.segunTema(context) : AppColors.rojo.segunTema(context)),
                   const SizedBox(width: 6),
                   Text('Mínimo 10 caracteres',
                     style: TextStyle(fontSize: 11.5,
                       color: state.descripcion.isNotEmpty && largo < 10
-                          ? AppColors.rojo : AppColors.textoGris)),
+                          ? AppColors.rojo.segunTema(context) : AppColors.textoGris.segunTema(context))),
                   const Spacer(),
                   Container(
                     width: 42, height: 42,
@@ -235,11 +235,11 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
               if (cargando)
                 const SizedBox(height: 44)
               else if (state.categorias.isEmpty)
-                const TileAviso(
+                TileAviso(
                   icono: Icons.label_outline,
                   titulo: 'Esta planta aún no tiene categorías',
                   subtitulo: 'Toca la lupa para crear la primera.',
-                  color: AppColors.textoGris,
+                  color: AppColors.textoGris.segunTema(context),
                 )
               else
                 ChipsFila(
@@ -274,7 +274,7 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
                   titulo: state.mensajeError ??
                       'No hay equipos activos en esta planta',
                   color: state.mensajeError != null
-                      ? AppColors.rojo : AppColors.textoGris,
+                      ? AppColors.rojo : AppColors.textoGris.segunTema(context),
                 )
               else ...[
                 ConstrainedBox(
@@ -299,13 +299,13 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
                     child: Text(
                       '${state.equipos.length} equipos · desliza la lista o '
                       'usa BUSCAR TODOS',
-                      style: AppText.gris),
+                      style: AppText.gris.segunTema(context)),
                   ),
               ],
 
               const SizedBox(height: 20),
-              const Center(child: Text('PLANTAPULSE INDUSTRIAL CORE V3.4',
-                style: TextStyle(fontSize: 9.5, color: AppColors.textoGris,
+              Center(child: Text('PLANTAPULSE INDUSTRIAL CORE V3.4',
+                style: TextStyle(fontSize: 9.5, color: AppColors.textoGris.segunTema(context),
                                 letterSpacing: 1.5))),
               const SizedBox(height: 16),
 
@@ -316,10 +316,10 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
                 onTap: state.paso1Valido ? _continuar : null,
               ),
               const SizedBox(height: 8),
-              const Center(child: Text(
+              Center(child: Text(
                 'La IA analizará tu reporte para sugerir equipo, prioridad y tags.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: AppColors.textoGris))),
+                style: TextStyle(fontSize: 11, color: AppColors.textoGris.segunTema(context)))),
               const SizedBox(height: 24),
             ],
           ),
@@ -334,7 +334,7 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
       icono: Icons.build_outlined,
       titulo: equipo.nombre,
       subtitulo: _subtituloEquipo(equipo),
-      color: seleccionado ? AppColors.azul : AppColors.textoGris,
+      color: seleccionado ? AppColors.azul : AppColors.textoGris.segunTema(context),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -344,16 +344,16 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
             customBorder: const CircleBorder(),
             child: Tooltip(
               message: 'Ver detalle del equipo',
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(6),
                 child: Icon(Icons.info_outline, size: 20,
-                    color: AppColors.textoGris),
+                    color: AppColors.textoGris.segunTema(context)),
               ),
             ),
           ),
           Icon(
             seleccionado ? Icons.check_circle : Icons.chevron_right,
-            color: seleccionado ? AppColors.verde : AppColors.textoGris,
+            color: seleccionado ? AppColors.verde.segunTema(context) : AppColors.textoGris.segunTema(context),
             size: seleccionado ? 22 : 20,
           ),
         ],

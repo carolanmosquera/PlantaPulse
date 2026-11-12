@@ -11,6 +11,12 @@ class PlantaRepositorioImpl implements PlantaRepositorio {
 
   PlantaRepositorioImpl(this._fuente);
 
+  @override
+  Future<Planta?> obtener(String id) async {
+    final fila = await _fuente.obtener(id);
+    return fila == null ? null : PlantaModelo.fromJson(fila);
+  }
+
   /// Plantas activas ordenadas por nombre, para el selector del admin.
   /// Filtro y orden en Dart, como antes: un 'activo' nulo cuenta como activo.
   @override

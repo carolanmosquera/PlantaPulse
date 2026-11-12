@@ -69,12 +69,12 @@ class _FeedScreenState extends State<FeedScreen> {
         if (esTecnico)
           IconButton(
             tooltip: 'Mis tareas',
-            icon: const Icon(Icons.assignment_ind_outlined,
-                color: AppColors.texto),
+            icon: Icon(Icons.assignment_ind_outlined,
+                color: AppColors.texto.segunTema(context)),
             onPressed: _abrirMisTareas,
           ),
         IconButton(
-          icon: const Icon(Icons.notifications_none, color: AppColors.texto),
+          icon: Icon(Icons.notifications_none, color: AppColors.texto.segunTema(context)),
           onPressed: () => Navigator.pushReplacementNamed(context, Rutas.alertas),
         ),
       ],
@@ -142,10 +142,10 @@ class _FeedScreenState extends State<FeedScreen> {
                     1 => '1 orden espera tu revisión',
                     final n => '$n órdenes esperan tu revisión',
                   },
-                  color: porValidar > 0 ? AppColors.verde : AppColors.textoGris,
+                  color: porValidar > 0 ? AppColors.verde : AppColors.textoGris.segunTema(context),
                   trailing: state.filtro == _filtroPorValidar
-                      ? const Icon(Icons.check_circle,
-                          color: AppColors.verde, size: 22)
+                      ? Icon(Icons.check_circle,
+                          color: AppColors.verde.segunTema(context), size: 22)
                       : null,
                   onTap: () => context
                       .read<OrdenesBloc>()
@@ -170,11 +170,11 @@ class _FeedScreenState extends State<FeedScreen> {
                     width: 38,
                     height: 34,
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.borde),
+                      border: Border.all(color: AppColors.borde.segunTema(context)),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Icon(Icons.tune, size: 17,
-                                      color: AppColors.textoGris),
+                    child: Icon(Icons.tune, size: 17,
+                                      color: AppColors.textoGris.segunTema(context)),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -197,7 +197,7 @@ class _FeedScreenState extends State<FeedScreen> {
               Text(
                 'Mostrando ${visibles.length} '
                 '${visibles.length == 1 ? "tarea" : "tareas"} para hoy',
-                style: AppText.gris,
+                style: AppText.gris.segunTema(context),
               ),
               const SizedBox(height: 14),
 
@@ -219,10 +219,10 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else if (state.vacioTotal)
-                _mensajeVacio(Icons.inbox,
+                _mensajeVacio(context, Icons.inbox,
                     'Aún no hay órdenes publicadas en esta planta')
               else if (state.sinResultados)
-                _mensajeVacio(Icons.search_off, 'No hay órdenes que coincidan')
+                _mensajeVacio(context, Icons.search_off, 'No hay órdenes que coincidan')
               else
                 ...visibles.map((orden) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -267,13 +267,13 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _mensajeVacio(IconData icono, String texto) => Padding(
+  Widget _mensajeVacio(BuildContext context, IconData icono, String texto) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Column(
           children: [
-            Icon(icono, size: 46, color: AppColors.textoGris),
+            Icon(icono, size: 46, color: AppColors.textoGris.segunTema(context)),
             const SizedBox(height: 12),
-            Text(texto, style: AppText.gris, textAlign: TextAlign.center),
+            Text(texto, style: AppText.gris.segunTema(context), textAlign: TextAlign.center),
           ],
         ),
       );

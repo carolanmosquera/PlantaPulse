@@ -9,6 +9,8 @@ import 'src/features/novedades/novedades.dart';
 import 'src/features/ordenes/ordenes.dart';
 import 'src/features/perfil/perfil.dart';
 import 'src/features/reportes/reportes.dart';
+import 'src/core/theme/app_theme.dart';
+import 'src/features/perfil/ui/bloc/tema_cubit.dart';
 
 // Implementaciones concretas: main.dart es el ÚNICO archivo que las conoce.
 // Cada repositorio (Impl) recibe la fuente que habla con el sistema
@@ -24,6 +26,8 @@ import 'src/features/ordenes/data/datasources/orden_fuente_supabase.dart';
 import 'src/features/ordenes/data/repositories/orden_repositorio_impl.dart';
 import 'src/features/reportes/data/datasources/reporte_fuente_supabase.dart';
 import 'src/features/reportes/data/repositories/reporte_repositorio_impl.dart';
+import 'src/features/perfil/data/datasources/preferencias_fuente_supabase.dart';
+import 'src/features/perfil/data/repositories/preferencias_repositorio_impl.dart';
 
 // Proyecto de Supabase. La clave es la PUBLISHABLE: está pensada para ir
 // en el cliente, y lo que protege los datos es RLS (supabase/esquema.sql).
@@ -60,6 +64,7 @@ class PlantaPulseApp extends StatelessWidget {
   final ZonaRepositorio? zonaRepositorio;
   final ReporteRepositorio? reporteRepositorio;
   final AlmacenamientoRepositorio? almacenamientoRepositorio;
+  final PreferenciasRepositorio? preferenciasRepositorio;
 
   const PlantaPulseApp({
     super.key,
@@ -73,6 +78,7 @@ class PlantaPulseApp extends StatelessWidget {
     this.zonaRepositorio,
     this.reporteRepositorio,
     this.almacenamientoRepositorio,
+    this.preferenciasRepositorio,
   });
 
   @override
@@ -88,6 +94,10 @@ class PlantaPulseApp extends StatelessWidget {
     // El CrearOrdenBloc NO va aquí: vive y muere dentro del asistente.
     return MultiRepositoryProvider(
       providers: [
+        RepositoryProvider<PreferenciasRepositorio>(
+          create: (_) => preferenciasRepositorio ??
+              PreferenciasRepositorioImpl(PreferenciasFuenteSupabase()),
+        ),
         // ── Repositorios (contratos del dominio) ──
         RepositoryProvider<UsuarioRepositorio>(
             create: (_) => usuarioRepository ??
@@ -172,6 +182,12 @@ class PlantaPulseApp extends StatelessWidget {
             create: (c) => DevolverOrden(c.read<OrdenRepositorio>())),
         RepositoryProvider(
             create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
+        RepositoryProvider(create: (c) => ConsultarPerfil(
+            c.read<UsuarioRepositorio>(), c.read<PlantaRepositorio>())),
+        RepositoryProvider(create: (c) =>
+            ObtenerPreferencias(c.read<PreferenciasRepositorio>())),
+        RepositoryProvider(create: (c) =>
+            CambiarPreferencia(c.read<PreferenciasRepositorio>())),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -193,14 +209,25 @@ class PlantaPulseApp extends StatelessWidget {
               );
             },
           ),
+          BlocProvider<TemaCubit>(
+            create: (context) {
+              final sesion = context.read<SesionBloc>().state;
+              return TemaCubit(context.read<ObtenerPreferencias>())
+                ..cambiarCuenta(sesion.sesion == EstadoSesion.activa
+                    ? sesion.usuario?.uid : null);
+            },
+          ),
         ],
-        child: MaterialApp(
+        child: BlocListener<SesionBloc, AuthState>(
+          listener: (context, state) => context.read<TemaCubit>().cambiarCuenta(
+            state.sesion == EstadoSesion.activa ? state.usuario?.uid : null),
+          child: BlocBuilder<TemaCubit, bool>(
+          builder: (context, oscuro) => MaterialApp(
           title: 'PlantaPulse',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            scaffoldBackgroundColor: AppColors.fondo,
-            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.azul),
-          ),
+          theme: AppTheme.claro,
+          darkTheme: AppTheme.oscuro,
+          themeMode: oscuro ? ThemeMode.dark : ThemeMode.light,
           // Simula ancho de celular en Chrome — una sola vez para las 15
           builder: (context, child) => Center(
             child: ConstrainedBox(
@@ -238,6 +265,8 @@ class PlantaPulseApp extends StatelessWidget {
                 ? null
                 : MaterialPageRoute(builder: (_) => pantalla, settings: settings);
           },
+        ),
+        ),
         ),
       ),
     );

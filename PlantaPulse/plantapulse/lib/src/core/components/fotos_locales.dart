@@ -100,13 +100,13 @@ class CuadriculaFotosLocales extends StatelessWidget {
         if (puedeAgregar && !bloqueada)
           GestureDetector(
             onTap: onAgregar,
-            child: const DottedBox(
+            child: DottedBox(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.camera_alt_outlined, color: AppColors.textoGris),
+                  Icon(Icons.camera_alt_outlined, color: AppColors.textoGris.segunTema(context)),
                   SizedBox(height: 4),
-                  Text('Agregar foto', style: AppText.gris),
+                  Text('Agregar foto', style: AppText.gris.segunTema(context)),
                 ],
               ),
             ),

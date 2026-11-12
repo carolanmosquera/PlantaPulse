@@ -29,7 +29,7 @@ class CampoTexto extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text(label.toUpperCase(), style: AppText.label)),
+            Expanded(child: Text(label.toUpperCase(), style: AppText.label.segunTema(context))),
             if (accionDerecha != null) accionDerecha!,
           ],
         ),
@@ -40,24 +40,24 @@ class CampoTexto extends StatelessWidget {
           maxLines: oculto ? 1 : lineas,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.textoGris, fontSize: 15),
+            hintStyle: TextStyle(color: AppColors.textoGris.segunTema(context), fontSize: 15),
             prefixIcon: iconoIzq != null
-                ? Icon(iconoIzq, size: 18, color: AppColors.textoGris)
+                ? Icon(iconoIzq, size: 18, color: AppColors.textoGris.segunTema(context))
                 : null,
             filled: true,
-            fillColor: Colors.white,
+            fillColor: Colors.white.segunTema(context),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.borde),
+              borderSide: BorderSide(color: AppColors.borde.segunTema(context)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.borde),
+              borderSide: BorderSide(color: AppColors.borde.segunTema(context)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.azul, width: 1.5),
+              borderSide: BorderSide(color: AppColors.azul.segunTema(context), width: 1.5),
             ),
           ),
         ),

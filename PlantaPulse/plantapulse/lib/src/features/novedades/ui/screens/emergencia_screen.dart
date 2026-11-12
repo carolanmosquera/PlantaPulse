@@ -36,8 +36,8 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded,
-          color: AppColors.rojo, size: 40),
+        icon: Icon(Icons.warning_amber_rounded,
+          color: AppColors.rojo.segunTema(context), size: 40),
         title: const Text('¿Confirmar alerta crítica?'),
         content: Text('Se notificará de inmediato a todos los supervisores '
             'de turno sobre: ${_categorias[_categoria]}.'),
@@ -52,8 +52,8 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
                   backgroundColor: AppColors.rojo));
               Navigator.pop(context);
             },
-            child: const Text('ENVIAR',
-              style: TextStyle(color: AppColors.rojo,
+            child: Text('ENVIAR',
+              style: TextStyle(color: AppColors.rojo.segunTema(context),
                                fontWeight: FontWeight.bold)),
           ),
         ],
@@ -71,25 +71,25 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
         children: [
           const SizedBox(height: 14),
 
-          const TileAviso(
+          TileAviso(
             icono: Icons.error_outline,
             titulo: 'Utilice esta pantalla únicamente para incidentes que '
                     'requieran intervención inmediata.',
-            color: AppColors.textoGris,
+            color: AppColors.textoGris.segunTema(context),
           ),
           const SizedBox(height: 18),
 
-          const Row(children: [
-            Icon(Icons.error_outline, color: AppColors.rojo, size: 22),
+          Row(children: [
+            Icon(Icons.error_outline, color: AppColors.rojo.segunTema(context), size: 22),
             SizedBox(width: 8),
             Text('Alerta Crítica',
               style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold,
-                               color: AppColors.rojo)),
+                               color: AppColors.rojo.segunTema(context))),
           ]),
           const SizedBox(height: 4),
-          const Text('PROTOCOLO DE ACCIÓN INMEDIATA',
+          Text('PROTOCOLO DE ACCIÓN INMEDIATA',
             style: TextStyle(fontSize: 10, letterSpacing: 1.2,
-                             color: AppColors.textoGris)),
+                             color: AppColors.textoGris.segunTema(context))),
 
           const SeccionHeader(titulo: 'Categoría del Incidente'),
           ChipsFila(
@@ -104,7 +104,7 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
             titulo: 'Descripción del Hallazgo',
             accion: '${_descCtrl.text.length}/200',
             colorAccion: _descCtrl.text.length > 200
-                ? AppColors.rojo : AppColors.textoGris,
+                ? AppColors.rojo : AppColors.textoGris.segunTema(context),
           ),
           CampoTexto(
             label: '',
@@ -142,11 +142,11 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
             onTap: _puedeEnviar ? _enviar : null,
           ),
           const SizedBox(height: 10),
-          const Center(child: Text(
+          Center(child: Text(
             'SE NOTIFICARÁ A TODOS LOS SUPERVISORES DE TURNO',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 9.5, letterSpacing: 1,
-                             color: AppColors.textoGris))),
+                             color: AppColors.textoGris.segunTema(context)))),
           const SizedBox(height: 24),
         ],
       ),

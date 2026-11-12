@@ -28,7 +28,7 @@ class CampoSeleccion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppText.label),
+        Text(label, style: AppText.label.segunTema(context)),
         const SizedBox(height: 6),
         InkWell(
           onTap: onTap,
@@ -36,22 +36,22 @@ class CampoSeleccion extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AppColors.borde),
+              color: Colors.white.segunTema(context),
+              border: Border.all(color: AppColors.borde.segunTema(context)),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
                 Icon(icono, size: 18,
-                  color: hayValor ? AppColors.azul : AppColors.textoGris),
+                  color: hayValor ? AppColors.azul.segunTema(context) : AppColors.textoGris.segunTema(context)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(valor ?? vacio,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 14,
-                      color: hayValor ? AppColors.texto : AppColors.textoGris)),
+                      color: hayValor ? AppColors.texto.segunTema(context) : AppColors.textoGris.segunTema(context))),
                 ),
-                const Icon(Icons.keyboard_arrow_down, color: AppColors.textoGris),
+                Icon(Icons.keyboard_arrow_down, color: AppColors.textoGris.segunTema(context)),
               ],
             ),
           ),

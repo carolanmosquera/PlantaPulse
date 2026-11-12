@@ -87,22 +87,22 @@ class _ChipsFilaState extends State<ChipsFila> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             decoration: BoxDecoration(
-              color: activo ? widget.colorActivo : Colors.white,
+              color: activo ? widget.colorActivo : Colors.white.segunTema(context),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: activo ? widget.colorActivo : AppColors.borde),
+              border: Border.all(color: activo ? widget.colorActivo : AppColors.borde.segunTema(context)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (widget.iconos != null) ...[
                   Icon(widget.iconos![i], size: 14,
-                       color: activo ? Colors.white : AppColors.textoGris),
+                       color: activo ? Colors.white : AppColors.textoGris.segunTema(context)),
                   const SizedBox(width: 6),
                 ],
                 Text(widget.opciones[i], style: TextStyle(
                     fontSize: 13,
                     fontWeight: activo ? FontWeight.w600 : FontWeight.w400,
-                    color: activo ? Colors.white : AppColors.texto)),
+                    color: activo ? Colors.white : AppColors.texto.segunTema(context))),
               ],
             ),
           ),

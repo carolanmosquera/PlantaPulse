@@ -155,7 +155,7 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                   titulo: 'DETALLES TÉCNICOS',
                   accion: 'REQUERIDO',
                   colorAccion:
-                      state.valido ? AppColors.textoGris : AppColors.rojo,
+                      state.valido ? AppColors.textoGris.segunTema(context) : AppColors.rojo,
                 ),
                 CampoTexto(
                   label: '',
@@ -171,7 +171,7 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                     state.valido
                         ? '${state.detalles.length} caracteres'
                         : 'Mínimo 10 caracteres (${state.detalles.trim().length})',
-                    style: AppText.gris),
+                    style: AppText.gris.segunTema(context)),
                 ),
 
                 SeccionHeader(
@@ -187,10 +187,10 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                   titulo: 'Incidente Crítico',
                   subtitulo: 'Notificar al supervisor de inmediato',
                   color: state.esAlertaCritica
-                      ? AppColors.rojo : AppColors.textoGris,
+                      ? AppColors.rojo : AppColors.textoGris.segunTema(context),
                   trailing: Switch(
                     value: state.esAlertaCritica,
-                    activeThumbColor: AppColors.rojo,
+                    activeThumbColor: AppColors.rojo.segunTema(context),
                     onChanged: state.publicando
                         ? null
                         : (v) => context
@@ -220,11 +220,11 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                   onTap: state.valido && !state.publicando ? _publicar : null,
                 ),
                 const SizedBox(height: 10),
-                const Center(child: Text(
+                Center(child: Text(
                   'Al enviar, el registro se sincronizará con el sistema '
                   'central de PlantaPulse.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: AppColors.textoGris))),
+                  style: TextStyle(fontSize: 11, color: AppColors.textoGris.segunTema(context)))),
                 const SizedBox(height: 24),
               ],
             ),

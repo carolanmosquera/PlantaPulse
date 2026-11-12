@@ -13,6 +13,33 @@ class AppColors {
   static const ambar  = Color(0xFFE8A317); // en progreso
   static const verde  = Color(0xFF2E9E6B); // resuelto
   static const gris   = Color(0xFF8A96A3); // pendiente
+
+  /// Conserva la paleta original en claro. Solo adapta colores de interfaz;
+  /// las fotos y los fondos de marca con texto blanco no se transforman.
+  static Color adaptar(Color color, Brightness brillo) {
+    if (brillo == Brightness.light) return color;
+    return switch (color) {
+      fondo => const Color(0xFF111820),
+      Colors.white => const Color(0xFF1C2732),
+      borde => const Color(0xFF3B4C5B),
+      texto => const Color(0xFFEAF0F5),
+      textoGris => const Color(0xFFB4C1CD),
+      azul => const Color(0xFF8DC8EC),
+      rojo => const Color(0xFFFF8C8C),
+      verde => const Color(0xFF78D6A3),
+      _ => color,
+    };
+  }
+}
+
+extension ColorDeTema on Color {
+  Color segunTema(BuildContext context) =>
+      AppColors.adaptar(this, Theme.of(context).brightness);
+}
+
+extension TextoDeTema on TextStyle {
+  TextStyle segunTema(BuildContext context) =>
+      copyWith(color: color?.segunTema(context));
 }
 
 class AppText {

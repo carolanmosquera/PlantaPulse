@@ -1,131 +1,215 @@
-// lib/src/features/perfil/ui/screens/ajustes_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
+import '../../domain/entities/preferencias_usuario.dart';
+import '../../domain/usecases/preferencias_casos.dart';
+import '../bloc/ajustes_bloc.dart';
+import '../bloc/tema_cubit.dart';
 
-class AjustesScreen extends StatefulWidget {
+class AjustesScreen extends StatelessWidget {
   const AjustesScreen({super.key});
+
   @override
-  State<AjustesScreen> createState() => _AjustesScreenState();
+  Widget build(BuildContext context) => BlocBuilder<SesionBloc, AuthState>(
+    builder: (context, sesion) {
+      final usuario = sesion.usuario;
+      if (usuario == null || sesion.sesion != EstadoSesion.activa) {
+        return const PantallaBase(
+          titulo: 'Ajustes de PlantaPulse',
+          conNavegacion: false,
+          mostrarAtras: false,
+          cuerpo: Center(
+            child: Text('Inicia sesión para consultar tus ajustes.'),
+          ),
+        );
+      }
+      return BlocProvider(
+        key: ValueKey(usuario.uid),
+        create: (context) => AjustesBloc(
+          uid: usuario.uid,
+          obtener: context.read<ObtenerPreferencias>(),
+          cambiar: context.read<CambiarPreferencia>(),
+        )..add(const AjustesCargados()),
+        child: _AjustesVista(usuario: usuario),
+      );
+    },
+  );
 }
 
-class _AjustesScreenState extends State<AjustesScreen> {
-  bool _push = true;
-  bool _mantenimiento = true;
-  bool _soloCriticas = false;
-  bool _modoOscuro = false;
-  bool _modoOffline = false;
+class _AjustesVista extends StatelessWidget {
+  final Usuario usuario;
+  const _AjustesVista({required this.usuario});
 
   @override
-  Widget build(BuildContext context) {
-    return PantallaBase(
-      titulo: 'Ajustes de PlantaPulse',
-      tabActiva: 2,
-      cuerpo: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          const SizedBox(height: 12),
-          const TarjetaOscura(
-            icono: CircleAvatar(radius: 22, backgroundColor: Colors.white24,
-              child: Icon(Icons.person, color: Colors.white)),
-            etiqueta: 'PRO',
-            titulo: 'Ing. Carlos Méndez',
-            subtitulo: 'Supervisor de Planta • ID: #44892',
-          ),
-
-          const SeccionHeader(titulo: 'NOTIFICACIONES'),
-          _switch(Icons.notifications_none, 'Notificaciones Push',
-            'Recibir alertas generales en el dispositivo',
-            _push, (v) => setState(() => _push = v)),
-          const SizedBox(height: 10),
-          _switch(Icons.build_outlined, 'Alertas de Mantenimiento',
-            'Estatus de órdenes de trabajo',
-            _mantenimiento, (v) => setState(() => _mantenimiento = v)),
-          const SizedBox(height: 10),
-          _switch(Icons.warning_amber_rounded, 'Solo Críticas',
-            'Filtrar alertas por prioridad alta/urgente',
-            _soloCriticas, (v) => setState(() => _soloCriticas = v)),
-
-          const SeccionHeader(titulo: 'PREFERENCIAS TÉCNICAS'),
-          _switch(Icons.dark_mode_outlined, 'Modo Oscuro',
-            'Ahorro de batería y confort visual',
-            _modoOscuro, (v) => setState(() => _modoOscuro = v)),
-          const SizedBox(height: 10),
-          _switch(Icons.storage_outlined, 'Modo Offline',
-            'Sincronizar datos al recuperar conexión',
-            _modoOffline, (v) => setState(() => _modoOffline = v)),
-          const SizedBox(height: 10),
-          FilaOpcion(
-            icono: Icons.translate,
-            titulo: 'Idioma de Interfaz',
-            subtitulo: 'Español (Latinoamérica)',
-            onTap: () {},
-          ),
-
-          const SeccionHeader(titulo: 'CUENTA Y SEGURIDAD'),
-          FilaOpcion(icono: Icons.person_outline, titulo: 'Editar Perfil',
-            subtitulo: 'Nombre, cargo y firma digital', onTap: () {}),
-          const SizedBox(height: 10),
-          FilaOpcion(icono: Icons.shield_outlined,
-            titulo: 'Privacidad y Seguridad',
-            subtitulo: 'Cambiar contraseña y 2FA', onTap: () {}),
-          const SizedBox(height: 10),
-          FilaOpcion(icono: Icons.phone_android,
-            titulo: 'Dispositivos Vinculados',
-            subtitulo: 'Gestionar terminales de mano y tablets',
-            onTap: () {}),
-
-          const SeccionHeader(titulo: 'SOPORTE'),
-          FilaOpcion(icono: Icons.help_outline, titulo: 'Centro de Ayuda',
-            subtitulo: 'Guías de mantenimiento preventivo', onTap: () {}),
-
-          const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => BlocListener<AjustesBloc, AjustesState>(
+    listener: (context, state) {
+      final preferencias = state.preferencias;
+      if (preferencias != null) {
+        context.read<TemaCubit>().aplicar(usuario.uid, preferencias.modoOscuro);
+      }
+    },
+    child: BlocConsumer<AjustesBloc, AjustesState>(
+      listenWhen: (antes, ahora) =>
+          antes.guardando && ahora.estado == EstadoAjustes.listo,
+      listener: (context, state) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.error ?? 'Preferencia guardada'),
+          backgroundColor: state.error == null
+              ? AppColors.verde
+              : AppColors.rojo,
+        ),
+      ),
+      builder: (context, state) => PopScope(
+        canPop: !state.guardando,
+        child: ExcludeFocus(
+          excluding: state.guardando,
+          child: AbsorbPointer(
+            absorbing: state.guardando,
+            child: PantallaBase(
+              titulo: 'Ajustes de PlantaPulse',
+              tabActiva: 2,
+              cuerpo: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  Text('Versión del Sistema',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.texto)),
-                  Text('v3.4.1-build.920',
-                    style: TextStyle(fontSize: 11,
-                                     color: AppColors.textoGris)),
+                  const SizedBox(height: 12),
+                  TarjetaOscura(
+                    icono: const CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.white24,
+                      child: Icon(Icons.person, color: Colors.white),
+                    ),
+                    titulo: usuario.nombre,
+                    subtitulo: usuario.rol.etiqueta,
+                  ),
+                  if (state.estado == EstadoAjustes.inicial ||
+                      state.estado == EstadoAjustes.cargando)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  if (state.error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      state.error!,
+                      style: TextStyle(
+                        color: AppColors.rojo.segunTema(context),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.read<AjustesBloc>().add(
+                        const AjustesCargados(),
+                      ),
+                      child: const Text('Volver a cargar'),
+                    ),
+                  ],
+                  if (state.preferencias != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      state.guardando
+                          ? 'Guardando…'
+                          : 'Tus preferencias se guardan en tu cuenta.',
+                      style: AppText.gris.segunTema(context),
+                      semanticsLabel: state.guardando
+                          ? 'Guardando preferencias'
+                          : null,
+                    ),
+                    if (state.guardando) const LinearProgressIndicator(),
+                    const SeccionHeader(titulo: 'NOTIFICACIONES'),
+                    _interruptor(
+                      context,
+                      state,
+                      Preferencia.notificacionesPush,
+                      Icons.notifications_none,
+                      'Notificaciones Push',
+                      'Preferencia de avisos generales',
+                    ),
+                    _interruptor(
+                      context,
+                      state,
+                      Preferencia.alertasMantenimiento,
+                      Icons.build_outlined,
+                      'Alertas de Mantenimiento',
+                      'Preferencia de avisos de órdenes de trabajo',
+                    ),
+                    _interruptor(
+                      context,
+                      state,
+                      Preferencia.soloCriticas,
+                      Icons.warning_amber_rounded,
+                      'Solo Críticas',
+                      'Preferencia por avisos de prioridad alta o urgente',
+                    ),
+                    const SeccionHeader(titulo: 'PREFERENCIAS TÉCNICAS'),
+                    _interruptor(
+                      context,
+                      state,
+                      Preferencia.modoOscuro,
+                      Icons.dark_mode_outlined,
+                      'Modo Oscuro',
+                      'Usar colores oscuros en toda la aplicación',
+                    ),
+                    _interruptor(
+                      context,
+                      state,
+                      Preferencia.modoOffline,
+                      Icons.storage_outlined,
+                      'Modo Offline',
+                      'Preferencia de trabajo sin conexión',
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        'El modo oscuro cambia la apariencia de la aplicación. '
+                        'Las opciones de notificaciones y modo offline guardan preferencias; '
+                        'sus servicios estarán disponibles en próximas versiones.',
+                        style: AppText.gris.segunTema(context),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  BotonAncho(
+                    texto: 'CERRAR SESIÓN',
+                    icono: Icons.logout,
+                    estilo: EstiloBoton.peligro,
+                    onTap: () {
+                      context.read<SesionBloc>().add(const AuthCerrarSesion());
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        Rutas.login,
+                        (_) => false,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
-              const PillEstado(texto: 'Actualizado', color: AppColors.verde),
-            ],
+            ),
           ),
-
-          const SizedBox(height: 20),
-          BotonAncho(
-            texto: 'CERRAR SESIÓN',
-            icono: Icons.logout,
-            estilo: EstiloBoton.peligro,
-            onTap: () {
-              // Cierra la sesión en Supabase y vacía la pila
-              context.read<SesionBloc>().add(const AuthCerrarSesion());
-              Navigator.pushNamedAndRemoveUntil(
-                context, Rutas.login, (r) => false);
-            },
-          ),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
-    );
-  }
+    ),
+  );
 
-  Widget _switch(IconData icono, String titulo, String subtitulo,
-                 bool valor, ValueChanged<bool> onCambio) {
-    return FilaOpcion(
-      icono: icono,
-      titulo: titulo,
-      subtitulo: subtitulo,
-      trailing: Switch(
-        value: valor,
-        activeColor: AppColors.azul,
-        onChanged: onCambio,
-      ),
-    );
-  }
+  Widget _interruptor(
+    BuildContext context,
+    AjustesState state,
+    Preferencia campo,
+    IconData icono,
+    String titulo,
+    String subtitulo,
+  ) => FilaOpcion(
+    icono: icono,
+    titulo: titulo,
+    subtitulo: subtitulo,
+    trailing: Switch(
+      key: ValueKey(campo),
+      value: state.preferencias!.valor(campo),
+      activeThumbColor: AppColors.azul.segunTema(context),
+      onChanged: state.guardando
+          ? null
+          : (valor) => context.read<AjustesBloc>().add(
+              PreferenciaCambiada(campo, valor),
+            ),
+    ),
+  );
 }

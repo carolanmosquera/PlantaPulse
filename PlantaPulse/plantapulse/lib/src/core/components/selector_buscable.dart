@@ -81,7 +81,7 @@ class SelectorBuscable<T> extends StatefulWidget {
       showModalBottomSheet<Eleccion<T>>(
         context: context,
         isScrollControlled: true,   // sin esto el teclado la aplasta
-        backgroundColor: AppColors.fondo,
+        backgroundColor: AppColors.fondo.segunTema(context),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
@@ -168,13 +168,13 @@ class _SelectorBuscableState<T> extends State<SelectorBuscable<T>> {
               child: Column(
                 children: [
                   Container(width: 40, height: 4,
-                    decoration: BoxDecoration(color: AppColors.borde,
+                    decoration: BoxDecoration(color: AppColors.borde.segunTema(context),
                       borderRadius: BorderRadius.circular(2))),
                   Row(
                     children: [
-                      Expanded(child: Text(widget.titulo, style: AppText.subtitulo)),
+                      Expanded(child: Text(widget.titulo, style: AppText.subtitulo.segunTema(context))),
                       IconButton(
-                        icon: const Icon(Icons.close, color: AppColors.textoGris),
+                        icon: Icon(Icons.close, color: AppColors.textoGris.segunTema(context)),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -202,9 +202,9 @@ class _SelectorBuscableState<T> extends State<SelectorBuscable<T>> {
                       icono: Icons.person_off_outlined,
                       titulo: ninguno,
                       color: widget.seleccionado == null
-                          ? AppColors.azul : AppColors.textoGris,
+                          ? AppColors.azul : AppColors.textoGris.segunTema(context),
                       trailing: widget.seleccionado == null
-                          ? const Icon(Icons.check_circle, color: AppColors.verde, size: 22)
+                          ? Icon(Icons.check_circle, color: AppColors.verde.segunTema(context), size: 22)
                           : const SizedBox.shrink(),
                       onTap: () => Navigator.pop(context, Eleccion<T>(null)),
                     ),
@@ -217,7 +217,7 @@ class _SelectorBuscableState<T> extends State<SelectorBuscable<T>> {
                             ? 'No hay opciones disponibles'
                             : 'Nada coincide con "${_busqueda.text.trim()}"',
                         textAlign: TextAlign.center,
-                        style: AppText.gris,
+                        style: AppText.gris.segunTema(context),
                       ),
                     ),
                 ],
@@ -227,7 +227,7 @@ class _SelectorBuscableState<T> extends State<SelectorBuscable<T>> {
             // ══ CREAR: fijo abajo, visible aunque la búsqueda no encuentre nada ══
             if (puedeCrear)
               Container(
-                color: Colors.white,
+                color: Colors.white.segunTema(context),
                 padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + medidas.padding.bottom),
                 child: BotonAncho(
                   texto: widget.textoCrear!,
@@ -248,9 +248,9 @@ class _SelectorBuscableState<T> extends State<SelectorBuscable<T>> {
       icono: widget.iconoDe?.call(o) ?? Icons.label_outline,
       titulo: widget.textoDe(o),
       subtitulo: widget.subtituloDe?.call(o),
-      color: activo ? AppColors.azul : AppColors.textoGris,
+      color: activo ? AppColors.azul : AppColors.textoGris.segunTema(context),
       trailing: activo
-          ? const Icon(Icons.check_circle, color: AppColors.verde, size: 22)
+          ? Icon(Icons.check_circle, color: AppColors.verde.segunTema(context), size: 22)
           : null,
       onTap: () => Navigator.pop(context, Eleccion<T>(o)),
     );

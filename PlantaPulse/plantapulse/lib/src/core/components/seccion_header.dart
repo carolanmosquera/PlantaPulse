@@ -27,15 +27,15 @@ class SeccionHeader extends StatelessWidget {
       child: Row(
         children: [
           if (icono != null) ...[
-            Icon(icono, size: 16, color: AppColors.textoGris),
+            Icon(icono, size: 16, color: AppColors.textoGris.segunTema(context)),
             const SizedBox(width: 8),
           ],
-          Expanded(child: Text(titulo.toUpperCase(), style: AppText.label)),
+          Expanded(child: Text(titulo.toUpperCase(), style: AppText.label.segunTema(context))),
           if (accion != null)
             GestureDetector(
               onTap: onAccion,
               child: Text(accion!, style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: colorAccion)),
+                  fontSize: 12, fontWeight: FontWeight.w600, color: colorAccion.segunTema(context))),
             ),
           if (iconoAccion != null) ...[
             const SizedBox(width: 10),
@@ -44,7 +44,7 @@ class SeccionHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: Icon(iconoAccion, size: 20, color: colorAccion),
+                child: Icon(iconoAccion, size: 20, color: colorAccion.segunTema(context)),
               ),
             ),
           ],

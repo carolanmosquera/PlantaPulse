@@ -144,9 +144,9 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                   const SizedBox(width: 6),
                   Expanded(child: Container(height: 4, color: AppColors.verde)),
                   const SizedBox(width: 12),
-                  const Text('PASO 2 DE 2',
+                  Text('PASO 2 DE 2',
                     style: TextStyle(fontSize: 10, letterSpacing: 1,
-                                     color: AppColors.textoGris)),
+                                     color: AppColors.textoGris.segunTema(context))),
                 ],
               ),
               const SizedBox(height: 16),
@@ -167,8 +167,8 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Prioridad de la Intervención',
-                      style: AppText.subtitulo),
+                    Text('Prioridad de la Intervención',
+                      style: AppText.subtitulo.segunTema(context)),
                     const SizedBox(height: 12),
                     ChipsFila(
                       opciones: _prioridades,
@@ -180,7 +180,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                           .add(PrioridadCambiada(_prioridadesModelo[i])),
                     ),
                     const SizedBox(height: 18),
-                    const Text('Fecha de Intervención', style: AppText.subtitulo),
+                    Text('Fecha de Intervención', style: AppText.subtitulo.segunTema(context)),
                     const SizedBox(height: 10),
                     GestureDetector(
                       onTap: () => _elegirFecha(state.fechaLimite),
@@ -188,16 +188,16 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(13),
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.borde),
+                          border: Border.all(color: AppColors.borde.segunTema(context)),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(children: [
-                          const Icon(Icons.calendar_today_outlined, size: 17,
-                            color: AppColors.textoGris),
+                          Icon(Icons.calendar_today_outlined, size: 17,
+                            color: AppColors.textoGris.segunTema(context)),
                           const SizedBox(width: 10),
                           Text(_fechaTexto(state.fechaLimite),
-                            style: const TextStyle(fontSize: 13.5,
-                                                   color: AppColors.texto)),
+                            style: TextStyle(fontSize: 13.5,
+                                                   color: AppColors.texto.segunTema(context))),
                         ]),
                       ),
                     ),
@@ -239,8 +239,8 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Observaciones Técnicas Adicionales',
-                style: AppText.subtitulo),
+              Text('Observaciones Técnicas Adicionales',
+                style: AppText.subtitulo.segunTema(context)),
               const SizedBox(height: 10),
               CampoTexto(
                 label: '',

@@ -47,6 +47,7 @@ void main() {
     addTearDown(tester.view.reset);
     // Una key nueva por arranque: simula cerrar y volver a abrir la app
     await tester.pumpWidget(PlantaPulseApp(
+      preferenciasRepositorio: PreferenciasFake(),
       key: UniqueKey(),
       authBloc: nuevoBloc(),
       usuarioRepository: repo,

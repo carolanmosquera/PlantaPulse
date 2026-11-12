@@ -29,9 +29,9 @@ class FilaOpcion extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.segunTema(context),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.borde),
+          border: Border.all(color: AppColors.borde.segunTema(context)),
         ),
         child: Row(
           children: [
@@ -41,7 +41,7 @@ class FilaOpcion extends StatelessWidget {
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icono, size: 18, color: color),
+              child: Icon(icono, size: 18, color: color.segunTema(context)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -49,12 +49,12 @@ class FilaOpcion extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(titulo, style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600, color: color)),
-                  if (subtitulo != null) Text(subtitulo!, style: AppText.gris),
+                      fontSize: 14, fontWeight: FontWeight.w600, color: color.segunTema(context))),
+                  if (subtitulo != null) Text(subtitulo!, style: AppText.gris.segunTema(context)),
                 ],
               ),
             ),
-            trailing ?? const Icon(Icons.chevron_right, size: 20, color: AppColors.textoGris),
+            trailing ?? Icon(Icons.chevron_right, size: 20, color: AppColors.textoGris.segunTema(context)),
           ],
         ),
       ),

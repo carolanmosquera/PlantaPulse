@@ -28,20 +28,20 @@ class AlertasScreen extends StatelessWidget {
           // ══ BARRA DE FILTROS ══
           Row(
             children: [
-              _botonFiltro(Icons.filter_list, 'Filtrar'),
+              _botonFiltro(context, Icons.filter_list, 'Filtrar'),
               const SizedBox(width: 8),
-              _botonFiltro(Icons.calendar_today_outlined, 'Fecha'),
+              _botonFiltro(context, Icons.calendar_today_outlined, 'Fecha'),
               const Spacer(),
               GestureDetector(
                 onTap: () {},
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.delete_outline, size: 15,
-                         color: AppColors.textoGris),
+                         color: AppColors.textoGris.segunTema(context)),
                     SizedBox(width: 5),
                     Text('Limpiar leídas',
                       style: TextStyle(fontSize: 12,
-                                       color: AppColors.textoGris)),
+                                       color: AppColors.textoGris.segunTema(context))),
                   ],
                 ),
               ),
@@ -77,20 +77,20 @@ class AlertasScreen extends StatelessWidget {
     );
   }
 
-  Widget _botonFiltro(IconData icono, String texto) {
+  Widget _botonFiltro(BuildContext context, IconData icono, String texto) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.borde),
+        border: Border.all(color: AppColors.borde.segunTema(context)),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icono, size: 14, color: AppColors.textoGris),
+          Icon(icono, size: 14, color: AppColors.textoGris.segunTema(context)),
           const SizedBox(width: 6),
-          Text(texto, style: const TextStyle(fontSize: 12.5,
-                                             color: AppColors.texto)),
+          Text(texto, style: TextStyle(fontSize: 12.5,
+                                             color: AppColors.texto.segunTema(context))),
         ],
       ),
     );

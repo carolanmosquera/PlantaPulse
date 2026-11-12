@@ -345,6 +345,7 @@ void main() {
       tester.view.devicePixelRatio = 2.625;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(PlantaPulseApp(
+        preferenciasRepositorio: PreferenciasFake(),
         authBloc: authBlocDe(auth, usuarios),
         usuarioRepository: usuarios,
         plantaRepository: FakePlantaRepository(),

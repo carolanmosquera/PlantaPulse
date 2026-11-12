@@ -87,7 +87,7 @@ class _AltaCategoriaHojaState extends State<AltaCategoriaHoja> {
       campos: [
         CampoTexto(label: 'Nombre', hint: 'Ej: Neumático',
             controller: _nombre),
-        const Text('ICONO', style: AppText.label),
+        Text('ICONO', style: AppText.label.segunTema(context)),
         const SizedBox(height: 8),
         GridView.count(
           crossAxisCount: 5,
@@ -112,11 +112,11 @@ class _AltaCategoriaHojaState extends State<AltaCategoriaHoja> {
       borderRadius: BorderRadius.circular(10),
       child: Container(
         decoration: BoxDecoration(
-          color: activo ? AppColors.azul : Colors.white,
+          color: activo ? AppColors.azul : Colors.white.segunTema(context),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: activo ? AppColors.azul : AppColors.borde),
+          border: Border.all(color: activo ? AppColors.azul : AppColors.borde.segunTema(context)),
         ),
-        child: Icon(icono, color: activo ? Colors.white : AppColors.textoGris),
+        child: Icon(icono, color: activo ? Colors.white : AppColors.textoGris.segunTema(context)),
       ),
     );
   }
