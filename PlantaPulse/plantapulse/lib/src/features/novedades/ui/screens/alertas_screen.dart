@@ -1,10 +1,33 @@
 // lib/src/features/novedades/ui/screens/alertas_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../../../../core/data/datos_demo.dart';
+import '../../domain/usecases/alertas_criticas.dart';
 
-class AlertasScreen extends StatelessWidget {
+class AlertasScreen extends StatefulWidget {
   const AlertasScreen({super.key});
+
+  @override
+  State<AlertasScreen> createState() => _AlertasScreenState();
+}
+
+class _AlertasScreenState extends State<AlertasScreen> {
+  /// Alertas críticas abiertas de la planta (KAN-90). Null si no hay
+  /// sesión de planta o el servicio no está disponible.
+  Stream<List<AlertaCritica>>? _criticas;
+
+  @override
+  void initState() {
+    super.initState();
+    final plantaId = context.read<SesionBloc>().state.usuario?.plantaId ?? '';
+    if (plantaId.isEmpty) return;
+    try {
+      _criticas = context.read<ObservarAlertasCriticas>().ejecutar(plantaId);
+    } catch (_) {
+      _criticas = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +70,35 @@ class AlertasScreen extends StatelessWidget {
               ),
             ],
           ),
+
+          // ══ ALERTAS CRÍTICAS ABIERTAS (tiempo real) ══
+          if (_criticas != null)
+            StreamBuilder<List<AlertaCritica>>(
+              stream: _criticas,
+              builder: (context, snap) {
+                final lista = snap.data ?? const <AlertaCritica>[];
+                if (lista.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SeccionHeader(titulo: 'ALERTAS CRÍTICAS ABIERTAS'),
+                    for (final a in lista)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: FilaAlerta(
+                          icono: a.tipo.icono,
+                          titulo: a.tipo.etiqueta,
+                          descripcion:
+                              '${a.creadoPor.nombre}: ${a.descripcion}',
+                          hora: a.hora,
+                          color: AppColors.rojo,
+                          noLeida: true,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
 
           // ══ GRUPOS ══
           for (final entrada in grupos.entries) ...[

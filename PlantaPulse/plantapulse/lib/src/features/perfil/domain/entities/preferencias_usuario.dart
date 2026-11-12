@@ -8,7 +8,8 @@ enum Preferencia {
   modoOffline,
 }
 
-/// Preferencias personales; no conceden permisos ni activan servicios.
+/// Preferencias personales; no conceden permisos. Push controla el registro
+/// del dispositivo y los filtros de avisos se guardan en el perfil.
 class PreferenciasUsuario extends Equatable {
   final bool notificacionesPush;
   final bool alertasMantenimiento;

@@ -121,7 +121,7 @@ class _AjustesVista extends StatelessWidget {
                       Preferencia.notificacionesPush,
                       Icons.notifications_none,
                       'Notificaciones Push',
-                      'Preferencia de avisos generales',
+                      'Recibir alertas generales en el dispositivo',
                     ),
                     _interruptor(
                       context,
@@ -129,7 +129,7 @@ class _AjustesVista extends StatelessWidget {
                       Preferencia.alertasMantenimiento,
                       Icons.build_outlined,
                       'Alertas de Mantenimiento',
-                      'Preferencia de avisos de órdenes de trabajo',
+                      'Estatus de órdenes de trabajo',
                     ),
                     _interruptor(
                       context,
@@ -137,7 +137,7 @@ class _AjustesVista extends StatelessWidget {
                       Preferencia.soloCriticas,
                       Icons.warning_amber_rounded,
                       'Solo Críticas',
-                      'Preferencia por avisos de prioridad alta o urgente',
+                      'Filtrar alertas por prioridad alta/urgente',
                     ),
                     const SeccionHeader(titulo: 'PREFERENCIAS TÉCNICAS'),
                     _interruptor(
@@ -160,8 +160,9 @@ class _AjustesVista extends StatelessWidget {
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
                         'El modo oscuro cambia la apariencia de la aplicación. '
-                        'Las opciones de notificaciones y modo offline guardan preferencias; '
-                        'sus servicios estarán disponibles en próximas versiones.',
+                        'Las notificaciones se administran desde tu perfil. '
+                        'El modo offline guarda tu preferencia; la sincronización '
+                        'sin conexión estará disponible en una próxima versión.',
                         style: AppText.gris.segunTema(context),
                       ),
                     ),
@@ -202,7 +203,12 @@ class _AjustesVista extends StatelessWidget {
     titulo: titulo,
     subtitulo: subtitulo,
     trailing: Switch(
-      key: ValueKey(campo),
+      key: switch (campo) {
+        Preferencia.notificacionesPush => const Key('switch-push'),
+        Preferencia.alertasMantenimiento => const Key('switch-mantenimiento'),
+        Preferencia.soloCriticas => const Key('switch-criticas'),
+        _ => ValueKey(campo),
+      },
       value: state.preferencias!.valor(campo),
       activeThumbColor: AppColors.azul.segunTema(context),
       onChanged: state.guardando

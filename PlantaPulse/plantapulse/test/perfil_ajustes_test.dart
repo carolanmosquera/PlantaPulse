@@ -82,8 +82,15 @@ void main() {
     expect(find.text('Ajustes de PlantaPulse'), findsOneWidget);
   }
 
+  Key clave(Preferencia campo) => switch (campo) {
+    Preferencia.notificacionesPush => const Key('switch-push'),
+    Preferencia.alertasMantenimiento => const Key('switch-mantenimiento'),
+    Preferencia.soloCriticas => const Key('switch-criticas'),
+    _ => ValueKey(campo),
+  };
+
   Switch interruptor(WidgetTester tester, Preferencia campo) =>
-      tester.widget<Switch>(find.byKey(ValueKey(campo)));
+      tester.widget<Switch>(find.byKey(clave(campo)));
 
   for (final rol in RolUsuario.values) {
     testWidgets('perfil de ${rol.name}: datos de la cuenta y gestión según rol', (
@@ -147,7 +154,7 @@ void main() {
       expect(find.text('Nombre a'), findsOneWidget);
       expect(find.text(RolUsuario.tecnico.etiqueta), findsOneWidget);
       for (final campo in Preferencia.values) {
-        final control = find.byKey(ValueKey(campo));
+        final control = find.byKey(clave(campo));
         await tester.ensureVisible(control);
         await tester.tap(control);
         await tester.pumpAndSettle();
@@ -198,6 +205,7 @@ void main() {
           const PreferenciasUsuario().valor(campo),
         );
       }
+      await tester.pumpWidget(const SizedBox());
       await arrancar(tester, 'a');
       expect(
         Theme.of(tester.element(find.text('PlantaPulse Feed'))).brightness,
@@ -220,9 +228,7 @@ void main() {
       await abrirAjustes(tester);
       preferencias.pausa = Completer<void>();
       preferencias.fallaEscritura = true;
-      await tester.tap(
-        find.byKey(const ValueKey(Preferencia.notificacionesPush)),
-      );
+      await tester.tap(find.byKey(clave(Preferencia.notificacionesPush)));
       await tester.pump();
       expect(find.text('Guardando…'), findsOneWidget);
       expect(

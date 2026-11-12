@@ -4,7 +4,17 @@ import '../repositories/autenticacion_repositorio.dart';
 class CerrarSesion {
   final AutenticacionRepositorio _auth;
 
-  const CerrarSesion(this._auth);
+  /// Lo que hay que hacer mientras la sesión todavía sirve, por ejemplo
+  /// borrar el token de notificaciones del perfil (RLS ya no lo permite
+  /// después de salir). Si falla, igual se cierra la sesión.
+  final Future<void> Function()? _antesDeSalir;
 
-  Future<void> ejecutar() => _auth.salir();
+  const CerrarSesion(this._auth, {this._antesDeSalir});
+
+  Future<void> ejecutar() async {
+    try {
+      await _antesDeSalir?.call();
+    } catch (_) {}
+    await _auth.salir();
+  }
 }

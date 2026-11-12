@@ -39,6 +39,15 @@ class OrdenRepositorioImpl implements OrdenRepositorio {
           ordenes.where((o) => o.asignadoAUid == uid).toList()
             ..sort((a, b) => a.fechaLimite.compareTo(b.fechaLimite)));
 
+  /// Las eliminadas cuentan como inexistentes, igual que en el feed.
+  @override
+  Future<Orden?> obtener(String ordenId) async {
+    final fila = await _fuente.obtener(ordenId);
+    if (fila == null) return null;
+    final orden = OrdenModelo.fromJson(fila);
+    return orden.eliminada ? null : orden;
+  }
+
   @override
   String nuevoId() => _fuente.nuevoId();
 

@@ -73,6 +73,8 @@ create table usuarios (
   foto_url text,
   turno text default '',
   fcm_token text,
+  preferencias_avisos jsonb not null     -- KAN-100: ver 05_preferencias_avisos.sql
+    default '{"push": true, "mantenimiento": true, "soloCriticas": false}'::jsonb,
   activo boolean default true,
   aprobado_por jsonb,                 -- UsuarioRef: {uid, nombre, fotoUrl}
   aprobado_en timestamptz,            -- lo pone el trigger, nunca la app
@@ -290,7 +292,8 @@ begin
   elsif old.id = auth.uid() then
     -- Datos personales: rol, estado y planta quedan bloqueados
     if not public.solo_cambia(to_jsonb(old), to_jsonb(new),
-         array['nombre', 'foto_url', 'turno', 'fcm_token', 'especialidad']) then
+         array['nombre', 'foto_url', 'turno', 'fcm_token', 'especialidad',
+               'preferencias_avisos']) then
       raise exception 'Solo puedes editar tus datos personales'
         using errcode = '42501';
     end if;

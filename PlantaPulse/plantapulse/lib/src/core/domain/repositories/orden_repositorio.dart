@@ -11,6 +11,11 @@ abstract class OrdenRepositorio {
   /// "Mis Tareas": las órdenes de un técnico, la que vence primero arriba.
   Stream<List<Orden>> asignadasA(String uid, String plantaId);
 
+  /// Una orden por su id, leída una sola vez. Devuelve null si no existe,
+  /// si se eliminó o si RLS no deja verla (es de otra planta). La usa la
+  /// notificación push para abrir la orden que menciona.
+  Future<Orden?> obtener(String ordenId);
+
   /// Un id nuevo para una orden que aún no existe. Sirve para subir sus
   /// fotos a su carpeta ANTES de crearla: si una subida falla, la orden no
   /// se crea y no queda a medias.

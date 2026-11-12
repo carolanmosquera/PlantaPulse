@@ -40,6 +40,10 @@ class UsuarioRepositorioImpl implements UsuarioRepositorio {
   Future<void> guardarTokenPush(String uid, String token) =>
       actualizar(uid, {'fcmToken': token});
 
+  @override
+  Future<void> borrarTokenPush(String uid) =>
+      actualizar(uid, {'fcmToken': null});
+
   /// Los técnicos de una planta, para el selector de responsable.
   /// Solo cuentas aprobadas: un técnico rechazado no puede recibir órdenes.
   /// El orden por nombre se hace en Dart, igual que antes.

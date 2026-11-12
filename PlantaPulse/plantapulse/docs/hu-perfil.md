@@ -1,6 +1,6 @@
 # HU: consultar perfil y conservar preferencias
 
-Implementación en `feat/ver-configurar-perfil`. No requiere migraciones SQL ni cambios de versiones o dependencias.
+Implementación integrada con `main` en `feat/ver-configurar-perfil`. Para las preferencias de avisos se necesita la migración `supabase/05_preferencias_avisos.sql` incorporada por KAN-100. Se conservan las dependencias y versiones fijadas por `main`.
 
 ## Funcionamiento
 
@@ -16,21 +16,23 @@ El módulo sigue las capas del proyecto:
 
 ## Persistencia y permisos
 
-La fuente lee la cuenta con `auth.getUser()` y guarda mediante `auth.updateUser(UserAttributes(data: ...))`, con el token de la sesión existente. Verifica que el identificador corresponda a esa cuenta y confirma el valor devuelto por Supabase.
+Para **Modo Oscuro** y **Modo Offline**, la fuente lee la cuenta con `auth.getUser()` y guarda mediante `auth.updateUser(UserAttributes(data: ...))`, con el token de la sesión existente. Verifica que el identificador corresponda a esa cuenta y confirma el valor devuelto por Supabase.
 
-Se actualiza exclusivamente `user_metadata.plantapulse_preferencias`. Supabase combina esa clave con el resto de metadatos; dentro de ella se conservan las otras opciones, incluidas claves desconocidas. No se envían cambios de rol, correo ni contraseña. Los roles siguen viniendo del perfil en `usuarios`; las consultas a `usuarios` y `plantas` mantienen las políticas RLS existentes. Los metadatos de preferencias nunca se usan para conceder permisos.
+**Push**, **Mantenimiento** y **Solo Críticas** se leen y guardan en `usuarios.preferencias_avisos`, fuente de verdad para los avisos. La lectura posterior al guardado confirma el valor. La migración permite actualizar esta columna únicamente al titular del perfil mediante el trigger `proteger_usuarios` y RLS existentes. Al cambiar Push, `SincronizarTokenPush` retira o registra el token FCM.
 
-| Preferencia | Clave | Valor inicial |
+Auth recibe exclusivamente cambios de `modo_oscuro` o `modo_offline` dentro de `user_metadata.plantapulse_preferencias`. Supabase conserva otros metadatos y claves desconocidas, incluidas las claves antiguas de avisos; estas últimas ya no gobiernan las notificaciones. No se envían cambios de rol, correo ni contraseña. Los roles siguen viniendo de `usuarios` y los metadatos de preferencias nunca conceden permisos.
+
+| Preferencia | Fuente y clave | Valor inicial |
 | --- | --- | --- |
-| Notificaciones Push | `notificaciones_push` | Activado |
-| Alertas de Mantenimiento | `alertas_mantenimiento` | Activado |
-| Solo Críticas | `solo_criticas` | Desactivado |
-| Modo Oscuro | `modo_oscuro` | Desactivado |
-| Modo Offline | `modo_offline` | Desactivado |
+| Notificaciones Push | `usuarios.preferencias_avisos.push` | Activado |
+| Alertas de Mantenimiento | `usuarios.preferencias_avisos.mantenimiento` | Activado |
+| Solo Críticas | `usuarios.preferencias_avisos.soloCriticas` | Desactivado |
+| Modo Oscuro | Auth `modo_oscuro` | Desactivado |
+| Modo Offline | Auth `modo_offline` | Desactivado |
 
 Los valores iniciales se usan tras una lectura exitosa cuando la cuenta aún no tiene la opción. Al reabrir Ajustes se consulta nuevamente el servidor. No se comparte estado de preferencias entre cuentas.
 
-El modo oscuro cambia la apariencia de la aplicación. Las demás opciones conservan preferencias, pero no implementan envío de notificaciones ni sincronización offline. La pantalla explica ese alcance. Para leer y guardar se necesita conexión.
+El modo oscuro cambia la apariencia de la aplicación. Push registra o retira el dispositivo; los filtros de avisos quedan guardados para que los emisores de notificaciones los consulten. El modo offline solo guarda la preferencia y todavía no sincroniza datos sin conexión. Para leer y guardar se necesita conexión.
 
 ## Modo oscuro y alcance del diff
 
@@ -52,11 +54,12 @@ flutter analyze --no-pub
 flutter analyze --no-pub --no-fatal-infos
 ```
 
-- Suite completa: **87 pruebas aprobadas**, incluidas autenticación, navegación, órdenes y reportes.
+- Suite completa integrada: **106 pruebas aprobadas**, incluidas autenticación, navegación, órdenes, reportes, push y alertas críticas con GPS simulado.
 - Pruebas añadidas: perfil de técnico, supervisor y administrador; datos vacíos, reintentos, los cinco interruptores, regreso a Ajustes, nueva instancia, cierre de sesión, aislamiento de cuentas, bloqueo durante guardado y restauración ante error.
-- Fuente Supabase probada con HTTP simulado: token de sesión, GET/PUT, preservación de metadatos, rechazo sin sesión o con otra cuenta, errores y confirmación del valor guardado. También se comprueba la consulta por id de una planta inactiva.
+- Fuente Auth probada con HTTP simulado: token de sesión, GET/PUT de las opciones oscuridad y offline, preservación de metadatos, rechazo sin sesión o con otra cuenta, errores y confirmación. Las pruebas de avisos verifican la persistencia en el repositorio de usuarios y el efecto sobre el token push con dobles en memoria. También se comprueba la consulta por id de una planta inactiva.
 - Modo oscuro: restauración por cuenta al iniciar sesión, aislamiento entre cuentas, lecturas tardías, cambio inmediato, restauración visual al fallar el guardado, contraste de texto/superficies, conservación del tema claro y herencia del tema en diálogos.
-- Análisis final: **0 errores, 0 advertencias y 62 avisos informativos** con Flutter 3.50; `--no-fatal-infos` terminó con código 0. La versión de perfil/preferencias tenía 60; los dos avisos adicionales corresponden a la importación Material en el nuevo tema y su prueba de componentes. No se desactivan reglas en `analysis_options.yaml`. El comando sin `--no-fatal-infos` devuelve código 1 por los avisos informativos.
+- Análisis integrado: **0 errores, 0 advertencias y 65 avisos informativos** con Flutter 3.50; `--no-fatal-infos` terminó con código 0. Los avisos informativos provienen sobre todo de la deprecación de `material.dart` en esta versión. No se desactivan reglas. El comando sin `--no-fatal-infos` devuelve código 1 por esos avisos.
+- `flutter build web --no-pub`: compilación correcta. `flutter pub get --enforce-lockfile` descargó las versiones fijadas, aunque informó que Windows necesita Modo desarrollador para enlaces simbólicos de plugins.
 - Los tests de interfaces usan datos simulados. En el paso por el login existente se tolera únicamente su desbordamiento de texto con la fuente de pruebas Ahem; los errores de Perfil y Ajustes siguen haciendo fallar las pruebas.
 
 ## Comprobación con tu cuenta real y evidencia para Jira
@@ -67,6 +70,7 @@ flutter run --no-pub -d chrome
 ```
 
 1. Inicia sesión con una cuenta aprobada, sin compartir su contraseña en el chat.
+   Antes, confirma que el entorno de Supabase tenga aplicada `supabase/05_preferencias_avisos.sql`.
 2. Abre **Perfil** en la barra inferior. Comprueba nombre, rol, planta y especialidad; captura esa pantalla.
 3. Entra en **Ajustes de Cuenta**. Cambia cada interruptor y espera **Preferencia guardada** antes de salir. Al activar **Modo Oscuro** deben cambiar inmediatamente los colores; comprueba también Perfil, Feed y un formulario o diálogo. Al desactivarlo debe regresar la paleta clara original.
 4. Regresa al perfil y vuelve a Ajustes. Comprueba los cinco valores y toma una captura.
@@ -75,4 +79,4 @@ flutter run --no-pub -d chrome
 7. Adjunta en Jira capturas de la app y del código relevante: `perfil_screen.dart`, `ajustes_bloc.dart` y `preferencias_fuente_supabase.dart` dentro de `lib/src/features/perfil/`.
 8. Solicita revisión a otro integrante y actualiza el tablero según KAN-134.
 
-**Pendiente para completar el DoD:** validar con una sesión real de Supabase (incluidos los permisos del rol), adjuntar evidencias y obtener la revisión del equipo. Las pruebas simuladas no sustituyen esos pasos. No se han publicado evidencias ni cambiado estados en Jira.
+**Pendiente para completar el DoD:** validar con una sesión real de Supabase (incluidos los permisos del rol y la migración), comprobar push y GPS en Android, adjuntar evidencias y obtener la revisión del equipo. Este equipo no tiene Android SDK. Las pruebas simuladas no sustituyen esos pasos. No se han publicado evidencias ni cambiado estados en Jira.

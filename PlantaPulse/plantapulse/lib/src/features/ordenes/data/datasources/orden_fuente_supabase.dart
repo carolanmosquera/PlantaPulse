@@ -48,6 +48,10 @@ class OrdenFuenteSupabase {
           .order(columnaOrden, ascending: ascendente)
           .traducirErrores(_falloDeLectura);
 
+  /// Una fila, o null si no existe o RLS no deja verla.
+  Future<Map<String, dynamic>?> obtener(String ordenId) =>
+      traducirSupabase(() => _tabla.select().eq('id', ordenId).maybeSingle());
+
   /// UUID v4, el mismo tipo que genera Postgres con gen_random_uuid().
   String nuevoId() => const Uuid().v4();
 

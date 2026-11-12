@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'src/core/core.dart';
 import 'src/features/auth/auth.dart';
 import 'src/features/crear_orden/crear_orden.dart';
+import 'src/features/notificaciones/notificaciones.dart';
 import 'src/features/novedades/novedades.dart';
 import 'src/features/ordenes/ordenes.dart';
 import 'src/features/perfil/perfil.dart';
@@ -22,6 +23,11 @@ import 'src/features/auth/data/repositories/autenticacion_repositorio_impl.dart'
 import 'src/features/auth/data/repositories/usuario_repositorio_impl.dart';
 import 'src/features/crear_orden/data/datasources/equipo_fuente_supabase.dart';
 import 'src/features/crear_orden/data/repositories/equipo_repositorio_impl.dart';
+import 'src/features/notificaciones/data/datasources/push_fuente_fcm.dart';
+import 'src/features/novedades/data/datasources/alerta_critica_fuente_supabase.dart';
+import 'src/features/novedades/data/datasources/ubicacion_fuente_geolocator.dart';
+import 'src/features/novedades/data/repositories/alerta_critica_repositorio_impl.dart';
+import 'src/features/notificaciones/data/repositories/push_repositorio_impl.dart';
 import 'src/features/ordenes/data/datasources/orden_fuente_supabase.dart';
 import 'src/features/ordenes/data/repositories/orden_repositorio_impl.dart';
 import 'src/features/reportes/data/datasources/reporte_fuente_supabase.dart';
@@ -34,10 +40,14 @@ import 'src/features/perfil/data/repositories/preferencias_repositorio_impl.dart
 // NUNCA poner aquí la clave service_role: se salta RLS por completo.
 // Ambas se pueden cambiar sin tocar el código:
 //   flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_KEY=...
-const _supabaseUrl = String.fromEnvironment('SUPABASE_URL',
-    defaultValue: 'https://uxajglpaoofragjxcrvx.supabase.co');
-const _supabaseKey = String.fromEnvironment('SUPABASE_KEY',
-    defaultValue: 'sb_publishable_3u4XDt2DaGZ3q8uKJ422OA_7ivMKL2X');
+const _supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://uxajglpaoofragjxcrvx.supabase.co',
+);
+const _supabaseKey = String.fromEnvironment(
+  'SUPABASE_KEY',
+  defaultValue: 'sb_publishable_3u4XDt2DaGZ3q8uKJ422OA_7ivMKL2X',
+);
 
 // Supabase tiene que estar listo ANTES de que exista cualquier pantalla,
 // porque el splash ya lo va a usar para restaurar la sesión guardada.
@@ -47,6 +57,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(url: _supabaseUrl, anonKey: _supabaseKey);
+
+  // Notificaciones push (KAN-96). Solo en Android; si falla, la app
+  // sigue funcionando sin notificaciones.
+  await PushFuenteFcm.inicializar();
 
   runApp(const PlantaPulseApp());
 }
@@ -65,6 +79,13 @@ class PlantaPulseApp extends StatelessWidget {
   final ReporteRepositorio? reporteRepositorio;
   final AlmacenamientoRepositorio? almacenamientoRepositorio;
   final PreferenciasRepositorio? preferenciasRepositorio;
+  final PushRepositorio? pushRepositorio;
+  final AlertaCriticaRepositorio? alertaCriticaRepositorio;
+  final UbicacionRepositorio? ubicacionRepositorio;
+
+  /// El Navigator del MaterialApp. Lo usa EscuchaPush, que está por
+  /// encima del MaterialApp, para abrir la orden de una notificación.
+  static final navegador = GlobalKey<NavigatorState>();
 
   const PlantaPulseApp({
     super.key,
@@ -79,6 +100,9 @@ class PlantaPulseApp extends StatelessWidget {
     this.reporteRepositorio,
     this.almacenamientoRepositorio,
     this.preferenciasRepositorio,
+    this.pushRepositorio,
+    this.alertaCriticaRepositorio,
+    this.ubicacionRepositorio,
   });
 
   @override
@@ -95,99 +119,178 @@ class PlantaPulseApp extends StatelessWidget {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<PreferenciasRepositorio>(
-          create: (_) => preferenciasRepositorio ??
-              PreferenciasRepositorioImpl(PreferenciasFuenteSupabase()),
+          create: (c) =>
+              preferenciasRepositorio ??
+              PreferenciasRepositorioImpl(
+                PreferenciasFuenteSupabase(),
+                c.read<UsuarioRepositorio>(),
+              ),
         ),
         // ── Repositorios (contratos del dominio) ──
         RepositoryProvider<UsuarioRepositorio>(
-            create: (_) => usuarioRepository ??
-                UsuarioRepositorioImpl(UsuarioFuenteSupabase())),
+          create: (_) =>
+              usuarioRepository ??
+              UsuarioRepositorioImpl(UsuarioFuenteSupabase()),
+        ),
         RepositoryProvider<PlantaRepositorio>(
-            create: (_) => plantaRepository ??
-                PlantaRepositorioImpl(PlantaFuenteSupabase())),
+          create: (_) =>
+              plantaRepository ?? PlantaRepositorioImpl(PlantaFuenteSupabase()),
+        ),
         RepositoryProvider<OrdenRepositorio>(
-            create: (_) => ordenRepository ??
-                OrdenRepositorioImpl(OrdenFuenteSupabase())),
+          create: (_) =>
+              ordenRepository ?? OrdenRepositorioImpl(OrdenFuenteSupabase()),
+        ),
         RepositoryProvider<EquipoRepositorio>(
-            create: (_) => equipoRepository ??
-                EquipoRepositorioImpl(EquipoFuenteSupabase())),
+          create: (_) =>
+              equipoRepository ?? EquipoRepositorioImpl(EquipoFuenteSupabase()),
+        ),
         RepositoryProvider<CategoriaRepositorio>(
-            create: (_) =>
-                categoriaRepositorio ??
-                CategoriaRepositorioImpl(CategoriaFuenteSupabase())),
+          create: (_) =>
+              categoriaRepositorio ??
+              CategoriaRepositorioImpl(CategoriaFuenteSupabase()),
+        ),
         RepositoryProvider<ZonaRepositorio>(
-            create: (_) => zonaRepositorio ??
-                ZonaRepositorioImpl(ZonaFuenteSupabase())),
+          create: (_) =>
+              zonaRepositorio ?? ZonaRepositorioImpl(ZonaFuenteSupabase()),
+        ),
         RepositoryProvider<ReporteRepositorio>(
-            create: (_) =>
-                reporteRepositorio ??
-                ReporteRepositorioImpl(ReporteFuenteSupabase())),
+          create: (_) =>
+              reporteRepositorio ??
+              ReporteRepositorioImpl(ReporteFuenteSupabase()),
+        ),
         RepositoryProvider<AlmacenamientoRepositorio>(
-            create: (_) =>
-                almacenamientoRepositorio ??
-                // Dos fuentes: la cámara del teléfono y Supabase Storage
-                AlmacenamientoRepositorioImpl(
-                  dispositivo: FotoFuenteDispositivo(),
-                  almacen: AlmacenamientoFuenteSupabase(),
-                )),
+          create: (_) =>
+              almacenamientoRepositorio ??
+              // Dos fuentes: la cámara del teléfono y Supabase Storage
+              AlmacenamientoRepositorioImpl(
+                dispositivo: FotoFuenteDispositivo(),
+                almacen: AlmacenamientoFuenteSupabase(),
+              ),
+        ),
+        RepositoryProvider<PushRepositorio>(
+          create: (_) =>
+              pushRepositorio ?? PushRepositorioImpl(PushFuenteFcm()),
+        ),
+        // Alertas críticas y ubicación (KAN-90)
+        RepositoryProvider<AlertaCriticaRepositorio>(
+          create: (_) =>
+              alertaCriticaRepositorio ??
+              AlertaCriticaRepositorioImpl(AlertaCriticaFuenteSupabase()),
+        ),
+        RepositoryProvider<UbicacionRepositorio>(
+          create: (_) =>
+              ubicacionRepositorio ??
+              UbicacionRepositorioImpl(UbicacionFuenteGeolocator()),
+        ),
 
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
-            create: (c) =>
-                ObservarSolicitudesPendientes(c.read<UsuarioRepositorio>())),
+          create: (c) =>
+              ObservarSolicitudesPendientes(c.read<UsuarioRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => AprobarSolicitud(c.read<UsuarioRepositorio>())),
+          create: (c) => AprobarSolicitud(c.read<UsuarioRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => RechazarSolicitud(c.read<UsuarioRepositorio>())),
+          create: (c) => RechazarSolicitud(c.read<UsuarioRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => ListarPlantasActivas(c.read<PlantaRepositorio>())),
+          create: (c) => ListarPlantasActivas(c.read<PlantaRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => ListarEquiposDePlanta(c.read<EquipoRepositorio>())),
+          create: (c) => ListarEquiposDePlanta(c.read<EquipoRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => ListarTecnicosDePlanta(c.read<UsuarioRepositorio>())),
+          create: (c) => ListarTecnicosDePlanta(c.read<UsuarioRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => PublicarOrden(c.read<OrdenRepositorio>())),
+          create: (c) => PublicarOrden(c.read<OrdenRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) =>
-                ListarCategoriasDePlanta(c.read<CategoriaRepositorio>())),
+          create: (c) =>
+              ListarCategoriasDePlanta(c.read<CategoriaRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => CrearCategoria(c.read<CategoriaRepositorio>())),
+          create: (c) => CrearCategoria(c.read<CategoriaRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => ListarZonasDePlanta(c.read<ZonaRepositorio>())),
+          create: (c) => ListarZonasDePlanta(c.read<ZonaRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => CrearEquipo(c.read<EquipoRepositorio>())),
+          create: (c) => CrearEquipo(c.read<EquipoRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => EditarEquipo(c.read<EquipoRepositorio>())),
+          create: (c) => EditarEquipo(c.read<EquipoRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => DarDeBajaEquipo(c.read<EquipoRepositorio>())),
+          create: (c) => DarDeBajaEquipo(c.read<EquipoRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => NuevoIdDeOrden(c.read<OrdenRepositorio>())),
+          create: (c) => NuevoIdDeOrden(c.read<OrdenRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => EliminarOrden(c.read<OrdenRepositorio>())),
+          create: (c) => EliminarOrden(c.read<OrdenRepositorio>()),
+        ),
         // Reportes y evidencia
         RepositoryProvider(
-            create: (c) =>
-                ObservarReportesDeOrden(c.read<ReporteRepositorio>())),
+          create: (c) => ObservarReportesDeOrden(c.read<ReporteRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => UrlDeEvidencia(c.read<AlmacenamientoRepositorio>())),
+          create: (c) => UrlDeEvidencia(c.read<AlmacenamientoRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => ObtenerFoto(c.read<AlmacenamientoRepositorio>())),
+          create: (c) => ObtenerFoto(c.read<AlmacenamientoRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => SubirEvidencia(c.read<AlmacenamientoRepositorio>())),
+          create: (c) => SubirEvidencia(c.read<AlmacenamientoRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => PublicarReporte(c.read<ReporteRepositorio>())),
+          create: (c) => PublicarReporte(c.read<ReporteRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => CerrarOrden(c.read<OrdenRepositorio>())),
+          create: (c) => CerrarOrden(c.read<OrdenRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => DevolverOrden(c.read<OrdenRepositorio>())),
+          create: (c) => DevolverOrden(c.read<OrdenRepositorio>()),
+        ),
         RepositoryProvider(
-            create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
-        RepositoryProvider(create: (c) => ConsultarPerfil(
-            c.read<UsuarioRepositorio>(), c.read<PlantaRepositorio>())),
-        RepositoryProvider(create: (c) =>
-            ObtenerPreferencias(c.read<PreferenciasRepositorio>())),
-        RepositoryProvider(create: (c) =>
-            CambiarPreferencia(c.read<PreferenciasRepositorio>())),
+          create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>()),
+        ),
+        RepositoryProvider(
+          create: (c) => ConsultarPerfil(
+            c.read<UsuarioRepositorio>(),
+            c.read<PlantaRepositorio>(),
+          ),
+        ),
+        RepositoryProvider(
+          create: (c) => ObtenerPreferencias(c.read<PreferenciasRepositorio>()),
+        ),
+        RepositoryProvider(
+          create: (c) =>
+              EnviarAlertaCritica(c.read<AlertaCriticaRepositorio>()),
+        ),
+        RepositoryProvider(
+          create: (c) =>
+              ObservarAlertasCriticas(c.read<AlertaCriticaRepositorio>()),
+        ),
+        RepositoryProvider(
+          create: (c) => ObtenerUbicacion(c.read<UbicacionRepositorio>()),
+        ),
+        // Notificaciones push: guarda el token en el perfil (KAN-96)
+        RepositoryProvider(
+          create: (c) => SincronizarTokenPush(
+            c.read<PushRepositorio>(),
+            c.read<UsuarioRepositorio>(),
+          ),
+        ),
+        RepositoryProvider(
+          create: (c) => CambiarPreferencia(
+            c.read<PreferenciasRepositorio>(),
+            alCambiarPush: (uid, valor) => valor
+                ? c.read<SincronizarTokenPush>().iniciar(uid)
+                : c.read<SincronizarTokenPush>().detener(),
+          ),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -195,7 +298,11 @@ class PlantaPulseApp extends StatelessWidget {
           // sin importar el feature auth.
           BlocProvider<SesionBloc>(
             create: (context) =>
-                (authBloc ?? _crearAuthBloc(context.read<UsuarioRepositorio>()))
+                (authBloc ??
+                      _crearAuthBloc(
+                        context.read<UsuarioRepositorio>(),
+                        context.read<SincronizarTokenPush>(),
+                      ))
                   ..add(const AuthComprobarSesion()),
           ),
           BlocProvider<OrdenesBloc>(
@@ -213,75 +320,94 @@ class PlantaPulseApp extends StatelessWidget {
             create: (context) {
               final sesion = context.read<SesionBloc>().state;
               return TemaCubit(context.read<ObtenerPreferencias>())
-                ..cambiarCuenta(sesion.sesion == EstadoSesion.activa
-                    ? sesion.usuario?.uid : null);
+                ..cambiarCuenta(
+                  sesion.sesion == EstadoSesion.activa
+                      ? sesion.usuario?.uid
+                      : null,
+                );
             },
           ),
         ],
         child: BlocListener<SesionBloc, AuthState>(
           listener: (context, state) => context.read<TemaCubit>().cambiarCuenta(
-            state.sesion == EstadoSesion.activa ? state.usuario?.uid : null),
-          child: BlocBuilder<TemaCubit, bool>(
-          builder: (context, oscuro) => MaterialApp(
-          title: 'PlantaPulse',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.claro,
-          darkTheme: AppTheme.oscuro,
-          themeMode: oscuro ? ThemeMode.dark : ThemeMode.light,
-          // Simula ancho de celular en Chrome — una sola vez para las 15
-          builder: (context, child) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: child,
+            state.sesion == EstadoSesion.activa ? state.usuario?.uid : null,
+          ),
+          child: EscuchaPush(
+            navegador: navegador,
+            child: EscuchaAlertasCriticas(
+              navegador: navegador,
+              child: BlocBuilder<TemaCubit, bool>(
+                builder: (context, oscuro) => MaterialApp(
+                  navigatorKey: navegador,
+                  title: 'PlantaPulse',
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.claro,
+                  darkTheme: AppTheme.oscuro,
+                  themeMode: oscuro ? ThemeMode.dark : ThemeMode.light,
+                  // Simula ancho de celular en Chrome — una sola vez para las 15
+                  builder: (context, child) => Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: child,
+                    ),
+                  ),
+                  initialRoute: Rutas.splash,
+                  routes: {
+                    Rutas.splash: (_) => const SplashScreen(),
+                    Rutas.login: (_) => const LoginScreen(),
+                    Rutas.registro: (_) => const RegistroScreen(),
+                    Rutas.feed: (_) => const FeedScreen(),
+                    Rutas.alertas: (_) => const AlertasScreen(),
+                    Rutas.perfil: (_) => const PerfilScreen(),
+                    Rutas.ajustes: (_) => const AjustesScreen(),
+                    Rutas.crearOrden: (_) => const CrearOrdenP1Screen(),
+                    Rutas.resumenTurno: (_) => const ResumenTurnoScreen(),
+                    Rutas.misTareas: (_) => const MisTareasScreen(),
+                    Rutas.emergencia: (_) => const EmergenciaScreen(),
+                    Rutas.espera: (_) => const EsperaAprobacionScreen(),
+                    Rutas.solicitudes: (_) => const SolicitudesScreen(),
+                  },
+                  // Rutas que necesitan la orden como parámetro
+                  onGenerateRoute: (settings) {
+                    final orden = settings.arguments;
+                    if (orden is! Orden) return null;
+                    final Widget? pantalla = switch (settings.name) {
+                      Rutas.detalleOrden => DetalleOrdenScreen(orden: orden),
+                      Rutas.llenarReporte => LlenarReporteScreen(orden: orden),
+                      Rutas.validar => ValidarEvidenciaScreen(orden: orden),
+                      _ => null,
+                    };
+                    return pantalla == null
+                        ? null
+                        : MaterialPageRoute(
+                            builder: (_) => pantalla,
+                            settings: settings,
+                          );
+                  },
+                ),
+              ),
             ),
           ),
-          initialRoute: Rutas.splash,
-          routes: {
-            Rutas.splash:        (_) => const SplashScreen(),
-            Rutas.login:         (_) => const LoginScreen(),
-            Rutas.registro:      (_) => const RegistroScreen(),
-            Rutas.feed:          (_) => const FeedScreen(),
-            Rutas.alertas:       (_) => const AlertasScreen(),
-            Rutas.perfil:        (_) => const PerfilScreen(),
-            Rutas.ajustes:       (_) => const AjustesScreen(),
-            Rutas.crearOrden:    (_) => const CrearOrdenP1Screen(),
-            Rutas.resumenTurno:  (_) => const ResumenTurnoScreen(),
-            Rutas.misTareas:     (_) => const MisTareasScreen(),
-            Rutas.emergencia:    (_) => const EmergenciaScreen(),
-            Rutas.espera:        (_) => const EsperaAprobacionScreen(),
-            Rutas.solicitudes:   (_) => const SolicitudesScreen(),
-          },
-          // Rutas que necesitan la orden como parámetro
-          onGenerateRoute: (settings) {
-            final orden = settings.arguments;
-            if (orden is! Orden) return null;
-            final Widget? pantalla = switch (settings.name) {
-              Rutas.detalleOrden  => DetalleOrdenScreen(orden: orden),
-              Rutas.llenarReporte => LlenarReporteScreen(orden: orden),
-              Rutas.validar       => ValidarEvidenciaScreen(orden: orden),
-              _                   => null,
-            };
-            return pantalla == null
-                ? null
-                : MaterialPageRoute(builder: (_) => pantalla, settings: settings);
-          },
-        ),
-        ),
         ),
       ),
     );
   }
 
   /// La cadena de autenticación: repositorio → casos de uso → Bloc.
-  AuthBloc _crearAuthBloc(UsuarioRepositorio usuarios) {
-    final auth = autenticacionRepositorio ??
+  AuthBloc _crearAuthBloc(
+    UsuarioRepositorio usuarios,
+    SincronizarTokenPush push,
+  ) {
+    final auth =
+        autenticacionRepositorio ??
         AutenticacionRepositorioImpl(AutenticacionFuenteSupabase());
     return AuthBloc(
       comprobarSesion: ComprobarSesion(auth, usuarios),
       iniciarSesion: IniciarSesion(auth, usuarios),
       registrarSolicitud: RegistrarSolicitud(auth, usuarios),
       recargarPerfil: RecargarPerfil(auth, usuarios),
-      cerrarSesion: CerrarSesion(auth),
+      // El token se borra del perfil antes de salir (KAN-96)
+      cerrarSesion: CerrarSesion(auth, antesDeSalir: push.detener),
     );
   }
 }

@@ -66,6 +66,12 @@ class _FeedScreenState extends State<FeedScreen> {
       mostrarMenu: true,
       tabActiva: 0,
       accionesExtra: [
+        // KAN-90: cualquier persona de la planta puede avisar de una emergencia
+        IconButton(
+          tooltip: 'Reportar emergencia',
+          icon: const Icon(Icons.warning_amber_rounded, color: AppColors.rojo),
+          onPressed: () => Navigator.pushNamed(context, Rutas.emergencia),
+        ),
         if (esTecnico)
           IconButton(
             tooltip: 'Mis tareas',

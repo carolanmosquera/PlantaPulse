@@ -9,11 +9,24 @@ import 'package:plantapulse/src/core/data/repositories/planta_repositorio_impl.d
 import 'package:plantapulse/src/features/perfil/perfil.dart';
 import 'package:plantapulse/src/features/perfil/data/datasources/preferencias_fuente_supabase.dart';
 import 'package:plantapulse/src/features/perfil/data/repositories/preferencias_repositorio_impl.dart';
+import 'fakes.dart';
+
+class _UsuariosConAvisos extends FakeUsuarioRepository {
+  @override
+  Future<void> actualizar(String uid, Map<String, dynamic> cambios) async {
+    perfiles[uid] = perfiles[uid]!.copyWith(
+      preferenciasAvisos: PreferenciasAvisos.fromJson(
+        cambios['preferenciasAvisos'],
+      ),
+    );
+  }
+}
 
 void main() {
   const espacio = 'plantapulse_preferencias';
   late sb.SupabaseClient cliente;
   late PreferenciasRepositorio repo;
+  late _UsuariosConAvisos usuarios;
   late Map<String, dynamic> usuario;
   late List<http.Request> peticiones;
   int estadoHttp = 200;
@@ -36,6 +49,16 @@ void main() {
         espacio: {'opcion_futura': 'conservar'},
       },
     };
+    usuarios = _UsuariosConAvisos();
+    usuarios.perfiles['cuenta-a'] = Usuario(
+      uid: 'cuenta-a',
+      nombre: 'Ana',
+      email: 'ana@example.com',
+      rol: RolUsuario.tecnico,
+      plantaId: 'p1',
+      estado: EstadoCuenta.activo,
+      createdAt: DateTime(2026),
+    );
     cliente = sb.SupabaseClient(
       'https://prueba.supabase.co',
       'clave-publica-prueba',
@@ -87,6 +110,7 @@ void main() {
     );
     repo = PreferenciasRepositorioImpl(
       PreferenciasFuenteSupabase(auth: cliente.auth),
+      usuarios,
     );
     addTearDown(cliente.dispose);
   });
@@ -116,32 +140,58 @@ void main() {
   );
 
   test(
-    'cinco escrituras confirmadas, conserva metadatos y no cambia permisos ni credenciales',
+    'los avisos de usuarios prevalecen sobre metadatos antiguos de Auth',
     () async {
       await entrar();
-      const claves = [
-        'notificaciones_push',
-        'alertas_mantenimiento',
-        'solo_criticas',
-        'modo_oscuro',
-        'modo_offline',
-      ];
+      (usuario['user_metadata'] as Map)[espacio] = {
+        'notificaciones_push': false,
+        'alertas_mantenimiento': false,
+        'solo_criticas': true,
+        'modo_oscuro': true,
+      };
+      final leidas = await repo.obtener('cuenta-a');
+      expect(leidas.notificacionesPush, isTrue);
+      expect(leidas.alertasMantenimiento, isTrue);
+      expect(leidas.soloCriticas, isFalse);
+      expect(leidas.modoOscuro, isTrue);
+
+      final guardadas = await repo.cambiar(
+        'cuenta-a',
+        Preferencia.notificacionesPush,
+        false,
+      );
+      expect(guardadas.notificacionesPush, isFalse);
+      expect(usuarios.perfiles['cuenta-a']!.preferenciasAvisos.push, isFalse);
+      expect(peticiones.where((r) => r.method == 'PUT'), isEmpty);
+      expect(usuario['user_metadata'][espacio]['notificaciones_push'], isFalse);
+    },
+  );
+
+  test(
+    'cinco escrituras confirmadas en sus fuentes respectivas y sin cambiar credenciales',
+    () async {
+      await entrar();
+      const claves = ['modo_oscuro', 'modo_offline'];
       for (var i = 0; i < Preferencia.values.length; i++) {
         final campo = Preferencia.values[i];
         final valor = !const PreferenciasUsuario().valor(campo);
         final guardadas = await repo.cambiar('cuenta-a', campo, valor);
         expect(guardadas.valor(campo), valor);
-        final req = peticiones.last;
-        expect(req.method, 'PUT');
-        final body = jsonDecode(req.body) as Map;
-        expect(body.keys, ['data']);
-        final data = body['data'] as Map;
-        expect(data.keys, [espacio]);
-        expect(data[espacio][claves[i]], valor);
-        expect(data[espacio]['opcion_futura'], 'conservar');
+        if (i < 3) {
+          expect(peticiones.last.method, 'GET');
+        } else {
+          final put = peticiones.where((r) => r.method == 'PUT').last;
+          final body = jsonDecode(put.body) as Map;
+          expect(body.keys, ['data']);
+          final data = body['data'] as Map;
+          expect(data.keys, [espacio]);
+          expect(data[espacio][claves[i - 3]], valor);
+          expect(data[espacio]['opcion_futura'], 'conservar');
+        }
       }
       final nueva = PreferenciasRepositorioImpl(
         PreferenciasFuenteSupabase(auth: cliente.auth),
+        usuarios,
       );
       expect(
         await nueva.obtener('cuenta-a'),

@@ -10,11 +10,18 @@ class ObtenerPreferencias {
 
 class CambiarPreferencia {
   final PreferenciasRepositorio _repositorio;
-  const CambiarPreferencia(this._repositorio);
+  final Future<void> Function(String uid, bool valor)? alCambiarPush;
+  const CambiarPreferencia(this._repositorio, {this.alCambiarPush});
 
   Future<PreferenciasUsuario> ejecutar(
     String uid,
     Preferencia campo,
     bool valor,
-  ) => _repositorio.cambiar(uid, campo, valor);
+  ) async {
+    final guardadas = await _repositorio.cambiar(uid, campo, valor);
+    if (campo == Preferencia.notificacionesPush) {
+      await alCambiarPush?.call(uid, guardadas.notificacionesPush);
+    }
+    return guardadas;
+  }
 }
