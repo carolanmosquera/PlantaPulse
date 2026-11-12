@@ -48,8 +48,8 @@ class BotonAncho extends StatelessWidget {
               icon: icono != null ? Icon(icono, size: 18) : const SizedBox.shrink(),
               label: Text(texto),
               style: OutlinedButton.styleFrom(
-                foregroundColor: colorBase,
-                side: BorderSide(color: colorBase),
+                foregroundColor: colorBase.segunTema(context),
+                side: BorderSide(color: colorBase.segunTema(context)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),

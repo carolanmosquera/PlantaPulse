@@ -13,8 +13,8 @@ class ResumenTurnoScreen extends StatelessWidget {
       mostrarMenu: true,
       tabActiva: 0,
       accionesExtra: [
-        IconButton(icon: const Icon(Icons.notifications_none,
-          color: AppColors.texto), onPressed: () {}),
+        IconButton(icon: Icon(Icons.notifications_none,
+          color: AppColors.texto.segunTema(context)), onPressed: () {}),
       ],
       cuerpo: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -23,20 +23,20 @@ class ResumenTurnoScreen extends StatelessWidget {
 
           Row(
             children: [
-              const Icon(Icons.calendar_today_outlined, size: 15,
-                color: AppColors.textoGris),
+              Icon(Icons.calendar_today_outlined, size: 15,
+                color: AppColors.textoGris.segunTema(context)),
               const SizedBox(width: 8),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('PERIODO', style: TextStyle(fontSize: 9,
-                    letterSpacing: 1, color: AppColors.textoGris)),
+                    letterSpacing: 1, color: AppColors.textoGris.segunTema(context))),
                   Text('Hoy, 24 Mayo', style: TextStyle(fontSize: 13.5,
-                    fontWeight: FontWeight.w600, color: AppColors.texto)),
+                    fontWeight: FontWeight.w600, color: AppColors.texto.segunTema(context))),
                 ],
               ),
-              const Icon(Icons.keyboard_arrow_down, size: 18,
-                color: AppColors.textoGris),
+              Icon(Icons.keyboard_arrow_down, size: 18,
+                color: AppColors.textoGris.segunTema(context)),
               const Spacer(),
               const PillEstado(texto: 'TURNO A',
                 color: AppColors.azulOscuro, relleno: true),
@@ -120,8 +120,8 @@ class ResumenTurnoScreen extends StatelessWidget {
             codigo: 'OT-9028', color: AppColors.ambar),
 
           const SizedBox(height: 14),
-          const Center(child: Text('Ver todas las tareas pendientes  ⌄',
-            style: TextStyle(fontSize: 12.5, color: AppColors.azul,
+          Center(child: Text('Ver todas las tareas pendientes  ⌄',
+            style: TextStyle(fontSize: 12.5, color: AppColors.azul.segunTema(context),
                              fontWeight: FontWeight.w600))),
 
           const SizedBox(height: 18),
@@ -132,11 +132,11 @@ class ResumenTurnoScreen extends StatelessWidget {
             color: AppColors.verde,
           ),
           const SizedBox(height: 12),
-          const TileAviso(
+          TileAviso(
             icono: Icons.lightbulb_outline,
             titulo: 'Tip: Usa la validación por fotos para cerrar órdenes '
                     'más rápido',
-            color: AppColors.textoGris,
+            color: AppColors.textoGris.segunTema(context),
           ),
           const SizedBox(height: 24),
         ],

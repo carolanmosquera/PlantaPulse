@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:plantapulse/main.dart';
 import 'package:plantapulse/src/core/core.dart';
 import 'package:plantapulse/src/features/novedades/novedades.dart';
+import 'package:plantapulse/src/features/perfil/perfil.dart';
 
 import 'fakes.dart';
 import 'push_test.dart' show FakePush;
@@ -49,8 +50,9 @@ class UsuariosConAjustes extends FakeUsuarioRepository {
   Future<void> actualizar(String uid, Map<String, dynamic> cambios) async {
     if (falloAlGuardar != null) throw falloAlGuardar!;
     final json = cambios['preferenciasAvisos'];
-    perfiles[uid] = perfiles[uid]!
-        .copyWith(preferenciasAvisos: PreferenciasAvisos.fromJson(json));
+    perfiles[uid] = perfiles[uid]!.copyWith(
+      preferenciasAvisos: PreferenciasAvisos.fromJson(json),
+    );
     pasos.add('actualizar');
   }
 
@@ -60,6 +62,40 @@ class UsuariosConAjustes extends FakeUsuarioRepository {
 
   @override
   Future<void> borrarTokenPush(String uid) async => pasos.add('token-');
+}
+
+class _PreferenciasDePrueba implements PreferenciasRepositorio {
+  final UsuariosConAjustes usuarios;
+  _PreferenciasDePrueba(this.usuarios);
+
+  PreferenciasUsuario _combinar(String uid) {
+    final avisos = usuarios.perfiles[uid]!.preferenciasAvisos;
+    return PreferenciasUsuario(
+      notificacionesPush: avisos.push,
+      alertasMantenimiento: avisos.mantenimiento,
+      soloCriticas: avisos.soloCriticas,
+    );
+  }
+
+  @override
+  Future<PreferenciasUsuario> obtener(String uid) async => _combinar(uid);
+
+  @override
+  Future<PreferenciasUsuario> cambiar(
+    String uid,
+    Preferencia campo,
+    bool valor,
+  ) async {
+    final avisos = usuarios.perfiles[uid]!.preferenciasAvisos;
+    final nuevos = switch (campo) {
+      Preferencia.notificacionesPush => avisos.copyWith(push: valor),
+      Preferencia.alertasMantenimiento => avisos.copyWith(mantenimiento: valor),
+      Preferencia.soloCriticas => avisos.copyWith(soloCriticas: valor),
+      _ => avisos,
+    };
+    await usuarios.actualizar(uid, {'preferenciasAvisos': nuevos.toJson()});
+    return _combinar(uid);
+  }
 }
 
 void main() {
@@ -105,25 +141,31 @@ void main() {
     });
   }
 
-  Future<void> arrancar(WidgetTester tester, String uid,
-      {PuntoGps? gps = const PuntoGps(3.58, -76.49)}) async {
+  Future<void> arrancar(
+    WidgetTester tester,
+    String uid, {
+    PuntoGps? gps = const PuntoGps(3.58, -76.49),
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.625;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(PlantaPulseApp(
-      authBloc: authBlocDe(auth, usuarios),
-      usuarioRepository: usuarios,
-      plantaRepository: FakePlantaRepository(),
-      ordenRepository: FakeOrdenRepository(),
-      equipoRepository: FakeEquipoRepository(),
-      categoriaRepositorio: FakeCategoriaRepository(),
-      zonaRepositorio: FakeZonaRepository(),
-      reporteRepositorio: FakeReporteRepository(),
-      almacenamientoRepositorio: FakeAlmacenamientoRepository(),
-      pushRepositorio: push,
-      alertaCriticaRepositorio: alertas,
-      ubicacionRepositorio: FakeUbicacion(gps),
-    ));
+    await tester.pumpWidget(
+      PlantaPulseApp(
+        authBloc: authBlocDe(auth, usuarios),
+        usuarioRepository: usuarios,
+        plantaRepository: FakePlantaRepository(),
+        ordenRepository: FakeOrdenRepository(),
+        equipoRepository: FakeEquipoRepository(),
+        categoriaRepositorio: FakeCategoriaRepository(),
+        zonaRepositorio: FakeZonaRepository(),
+        reporteRepositorio: FakeReporteRepository(),
+        almacenamientoRepositorio: FakeAlmacenamientoRepository(),
+        pushRepositorio: push,
+        alertaCriticaRepositorio: alertas,
+        ubicacionRepositorio: FakeUbicacion(gps),
+        preferenciasRepositorio: _PreferenciasDePrueba(usuarios),
+      ),
+    );
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     if (find.text('Iniciar Sesión').evaluate().isNotEmpty) {
@@ -135,26 +177,31 @@ void main() {
     expect(find.text('PlantaPulse Feed'), findsOneWidget);
   }
 
-  Future<void> tocar(WidgetTester tester, Finder f) async {
-    // Las listas son perezosas: lo que está fuera de pantalla aún no existe
-    if (f.evaluate().isEmpty) {
-      await tester.scrollUntilVisible(f, 300,
-          scrollable: find.byType(Scrollable).first);
-    }
-    await tester.ensureVisible(f);
-    await tester.pumpAndSettle();
-    await tester.tap(f);
-    await tester.pumpAndSettle();
-  }
-
   /// Deja correr la cadena de awaits (guardar, borrar token...) que
   /// pumpAndSettle no espera porque no agenda cuadros.
   Future<void> esperarCadena(WidgetTester tester) async {
     for (var i = 0; i < 3; i++) {
-      await tester.runAsync(() => Future<void>.delayed(
-          const Duration(milliseconds: 20)));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
       await tester.pump(const Duration(milliseconds: 20));
     }
+  }
+
+  Future<void> tocar(WidgetTester tester, Finder f) async {
+    // Las listas son perezosas: lo que está fuera de pantalla aún no existe
+    if (f.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        f,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
+    await tester.ensureVisible(f);
+    await tester.pumpAndSettle();
+    await tester.tap(f);
+    await esperarCadena(tester);
+    await tester.pumpAndSettle();
   }
 
   Future<void> abrirEmergencia(WidgetTester tester) async {
@@ -165,58 +212,75 @@ void main() {
   // ─────────────── KAN-90 ───────────────
 
   group('KAN-90 alerta crítica', () {
-    test('el caso de uso arma la alerta con planta, autor y ubicación', () async {
-      final usuario = usuarios.perfiles['tec1']!;
-      await EnviarAlertaCritica(alertas).ejecutar(
-        usuario: usuario,
-        tipo: TipoEmergencia.fuego,
-        descripcion: '  Humo en la bodega 3  ',
-        ubicacion: const PuntoGps(3.58, -76.49),
-      );
-      final a = alertas.enviadas.single;
-      expect(a.plantaId, 'p1');
-      expect(a.creadoPor.uid, 'tec1');
-      expect(a.tipo, TipoEmergencia.fuego);
-      expect(a.descripcion, 'Humo en la bodega 3');
-      expect(a.estado, EstadoAlerta.abierta);
-      expect(a.ubicacionGps!.latitude, 3.58);
-    });
+    test(
+      'el caso de uso arma la alerta con planta, autor y ubicación',
+      () async {
+        final usuario = usuarios.perfiles['tec1']!;
+        await EnviarAlertaCritica(alertas).ejecutar(
+          usuario: usuario,
+          tipo: TipoEmergencia.fuego,
+          descripcion: '  Humo en la bodega 3  ',
+          ubicacion: const PuntoGps(3.58, -76.49),
+        );
+        final a = alertas.enviadas.single;
+        expect(a.plantaId, 'p1');
+        expect(a.creadoPor.uid, 'tec1');
+        expect(a.tipo, TipoEmergencia.fuego);
+        expect(a.descripcion, 'Humo en la bodega 3');
+        expect(a.estado, EstadoAlerta.abierta);
+        expect(a.ubicacionGps!.latitude, 3.58);
+      },
+    );
 
     test('rechaza una descripción muy corta o muy larga', () async {
       final usuario = usuarios.perfiles['tec1']!;
       final caso = EnviarAlertaCritica(alertas);
       await expectLater(
-          caso.ejecutar(
-              usuario: usuario, tipo: TipoEmergencia.fuga, descripcion: 'fuga'),
-          throwsA(isA<FalloApp>()));
+        caso.ejecutar(
+          usuario: usuario,
+          tipo: TipoEmergencia.fuga,
+          descripcion: 'fuga',
+        ),
+        throwsA(isA<FalloApp>()),
+      );
       await expectLater(
-          caso.ejecutar(
-              usuario: usuario,
-              tipo: TipoEmergencia.fuga,
-              descripcion: 'x' * 201),
-          throwsA(isA<FalloApp>()));
+        caso.ejecutar(
+          usuario: usuario,
+          tipo: TipoEmergencia.fuga,
+          descripcion: 'x' * 201,
+        ),
+        throwsA(isA<FalloApp>()),
+      );
       expect(alertas.enviadas, isEmpty);
     });
 
-    probar('criterio 1: elige categoría, describe y envía con su ubicación',
-        (tester) async {
+    probar('criterio 1: elige categoría, describe y envía con su ubicación', (
+      tester,
+    ) async {
       await arrancar(tester, 'tec1');
       await abrirEmergencia(tester);
 
       // Sin descripción no se puede enviar
       final enviar = find.text('ENVIAR ALERTA AHORA');
-      await tester.scrollUntilVisible(enviar, 300,
-          scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        enviar,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       final boton = find.ancestor(
-          of: enviar, matching: find.bySubtype<ElevatedButton>());
+        of: enviar,
+        matching: find.bySubtype<ElevatedButton>(),
+      );
       expect(tester.widget<ElevatedButton>(boton).onPressed, isNull);
 
       // La ubicación ya se detectó
       expect(find.text('GPS: 3.58000, -76.49000'), findsOneWidget);
 
       await tocar(tester, find.text('Falla Eléctrica'));
-      await tester.enterText(find.byType(TextField),
-          'Chispas y olor a quemado en el tablero principal');
+      await tester.enterText(
+        find.byType(TextField),
+        'Chispas y olor a quemado en el tablero principal',
+      );
       await tester.pumpAndSettle();
       expect(tester.widget<ElevatedButton>(boton).onPressed, isNotNull);
 
@@ -238,7 +302,9 @@ void main() {
       expect(find.textContaining('Ubicación no disponible'), findsOneWidget);
 
       await tester.enterText(
-          find.byType(TextField), 'Fuga de agua en el sótano de calderas');
+        find.byType(TextField),
+        'Fuga de agua en el sótano de calderas',
+      );
       await tester.pumpAndSettle();
       await tocar(tester, find.text('ENVIAR ALERTA AHORA'));
       await tocar(tester, find.text('ENVIAR'));
@@ -246,14 +312,17 @@ void main() {
       expect(alertas.enviadas.single.ubicacionGps, isNull);
     });
 
-    probar('si no se puede guardar, avisa y se queda para reintentar',
-        (tester) async {
+    probar('si no se puede guardar, avisa y se queda para reintentar', (
+      tester,
+    ) async {
       alertas.fallo = const FalloRed();
       await arrancar(tester, 'tec1');
       await abrirEmergencia(tester);
 
       await tester.enterText(
-          find.byType(TextField), 'Falla mecánica en la banda 2 de empaque');
+        find.byType(TextField),
+        'Falla mecánica en la banda 2 de empaque',
+      );
       await tester.pumpAndSettle();
       await tocar(tester, find.text('ENVIAR ALERTA AHORA'));
       await tocar(tester, find.text('ENVIAR'));
@@ -269,8 +338,9 @@ void main() {
       expect(alertas.enviadas, hasLength(1));
     });
 
-    probar('criterio 2: el supervisor conectado recibe la alerta nueva',
-        (tester) async {
+    probar('criterio 2: el supervisor conectado recibe la alerta nueva', (
+      tester,
+    ) async {
       await arrancar(tester, 'sup1');
       final vieja = AlertaCritica(
         id: 'a0',
@@ -296,8 +366,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.textContaining('ALERTA CRÍTICA · Fuego / Incendio'),
-          findsOneWidget);
+      expect(
+        find.textContaining('ALERTA CRÍTICA · Fuego / Incendio'),
+        findsOneWidget,
+      );
       expect(find.textContaining('Incendio en bodega 3'), findsOneWidget);
 
       // "VER" lleva a la lista de alertas, donde queda la alerta abierta
@@ -311,8 +383,9 @@ void main() {
       expect(find.text('ALERTAS CRÍTICAS ABIERTAS'), findsOneWidget);
     });
 
-    probar('el técnico no recibe el aviso de alertas de sus compañeros',
-        (tester) async {
+    probar('el técnico no recibe el aviso de alertas de sus compañeros', (
+      tester,
+    ) async {
       await arrancar(tester, 'tec1');
       alertas.llega([]);
       await tester.pump();
@@ -324,7 +397,7 @@ void main() {
           descripcion: 'Incendio en bodega 3',
           creadoPor: const UsuarioRef(uid: 'otro', nombre: 'Otro'),
           createdAt: DateTime(2026),
-        )
+        ),
       ]);
       await tester.pump();
       expect(find.textContaining('ALERTA CRÍTICA'), findsNothing);
@@ -334,13 +407,18 @@ void main() {
   // ─────────────── KAN-100 ───────────────
 
   group('KAN-100 configuración de avisos', () {
-    test('las preferencias viajan en JSON y lo que falta vale el valor por defecto',
-        () {
-      const p = PreferenciasAvisos(push: false, soloCriticas: true);
-      expect(PreferenciasAvisos.fromJson(p.toJson()), p);
-      expect(PreferenciasAvisos.fromJson(null), const PreferenciasAvisos());
-      expect(PreferenciasAvisos.fromJson({'push': false}).mantenimiento, isTrue);
-    });
+    test(
+      'las preferencias viajan en JSON y lo que falta vale el valor por defecto',
+      () {
+        const p = PreferenciasAvisos(push: false, soloCriticas: true);
+        expect(PreferenciasAvisos.fromJson(p.toJson()), p);
+        expect(PreferenciasAvisos.fromJson(null), const PreferenciasAvisos());
+        expect(
+          PreferenciasAvisos.fromJson({'push': false}).mantenimiento,
+          isTrue,
+        );
+      },
+    );
 
     Future<void> abrirAjustes(WidgetTester tester) async {
       PlantaPulseApp.navegador.currentState!.pushNamed(Rutas.ajustes);
@@ -351,8 +429,9 @@ void main() {
     bool encendido(WidgetTester tester, String clave) =>
         tester.widget<Switch>(find.byKey(Key(clave))).value;
 
-    probar('criterios 1 y 3: la preferencia se conserva al cerrar y reabrir',
-        (tester) async {
+    probar('criterios 1 y 3: la preferencia se conserva al cerrar y reabrir', (
+      tester,
+    ) async {
       await arrancar(tester, 'tec1');
       await abrirAjustes(tester);
       expect(encendido(tester, 'switch-mantenimiento'), isTrue);
@@ -360,8 +439,10 @@ void main() {
       // Criterio 2/1: apaga un tipo de aviso
       await tocar(tester, find.byKey(const Key('switch-mantenimiento')));
       expect(encendido(tester, 'switch-mantenimiento'), isFalse);
-      expect(usuarios.perfiles['tec1']!.preferenciasAvisos.mantenimiento,
-          isFalse);
+      expect(
+        usuarios.perfiles['tec1']!.preferenciasAvisos.mantenimiento,
+        isFalse,
+      );
 
       // "Cierra y vuelve a abrir la aplicación": app nueva, mismo perfil
       await tester.pumpWidget(const SizedBox());
@@ -373,36 +454,44 @@ void main() {
       // Criterio 3: lo vuelve a activar y queda guardado
       await tocar(tester, find.byKey(const Key('switch-mantenimiento')));
       expect(encendido(tester, 'switch-mantenimiento'), isTrue);
-      expect(usuarios.perfiles['tec1']!.preferenciasAvisos.mantenimiento,
-          isTrue);
+      expect(
+        usuarios.perfiles['tec1']!.preferenciasAvisos.mantenimiento,
+        isTrue,
+      );
     });
 
-    probar('apagar el push borra el token del dispositivo; encenderlo lo registra',
-        (tester) async {
-      await arrancar(tester, 'tec1');
-      await abrirAjustes(tester);
-      usuarios.pasos.clear();
+    probar(
+      'apagar el push borra el token del dispositivo; encenderlo lo registra',
+      (tester) async {
+        await arrancar(tester, 'tec1');
+        await abrirAjustes(tester);
+        usuarios.pasos.clear();
 
-      await tocar(tester, find.byKey(const Key('switch-push')));
-      await esperarCadena(tester);
-      expect(usuarios.pasos, ['actualizar', 'token-']);
-      expect(push.desactivado, isTrue);
+        await tocar(tester, find.byKey(const Key('switch-push')));
+        await esperarCadena(tester);
+        expect(usuarios.pasos, ['actualizar', 'token-']);
+        expect(push.desactivado, isTrue);
 
-      await tocar(tester, find.byKey(const Key('switch-push')));
-      await esperarCadena(tester);
-      expect(usuarios.pasos.last, 'token+');
-    });
+        await tocar(tester, find.byKey(const Key('switch-push')));
+        await esperarCadena(tester);
+        expect(usuarios.pasos.last, 'token+');
+      },
+    );
 
-    probar('con el push apagado, al iniciar sesión no se registra el dispositivo',
-        (tester) async {
-      usuarios.perfiles['tec1'] = usuarios.perfiles['tec1']!.copyWith(
-          preferenciasAvisos: const PreferenciasAvisos(push: false));
-      await arrancar(tester, 'tec1');
-      expect(usuarios.pasos, isNot(contains('token+')));
-    });
+    probar(
+      'con el push apagado, al iniciar sesión no se registra el dispositivo',
+      (tester) async {
+        usuarios.perfiles['tec1'] = usuarios.perfiles['tec1']!.copyWith(
+          preferenciasAvisos: const PreferenciasAvisos(push: false),
+        );
+        await arrancar(tester, 'tec1');
+        expect(usuarios.pasos, isNot(contains('token+')));
+      },
+    );
 
-    probar('si no se puede guardar, el interruptor vuelve atrás y avisa',
-        (tester) async {
+    probar('si no se puede guardar, el interruptor vuelve atrás y avisa', (
+      tester,
+    ) async {
       await arrancar(tester, 'tec1');
       await abrirAjustes(tester);
       usuarios.falloAlGuardar = const FalloRed();
@@ -410,10 +499,11 @@ void main() {
       await tocar(tester, find.byKey(const Key('switch-criticas')));
 
       expect(encendido(tester, 'switch-criticas'), isFalse);
-      expect(find.textContaining('No se pudo guardar tu preferencia'),
-          findsOneWidget);
-      expect(usuarios.perfiles['tec1']!.preferenciasAvisos.soloCriticas,
-          isFalse);
+      expect(find.textContaining('Sin conexión'), findsWidgets);
+      expect(
+        usuarios.perfiles['tec1']!.preferenciasAvisos.soloCriticas,
+        isFalse,
+      );
     });
   });
 }

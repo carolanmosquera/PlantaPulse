@@ -72,20 +72,30 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded,
-            color: AppColors.rojo, size: 40),
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: AppColors.rojo.segunTema(context),
+          size: 40,
+        ),
         title: const Text('¿Confirmar alerta crítica?'),
-        content: Text('Se notificará de inmediato a todos los supervisores '
-            'de turno sobre: ${_tipo.etiqueta}.'),
+        content: Text(
+          'Se notificará de inmediato a todos los supervisores '
+          'de turno sobre: ${_tipo.etiqueta}.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('ENVIAR',
-                style: TextStyle(
-                    color: AppColors.rojo, fontWeight: FontWeight.bold)),
+            child: Text(
+              'ENVIAR',
+              style: TextStyle(
+                color: AppColors.rojo.segunTema(context),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -108,15 +118,21 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
         descripcion: _descCtrl.text,
         ubicacion: _gps,
       );
-      mensajes.showSnackBar(const SnackBar(
+      mensajes.showSnackBar(
+        const SnackBar(
           content: Text('Alerta enviada a supervisores'),
-          backgroundColor: AppColors.rojo));
+          backgroundColor: AppColors.rojo,
+        ),
+      );
       if (mounted) navegador.pop();
     } catch (e) {
       // La alerta NO se guardó: se queda en pantalla para reintentar
-      mensajes.showSnackBar(SnackBar(
+      mensajes.showSnackBar(
+        SnackBar(
           content: Text(FalloApp.mensajeDe(e)),
-          backgroundColor: AppColors.rojo));
+          backgroundColor: AppColors.rojo,
+        ),
+      );
       if (mounted) setState(() => _enviando = false);
     }
   }
@@ -131,29 +147,42 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
         children: [
           const SizedBox(height: 14),
 
-          const TileAviso(
+          TileAviso(
             icono: Icons.error_outline,
-            titulo: 'Utilice esta pantalla únicamente para incidentes que '
+            titulo:
+                'Utilice esta pantalla únicamente para incidentes que '
                 'requieran intervención inmediata.',
-            color: AppColors.textoGris,
+            color: AppColors.textoGris.segunTema(context),
           ),
           const SizedBox(height: 18),
 
-          const Row(children: [
-            Icon(Icons.error_outline, color: AppColors.rojo, size: 22),
-            SizedBox(width: 8),
-            Text('Alerta Crítica',
+          Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: AppColors.rojo.segunTema(context),
+                size: 22,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Alerta Crítica',
                 style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.rojo)),
-          ]),
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.rojo.segunTema(context),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
-          const Text('PROTOCOLO DE ACCIÓN INMEDIATA',
-              style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.2,
-                  color: AppColors.textoGris)),
+          Text(
+            'PROTOCOLO DE ACCIÓN INMEDIATA',
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 1.2,
+              color: AppColors.textoGris.segunTema(context),
+            ),
+          ),
 
           const SeccionHeader(titulo: 'Categoría del Incidente'),
           ChipsFila(
@@ -170,12 +199,13 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
                 '${_descCtrl.text.length}/${EnviarAlertaCritica.maxDescripcion}',
             colorAccion:
                 _descCtrl.text.length > EnviarAlertaCritica.maxDescripcion
-                    ? AppColors.rojo
-                    : AppColors.textoGris,
+                ? AppColors.rojo.segunTema(context)
+                : AppColors.textoGris.segunTema(context),
           ),
           CampoTexto(
             label: '',
-            hint: 'Detalle la situación, ubicación exacta y riesgos '
+            hint:
+                'Detalle la situación, ubicación exacta y riesgos '
                 'inminentes...',
             lineas: 4,
             controller: _descCtrl,
@@ -202,13 +232,17 @@ class _EmergenciaScreenState extends State<EmergenciaScreen> {
             onTap: _puedeEnviar ? _confirmar : null,
           ),
           const SizedBox(height: 10),
-          const Center(
-              child: Text('SE NOTIFICARÁ A TODOS LOS SUPERVISORES DE TURNO',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 9.5,
-                      letterSpacing: 1,
-                      color: AppColors.textoGris))),
+          Center(
+            child: Text(
+              'SE NOTIFICARÁ A TODOS LOS SUPERVISORES DE TURNO',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 9.5,
+                letterSpacing: 1,
+                color: AppColors.textoGris.segunTema(context),
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
         ],
       ),

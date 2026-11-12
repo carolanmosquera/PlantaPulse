@@ -20,9 +20,9 @@ class TarjetaBlanca extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: colorFondo ?? Colors.white,
+        color: colorFondo ?? Colors.white.segunTema(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borde),
+        border: Border.all(color: AppColors.borde.segunTema(context)),
       ),
       child: child,
     );

@@ -16,19 +16,19 @@ class MetaRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icono, size: 15, color: AppColors.textoGris),
+        Icon(icono, size: 15, color: AppColors.textoGris.segunTema(context)),
         const SizedBox(width: 8),
         Expanded(
           child: valor == null
-              ? Text(texto, style: AppText.gris, overflow: TextOverflow.ellipsis)
+              ? Text(texto, style: AppText.gris.segunTema(context), overflow: TextOverflow.ellipsis)
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(texto, style: AppText.gris),
+                    Text(texto, style: AppText.gris.segunTema(context)),
                     Text(valor!, style: TextStyle(
                         fontSize: 14,
                         fontWeight: atenuado ? FontWeight.w400 : FontWeight.w600,
-                        color: atenuado ? AppColors.textoGris : AppColors.texto)),
+                        color: atenuado ? AppColors.textoGris.segunTema(context) : AppColors.texto.segunTema(context))),
                   ],
                 ),
         ),

@@ -30,9 +30,9 @@ class PantallaBase extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.fondo,
+      backgroundColor: AppColors.fondo.segunTema(context),
       appBar: AppBar(
-        backgroundColor: AppColors.fondo,
+        backgroundColor: AppColors.fondo.segunTema(context),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -43,16 +43,16 @@ class PantallaBase extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
               )
             : null,
-        title: Text(titulo, style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.texto)),
+        title: Text(titulo, style: TextStyle(
+            fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.texto.segunTema(context))),
         actions: [
           ...?accionesExtra,
           if (mostrarMenu)
             IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
         ],
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: AppColors.borde),
+          child: Divider(height: 1, color: AppColors.borde.segunTema(context)),
         ),
       ),
       body: cuerpo,
@@ -93,9 +93,9 @@ class PantallaBase extends StatelessWidget {
     return BottomNavigationBar(
       currentIndex: tabActiva,
       type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.white,
-      selectedItemColor: AppColors.azul,
-      unselectedItemColor: AppColors.textoGris,
+      backgroundColor: Colors.white.segunTema(context),
+      selectedItemColor: AppColors.azul.segunTema(context),
+      unselectedItemColor: AppColors.textoGris.segunTema(context),
       selectedFontSize: 11,
       unselectedFontSize: 11,
       onTap: (i) => _irAPestana(context, i),

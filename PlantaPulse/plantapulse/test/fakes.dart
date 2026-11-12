@@ -8,6 +8,7 @@ import 'package:plantapulse/src/core/data/models/usuario_modelo.dart';
 import 'package:plantapulse/src/features/auth/auth.dart';
 import 'package:plantapulse/src/features/crear_orden/crear_orden.dart';
 import 'package:plantapulse/src/features/ordenes/ordenes.dart';
+export 'preferencias_fake.dart';
 
 /// Arma el AuthBloc con sus casos de uso, igual que main.dart.
 AuthBloc authBlocDe(AutenticacionRepositorio auth, UsuarioRepositorio usuarios) =>
@@ -177,6 +178,10 @@ class FakePlantaRepository implements PlantaRepositorio {
 
   @override
   Future<List<Planta>> activas() async => plantas;
+
+  @override
+  Future<Planta?> obtener(String id) async =>
+      plantas.where((p) => p.id == id).firstOrNull;
 }
 
 const adminRef = UsuarioRef(uid: 'admin1', nombre: 'Admin');

@@ -147,6 +147,7 @@ void main() {
     ));
 
     await tester.pumpWidget(PlantaPulseApp(
+      preferenciasRepositorio: PreferenciasFake(),
       authBloc: authBlocDe(auth, usuarios),
       usuarioRepository: usuarios,
       plantaRepository: FakePlantaRepository(),

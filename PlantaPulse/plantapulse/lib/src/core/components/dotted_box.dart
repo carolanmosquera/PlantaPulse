@@ -21,10 +21,10 @@ class DottedBox extends StatelessWidget {
     return CustomPaint(
       // foregroundPainter dibuja ENCIMA del child.
       // Si usaras 'painter', el fondo del Container taparía el punteado.
-      foregroundPainter: _BordePunteado(color: color, radius: radius),
+      foregroundPainter: _BordePunteado(color: color.segunTema(context), radius: radius),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.fondo,
+          color: AppColors.fondo.segunTema(context),
           borderRadius: BorderRadius.circular(radius),
         ),
         child: child,

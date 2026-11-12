@@ -23,7 +23,7 @@ class _SolicitudesScreenState extends State<SolicitudesScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.white.segunTema(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -60,8 +60,8 @@ class _SolicitudesScreenState extends State<SolicitudesScreen> {
 
           final solicitudes = snap.data!;
           if (solicitudes.isEmpty) {
-            return const Center(
-              child: Text('No hay solicitudes pendientes', style: AppText.gris),
+            return Center(
+              child: Text('No hay solicitudes pendientes', style: AppText.gris.segunTema(context)),
             );
           }
 
@@ -157,7 +157,7 @@ class _HojaSolicitudState extends State<_HojaSolicitud> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Solicitante ──
-          Text(s.nombre, style: AppText.titulo),
+          Text(s.nombre, style: AppText.titulo.segunTema(context)),
           const SizedBox(height: 4),
           MetaRow(icono: Icons.mail_outline, texto: s.email),
           const SizedBox(height: 4),
