@@ -60,6 +60,7 @@ class PlantaPulseApp extends StatelessWidget {
   final ZonaRepositorio? zonaRepositorio;
   final ReporteRepositorio? reporteRepositorio;
   final AlmacenamientoRepositorio? almacenamientoRepositorio;
+  final IaRepositorio? iaRepositorio;
 
   const PlantaPulseApp({
     super.key,
@@ -73,6 +74,7 @@ class PlantaPulseApp extends StatelessWidget {
     this.zonaRepositorio,
     this.reporteRepositorio,
     this.almacenamientoRepositorio,
+    this.iaRepositorio,
   });
 
   @override
@@ -120,6 +122,11 @@ class PlantaPulseApp extends StatelessWidget {
                   dispositivo: FotoFuenteDispositivo(),
                   almacen: AlmacenamientoFuenteSupabase(),
                 )),
+        // El asistente: la fuente invoca la Edge Function 'ia' con el token
+        // de la sesión. La clave de Gemini vive en la función, no en la app.
+        RepositoryProvider<IaRepositorio>(
+            create: (_) =>
+                iaRepositorio ?? IaRepositorioImpl(IaFuenteSupabase())),
 
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
@@ -172,6 +179,16 @@ class PlantaPulseApp extends StatelessWidget {
             create: (c) => DevolverOrden(c.read<OrdenRepositorio>())),
         RepositoryProvider(
             create: (c) => ActualizarPerfil(c.read<UsuarioRepositorio>())),
+        // Asistente de IA
+        RepositoryProvider(
+            create: (c) => EstructurarNota(c.read<IaRepositorio>())),
+        RepositoryProvider(
+            create: (c) => RedactarReporte(c.read<IaRepositorio>())),
+        RepositoryProvider(
+            create: (c) => CalcularProgreso(c.read<IaRepositorio>())),
+        // KAN-94: listo para la pantalla de turno cuando existan las cifras
+        RepositoryProvider(
+            create: (c) => ResumirTurno(c.read<IaRepositorio>())),
       ],
       child: MultiBlocProvider(
         providers: [

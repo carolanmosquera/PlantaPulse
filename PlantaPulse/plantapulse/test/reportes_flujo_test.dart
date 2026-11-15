@@ -59,6 +59,7 @@ void main() {
   LlenarReporteBloc nuevoBloc() => LlenarReporteBloc(
         subirEvidencia: SubirEvidencia(almacen),
         publicarReporte: PublicarReporte(reportes),
+        redactarReporte: RedactarReporte(FakeIaRepositorio()),
         ordenId: 'orden-1',
         plantaId: 'planta_norte',
       );

@@ -20,6 +20,12 @@ class DetallesCambiados extends LlenarReporteEvent {
   List<Object?> get props => [texto];
 }
 
+/// "Redactar con IA": las notas sueltas del campo se convierten en un
+/// reporte redactado, que vuelve al MISMO campo para corregirlo.
+class DetallesRedactados extends LlenarReporteEvent {
+  const DetallesRedactados();
+}
+
 class EstadoTrabajoCambiado extends LlenarReporteEvent {
   final EstadoTrabajo estado;
 

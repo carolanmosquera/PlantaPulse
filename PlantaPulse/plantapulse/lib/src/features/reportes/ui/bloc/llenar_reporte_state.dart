@@ -22,6 +22,19 @@ class LlenarReporteState extends Equatable {
 
   final String? mensajeError;
 
+  // Asistente de IA (KAN-93)
+  /// Esperando al asistente: el botón se deshabilita y el campo se bloquea.
+  final bool redactando;
+
+  /// El técnico usó el asistente: se guarda generado_por_ia.
+  final bool generadoPorIa;
+
+  /// Lo que devolvió la IA, para marcar el texto mientras nadie lo cambie.
+  final String? textoIa;
+
+  /// El asistente falló: aviso, y el técnico escribe a mano.
+  final String? errorIa;
+
   const LlenarReporteState({
     this.status = EstadoLlenarReporte.editando,
     this.detalles = '',
@@ -31,7 +44,24 @@ class LlenarReporteState extends Equatable {
     this.subiendo = 0,
     this.totalSubir = 0,
     this.mensajeError,
+    this.redactando = false,
+    this.generadoPorIa = false,
+    this.textoIa,
+    this.errorIa,
   });
+
+  /// Mínimo de palabras para pedir una redacción: con el campo vacío no
+  /// hay nada que redactar y se gastaría cuota.
+  static const palabrasParaRedactar = 2;
+
+  int get _palabras =>
+      detalles.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).length;
+
+  bool get puedeRedactar =>
+      _palabras >= palabrasParaRedactar && !redactando && !publicando;
+
+  /// El texto del campo es tal cual lo devolvió la IA.
+  bool get textoDeIa => textoIa != null && detalles == textoIa;
 
   bool get publicando => status == EstadoLlenarReporte.publicando;
 
@@ -56,7 +86,12 @@ class LlenarReporteState extends Equatable {
     int? subiendo,
     int? totalSubir,
     String? mensajeError,
+    bool? redactando,
+    bool? generadoPorIa,
+    String? textoIa,
+    String? errorIa,
     bool limpiarError = false,
+    bool limpiarErrorIa = false,
   }) =>
       LlenarReporteState(
         status: status ?? this.status,
@@ -67,6 +102,10 @@ class LlenarReporteState extends Equatable {
         subiendo: subiendo ?? this.subiendo,
         totalSubir: totalSubir ?? this.totalSubir,
         mensajeError: limpiarError ? null : (mensajeError ?? this.mensajeError),
+        redactando: redactando ?? this.redactando,
+        generadoPorIa: generadoPorIa ?? this.generadoPorIa,
+        textoIa: textoIa ?? this.textoIa,
+        errorIa: limpiarErrorIa ? null : (errorIa ?? this.errorIa),
       );
 
   @override
@@ -79,5 +118,9 @@ class LlenarReporteState extends Equatable {
         subiendo,
         totalSubir,
         mensajeError,
+        redactando,
+        generadoPorIa,
+        textoIa,
+        errorIa,
       ];
 }

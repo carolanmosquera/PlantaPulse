@@ -5,6 +5,7 @@ import '../../../../core/core.dart';
 import '../../domain/usecases/editar_orden.dart';
 import '../bloc/ordenes_bloc.dart';
 import '../widgets/editar_orden_hoja.dart';
+import '../widgets/progreso_ia_tarjeta.dart';
 
 class DetalleOrdenScreen extends StatefulWidget {
   /// Llega por `arguments`. Se usa por su id para buscar la versión viva
@@ -350,8 +351,19 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                       titulo: 'Aún no hay reportes de avance',
                       color: AppColors.textoGris,
                     )
-                  else
+                  else ...[
+                    // Supervisor/admin: estimación de la IA sobre los
+                    // reportes que está revisando (orientativa)
+                    if (context.watch<SesionBloc>().state.usuario?.rol
+                            .puedeOperar ??
+                        false)
+                      ProgresoIaTarjeta(
+                        key: const ValueKey('progreso-ia'),
+                        orden: orden,
+                        reportes: reportes,
+                      ),
                     for (final r in reportes) _TarjetaReporte(reporte: r),
+                  ],
                 ],
               );
             },

@@ -9,6 +9,9 @@ import '../../../../core/domain/entities/usuario.dart';
 
 enum EstadoCrearOrden { cargando, listo, publicando, publicada, error }
 
+/// Campos del paso 2 que vinieron del asistente y nadie ha tocado todavía.
+enum CampoIa { titulo, descripcion, categoria, prioridad }
+
 /// El borrador de la orden mientras el supervisor recorre P1 y P2,
 /// más los catálogos que alimentan los selectores.
 class CrearOrdenState extends Equatable {
@@ -28,6 +31,34 @@ class CrearOrdenState extends Equatable {
   final DateTime fechaLimite;
   final Usuario? tecnico;
   final String observaciones;
+
+  // Asistente de IA (KAN-92)
+  /// Título de la orden. Vacío = se publica con la nota de P1 como título,
+  /// igual que antes de la IA.
+  final String titulo;
+
+  /// Descripción técnica propuesta por la IA (o escrita a mano). Se guarda
+  /// junto a las observaciones; la nota de P1 no se pisa.
+  final String descripcionTecnica;
+
+  /// Esperando al asistente: el botón se deshabilita y muestra progreso.
+  final bool estructurando;
+
+  /// El asistente falló. Se sigue igual: P2 se llena a mano.
+  final String? errorIa;
+
+  /// La última estructuración salió bien: se guarda generada_por_ia.
+  final bool generadaPorIa;
+
+  /// La nota tal como la escribió el supervisor, antes de estructurarla.
+  final String? notaOriginal;
+
+  /// Categoría que propuso la IA y NO existe en la planta. No se crea
+  /// sola: se muestra y el supervisor decide.
+  final String? categoriaSugeridaIa;
+
+  /// Campos que propuso la IA y nadie ha cambiado (para marcarlos).
+  final Set<CampoIa> marcasIa;
 
   /// Fotos del hallazgo (P2, "Evidencia y notas"). Máximo 30.
   final List<FotoPendiente> fotos;
@@ -59,6 +90,14 @@ class CrearOrdenState extends Equatable {
     required this.fechaLimite,
     this.tecnico,
     this.observaciones = '',
+    this.titulo = '',
+    this.descripcionTecnica = '',
+    this.estructurando = false,
+    this.errorIa,
+    this.generadaPorIa = false,
+    this.notaOriginal,
+    this.categoriaSugeridaIa,
+    this.marcasIa = const {},
     this.fotos = const [],
     this.subiendo = 0,
     this.totalSubir = 0,
@@ -80,6 +119,13 @@ class CrearOrdenState extends Equatable {
 
   bool get publicando => status == EstadoCrearOrden.publicando;
 
+  /// El título que llevará la orden: el del paso 2 o, si quedó vacío, la
+  /// nota de P1 (como antes de la IA).
+  String get tituloFinal =>
+      titulo.trim().isNotEmpty ? titulo.trim() : descripcion.trim();
+
+  bool marcadoPorIa(CampoIa campo) => marcasIa.contains(campo);
+
   bool get puedeAgregarFoto => fotos.length < maxFotosPorReporte && !publicando;
 
   String? get progresoTexto => publicando && totalSubir > 0
@@ -99,6 +145,14 @@ class CrearOrdenState extends Equatable {
     DateTime? fechaLimite,
     Usuario? tecnico,
     String? observaciones,
+    String? titulo,
+    String? descripcionTecnica,
+    bool? estructurando,
+    String? errorIa,
+    bool? generadaPorIa,
+    String? notaOriginal,
+    String? categoriaSugeridaIa,
+    Set<CampoIa>? marcasIa,
     List<FotoPendiente>? fotos,
     int? subiendo,
     int? totalSubir,
@@ -111,6 +165,9 @@ class CrearOrdenState extends Equatable {
     // el técnico, sin esta bandera se publicaría con el anterior.
     bool limpiarTecnico = false,
     bool limpiarEquipo = false,
+    bool limpiarErrorIa = false,
+    bool limpiarNotaOriginal = false,
+    bool limpiarCategoriaSugerida = false,
   }) =>
       CrearOrdenState(
         status: status ?? this.status,
@@ -125,6 +182,17 @@ class CrearOrdenState extends Equatable {
         fechaLimite: fechaLimite ?? this.fechaLimite,
         tecnico: limpiarTecnico ? null : (tecnico ?? this.tecnico),
         observaciones: observaciones ?? this.observaciones,
+        titulo: titulo ?? this.titulo,
+        descripcionTecnica: descripcionTecnica ?? this.descripcionTecnica,
+        estructurando: estructurando ?? this.estructurando,
+        errorIa: limpiarErrorIa ? null : (errorIa ?? this.errorIa),
+        generadaPorIa: generadaPorIa ?? this.generadaPorIa,
+        notaOriginal:
+            limpiarNotaOriginal ? null : (notaOriginal ?? this.notaOriginal),
+        categoriaSugeridaIa: limpiarCategoriaSugerida
+            ? null
+            : (categoriaSugeridaIa ?? this.categoriaSugeridaIa),
+        marcasIa: marcasIa ?? this.marcasIa,
         fotos: fotos ?? this.fotos,
         subiendo: subiendo ?? this.subiendo,
         totalSubir: totalSubir ?? this.totalSubir,
@@ -149,6 +217,14 @@ class CrearOrdenState extends Equatable {
         fechaLimite,
         tecnico?.uid,
         observaciones,
+        titulo,
+        descripcionTecnica,
+        estructurando,
+        errorIa,
+        generadaPorIa,
+        notaOriginal,
+        categoriaSugeridaIa,
+        marcasIa,
         fotos,
         subiendo,
         totalSubir,

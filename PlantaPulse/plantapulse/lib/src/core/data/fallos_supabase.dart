@@ -5,6 +5,16 @@ import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../errors/fallos.dart';
 
+/// Un 429 de una Edge Function: la cuota diaria se agotó. Accionable,
+/// a diferencia de "error de red": la persona sabe que hoy no hay asistente.
+const mensajeCuotaAgotada = 'Se agotó la cuota del asistente por hoy.';
+
+/// El campo `error` del cuerpo, si viene y es un texto con contenido.
+String? _mensajeDeFuncion(Object? details) {
+  final error = details is Map ? details['error'] : null;
+  return error is String && error.trim().isNotEmpty ? error.trim() : null;
+}
+
 /// Mensajes por tipo de fallo, para que cada repositorio pueda dar uno
 /// más específico ("No tienes permiso para ver las órdenes...").
 FalloApp falloDesdeSupabase(
@@ -13,6 +23,7 @@ FalloApp falloDesdeSupabase(
   String sinConexion = 'Sin conexión. Revisa tu internet.',
   String duplicado = 'Ese registro ya existe.',
   String generico = 'Ocurrió un error inesperado. Intenta de nuevo.',
+  String cuotaAgotada = mensajeCuotaAgotada,
 }) {
   if (e is FalloApp) return e;
   if (e is PostgrestException) {
@@ -43,6 +54,22 @@ FalloApp falloDesdeSupabase(
       return const FalloApp('Formato de imagen no admitido. Usa JPG, PNG o WEBP.');
     }
     return FalloApp(generico);
+  }
+  if (e is FunctionException) {
+    // Una Edge Function respondió fuera de 2xx. functions_client 2.4.0 lanza
+    // esta excepción con el cuerpo YA decodificado en `details`: nuestras
+    // funciones mandan {"error": "..."} redactado en español, y ese mensaje
+    // es el que se muestra, no un genérico.
+    final delServidor = _mensajeDeFuncion(e.details);
+    return switch (e.status) {
+      // Cuota agotada: merece su propio aviso aunque el cuerpo no lo traiga
+      // (p. ej. si el límite lo pone la pasarela y no nuestra función)
+      429 => FalloApp(delServidor ?? cuotaAgotada),
+      // Sesión vencida o rechazada por withSupabase({auth: 'user'}): su
+      // cuerpo no es nuestro ni está en español
+      401 || 403 => FalloPermisos(permisos),
+      _ => FalloApp(delServidor ?? generico),
+    };
   }
   // http convierte los SocketException en ClientException (también en web)
   if (e is ClientException ||

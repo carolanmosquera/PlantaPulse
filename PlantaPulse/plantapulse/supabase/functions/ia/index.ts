@@ -1,10 +1,16 @@
 // Proxy de IA de PlantaPulse.
-// Estructura notas, redacta reportes y resume turnos usando Gemini.
+// Estructura notas, redacta reportes, resume turnos y estima el progreso
+// de una orden usando Gemini.
 
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 
-const TIPOS = ["estructurar_orden", "redactar_reporte", "resumen_turno"] as const;
+const TIPOS = [
+  "estructurar_orden",
+  "redactar_reporte",
+  "resumen_turno",
+  "progreso_orden",
+] as const;
 type Tipo = (typeof TIPOS)[number];
 
 const CLAVE = Deno.env.get("GEMINI_API_KEY") ?? "";
@@ -42,6 +48,15 @@ const FALSAS: Record<Tipo, unknown> = {
       "Hay una orden crítica próxima a vencer.",
     ],
   },
+  progreso_orden: {
+    porcentaje: 60,
+    resumen:
+      "Se desmontó el equipo y se identificó el rodamiento dañado. " +
+      "El repuesto ya fue solicitado.",
+    falta:
+      "Instalar el repuesto y hacer la prueba de funcionamiento. " +
+      "Si el repuesto llega a tiempo, podría cerrarse en uno o dos días.",
+  },
 };
 
 const ESQUEMAS: Record<Tipo, unknown> = {
@@ -64,6 +79,15 @@ const ESQUEMAS: Record<Tipo, unknown> = {
     type: "object",
     properties: { vinetas: { type: "array", items: { type: "string" } } },
     required: ["vinetas"],
+  },
+  progreso_orden: {
+    type: "object",
+    properties: {
+      porcentaje: { type: "integer", minimum: 0, maximum: 100 },
+      resumen: { type: "string" },
+      falta: { type: "string" },
+    },
+    required: ["porcentaje", "resumen", "falta"],
   },
 };
 
@@ -101,6 +125,24 @@ function construirPrompt(tipo: Tipo, datos: Record<string, unknown>): string {
         "Responde en español.",
         "",
         `Cifras: ${JSON.stringify(datos.cifras ?? {})}`,
+      ].join("\n");
+
+    case "progreso_orden":
+      // Es una ESTIMACIÓN para orientar al supervisor, y la app lo dice así.
+      // Los reportes pueden ser largos: se recorta el JSON completo.
+      return [
+        "Eres un supervisor de mantenimiento industrial revisando una orden.",
+        "Con la orden y sus reportes de avance (del más antiguo al más reciente),",
+        "estima qué porcentaje del trabajo está hecho (entero de 0 a 100),",
+        "resume en dos o tres frases lo que ya se hizo, y di qué podría faltar",
+        "y cuánto tiempo aproximado podría tomar, si los reportes lo permiten.",
+        "Básate SOLO en los reportes. 100 solo si no queda nada pendiente.",
+        "Si hay un bloqueo (por ejemplo, falta un repuesto), dilo en lo que falta.",
+        "No inventes trabajos que no aparezcan en los reportes.",
+        "Responde en español.",
+        "",
+        `Orden: ${JSON.stringify(datos.orden ?? {}).slice(0, 2000)}`,
+        `Reportes: ${JSON.stringify(datos.reportes ?? []).slice(0, 8000)}`,
       ].join("\n");
   }
 }

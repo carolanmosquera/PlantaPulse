@@ -34,6 +34,7 @@ CrearOrdenBloc crearOrdenBlocDe({
   required UsuarioRepositorio usuarios,
   required OrdenRepositorio ordenes,
   AlmacenamientoRepositorio? almacen,
+  IaRepositorio? ia,
 }) =>
     CrearOrdenBloc(
       listarCategorias: ListarCategoriasDePlanta(categorias),
@@ -42,7 +43,57 @@ CrearOrdenBloc crearOrdenBlocDe({
       publicarOrden: PublicarOrden(ordenes),
       nuevoIdDeOrden: NuevoIdDeOrden(ordenes),
       subirEvidencia: SubirEvidencia(almacen ?? FakeAlmacenamientoRepository()),
+      estructurarNota: EstructurarNota(ia ?? FakeIaRepositorio()),
     );
+
+/// El asistente, sin red ni cuota. Por defecto FALLA (como si la función
+/// no respondiera): así ninguna prueba depende de la IA sin decirlo.
+/// Con [borrador] o [redactado] responde eso.
+class FakeIaRepositorio implements IaRepositorio {
+  BorradorOrdenIa? borrador;
+  String? redactado;
+  ProgresoOrdenIa? progreso;
+  Object fallo = const FalloApp('El asistente no está disponible ahora.');
+
+  /// Si no es null, la respuesta espera a que se complete: sirve para ver
+  /// el estado "pensando" en pantalla.
+  Completer<void>? pausa;
+
+  final List<String> notas = [];
+  final List<({String notas, String equipo})> redacciones = [];
+  final List<({Orden orden, List<Reporte> reportes})> progresos = [];
+
+  @override
+  Future<BorradorOrdenIa> estructurarNota(String nota) async {
+    notas.add(nota);
+    await pausa?.future;
+    return borrador ?? (throw fallo);
+  }
+
+  @override
+  Future<String> redactarReporte({
+    required String notas,
+    required String equipo,
+  }) async {
+    redacciones.add((notas: notas, equipo: equipo));
+    await pausa?.future;
+    return redactado ?? (throw fallo);
+  }
+
+  @override
+  Future<ResumenTurno> resumirTurno(Map<String, int> cifras) async =>
+      throw fallo;
+
+  @override
+  Future<ProgresoOrdenIa> calcularProgreso({
+    required Orden orden,
+    required List<Reporte> reportes,
+  }) async {
+    progresos.add((orden: orden, reportes: reportes));
+    await pausa?.future;
+    return progreso ?? (throw fallo);
+  }
+}
 
 /// Implementa el contrato AutenticacionRepositorio. Conserva el nombre
 /// histórico para no tocar las pruebas.
