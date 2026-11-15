@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plantapulse/main.dart';
 import 'package:plantapulse/src/core/core.dart';
+import 'package:plantapulse/src/features/notificaciones/notificaciones.dart';
 import 'package:plantapulse/src/features/novedades/novedades.dart';
 import 'package:plantapulse/src/features/perfil/perfil.dart';
 
@@ -31,6 +32,45 @@ class FakeAlertaCriticaRepository implements AlertaCriticaRepositorio {
 
   /// Lo que recibiría el supervisor desde la base de datos.
   void llega(List<AlertaCritica> lista) => _abiertas.add(lista);
+}
+
+class FakeAvisosRepository implements AvisosRepositorio {
+  final Map<String, List<Alerta>> porUsuario = {};
+  final _cambios = StreamController<String>.broadcast();
+
+  @override
+  Stream<List<Alerta>> delUsuario(String usuarioId) =>
+      Stream<List<Alerta>>.multi((controller) {
+        controller.add(List.unmodifiable(porUsuario[usuarioId] ?? const []));
+        final suscripcion = _cambios.stream
+            .where((id) => id == usuarioId)
+            .listen((_) => controller
+                .add(List.unmodifiable(porUsuario[usuarioId] ?? const [])));
+        controller.onCancel = suscripcion.cancel;
+      });
+
+  @override
+  Future<void> marcarLeida({
+    required String usuarioId,
+    required String avisoId,
+  }) async {
+    final avisos = porUsuario[usuarioId] ?? [];
+    final indice = avisos.indexWhere((aviso) => aviso.id == avisoId);
+    if (indice < 0) throw const FalloApp('Aviso no encontrado.');
+
+    final aviso = avisos[indice];
+    avisos[indice] = Alerta(
+      id: aviso.id,
+      tipo: aviso.tipo,
+      titulo: aviso.titulo,
+      descripcion: aviso.descripcion,
+      codigo: aviso.codigo,
+      ordenId: aviso.ordenId,
+      noLeida: false,
+      createdAt: aviso.createdAt,
+    );
+    _cambios.add(usuarioId);
+  }
 }
 
 class FakeUbicacion implements UbicacionRepositorio {
@@ -102,6 +142,7 @@ void main() {
   late FakeAuthService auth;
   late UsuariosConAjustes usuarios;
   late FakeAlertaCriticaRepository alertas;
+  late FakeAvisosRepository avisos;
   late FakePush push;
 
   Usuario cuenta(String uid, RolUsuario rol, {String planta = 'p1'}) {
@@ -121,6 +162,7 @@ void main() {
     auth = FakeAuthService();
     usuarios = UsuariosConAjustes();
     alertas = FakeAlertaCriticaRepository();
+    avisos = FakeAvisosRepository();
     push = FakePush();
     cuenta('tec1', RolUsuario.tecnico);
     cuenta('sup1', RolUsuario.supervisor);
@@ -161,6 +203,7 @@ void main() {
         reporteRepositorio: FakeReporteRepository(),
         almacenamientoRepositorio: FakeAlmacenamientoRepository(),
         pushRepositorio: push,
+        avisosRepositorio: avisos,
         alertaCriticaRepositorio: alertas,
         ubicacionRepositorio: FakeUbicacion(gps),
         preferenciasRepositorio: _PreferenciasDePrueba(usuarios),
@@ -401,6 +444,92 @@ void main() {
       ]);
       await tester.pump();
       expect(find.textContaining('ALERTA CRÍTICA'), findsNothing);
+    });
+  });
+
+  group('bandeja personal de avisos', () {
+    probar('distingue no leídos y agrupa por hoy, ayer y esta semana', (
+      tester,
+    ) async {
+      final ahora = DateTime.now();
+      final hoy = DateTime(ahora.year, ahora.month, ahora.day, 12);
+      avisos.porUsuario['tec1'] = [
+        Alerta(
+          id: 'hoy-no-leido',
+          tipo: TipoAlerta.preventiva,
+          titulo: 'Nueva orden asignada',
+          descripcion: 'Te asignaron la orden de mantenimiento.',
+          noLeida: true,
+          createdAt: hoy,
+        ),
+        Alerta(
+          id: 'ayer-leido',
+          tipo: TipoAlerta.completada,
+          titulo: 'Orden completada',
+          descripcion: 'La orden fue validada.',
+          noLeida: false,
+          createdAt: hoy.subtract(const Duration(days: 1)),
+        ),
+        Alerta(
+          id: 'semana-leido',
+          tipo: TipoAlerta.info,
+          titulo: 'Aviso de seguridad',
+          descripcion: 'Se actualizó el protocolo de seguridad.',
+          noLeida: false,
+          createdAt: hoy.subtract(const Duration(days: 4)),
+        ),
+        Alerta(
+          id: 'anterior-leido',
+          tipo: TipoAlerta.info,
+          titulo: 'Aviso anterior',
+          descripcion: 'Aviso de una semana atrás.',
+          noLeida: false,
+          createdAt: hoy.subtract(const Duration(days: 9)),
+        ),
+      ];
+
+      await arrancar(tester, 'tec1');
+      PlantaPulseApp.navegador.currentState!.pushNamed(Rutas.alertas);
+      await tester.pump();
+      alertas.llega([]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alertas de Planta'), findsOneWidget);
+      expect(find.text('HOY'), findsOneWidget);
+      expect(find.text('AYER'), findsOneWidget);
+      expect(find.text('ESTA SEMANA'), findsOneWidget);
+      expect(find.text('ANTERIORES'), findsOneWidget);
+      expect(find.text('1 SIN LEER'), findsOneWidget);
+      expect(find.text('FALLA CRÍTICA DETECTADA'), findsNothing);
+      expect(
+        tester
+            .widget<FilaAlerta>(
+              find.byKey(const ValueKey('aviso-hoy-no-leido')),
+            )
+            .noLeida,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<FilaAlerta>(
+              find.byKey(const ValueKey('aviso-ayer-leido')),
+            )
+            .noLeida,
+        isFalse,
+      );
+
+      await tocar(
+        tester,
+        find.byKey(const ValueKey('aviso-hoy-no-leido')),
+      );
+      expect(
+        tester
+            .widget<FilaAlerta>(
+              find.byKey(const ValueKey('aviso-hoy-no-leido')),
+            )
+            .noLeida,
+        isFalse,
+      );
     });
   });
 

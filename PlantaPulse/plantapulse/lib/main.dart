@@ -24,6 +24,8 @@ import 'src/features/auth/data/repositories/usuario_repositorio_impl.dart';
 import 'src/features/crear_orden/data/datasources/equipo_fuente_supabase.dart';
 import 'src/features/crear_orden/data/repositories/equipo_repositorio_impl.dart';
 import 'src/features/notificaciones/data/datasources/push_fuente_fcm.dart';
+import 'src/features/notificaciones/data/datasources/avisos_fuente_supabase.dart';
+import 'src/features/notificaciones/data/repositories/avisos_repositorio_impl.dart';
 import 'src/features/novedades/data/datasources/alerta_critica_fuente_supabase.dart';
 import 'src/features/novedades/data/datasources/ubicacion_fuente_geolocator.dart';
 import 'src/features/novedades/data/repositories/alerta_critica_repositorio_impl.dart';
@@ -80,6 +82,7 @@ class PlantaPulseApp extends StatelessWidget {
   final AlmacenamientoRepositorio? almacenamientoRepositorio;
   final PreferenciasRepositorio? preferenciasRepositorio;
   final PushRepositorio? pushRepositorio;
+  final AvisosRepositorio? avisosRepositorio;
   final AlertaCriticaRepositorio? alertaCriticaRepositorio;
   final UbicacionRepositorio? ubicacionRepositorio;
 
@@ -101,6 +104,7 @@ class PlantaPulseApp extends StatelessWidget {
     this.almacenamientoRepositorio,
     this.preferenciasRepositorio,
     this.pushRepositorio,
+    this.avisosRepositorio,
     this.alertaCriticaRepositorio,
     this.ubicacionRepositorio,
   });
@@ -170,6 +174,11 @@ class PlantaPulseApp extends StatelessWidget {
         RepositoryProvider<PushRepositorio>(
           create: (_) =>
               pushRepositorio ?? PushRepositorioImpl(PushFuenteFcm()),
+        ),
+        RepositoryProvider<AvisosRepositorio>(
+          create: (_) =>
+              avisosRepositorio ??
+              AvisosRepositorioImpl(AvisosFuenteSupabase()),
         ),
         // Alertas críticas y ubicación (KAN-90)
         RepositoryProvider<AlertaCriticaRepositorio>(
@@ -272,6 +281,12 @@ class PlantaPulseApp extends StatelessWidget {
         RepositoryProvider(
           create: (c) =>
               ObservarAlertasCriticas(c.read<AlertaCriticaRepositorio>()),
+        ),
+        RepositoryProvider(
+          create: (c) => ObservarAvisos(c.read<AvisosRepositorio>()),
+        ),
+        RepositoryProvider(
+          create: (c) => MarcarAvisoLeido(c.read<AvisosRepositorio>()),
         ),
         RepositoryProvider(
           create: (c) => ObtenerUbicacion(c.read<UbicacionRepositorio>()),

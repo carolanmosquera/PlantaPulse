@@ -1,8 +1,7 @@
 // lib/src/core/domain/entities/alerta.dart
 import '../utils/formato_fechas.dart';
 
-/// OJO con el nombre: esta clase es lo que tu pantalla de Alertas muestra,
-/// pero en la base de datos vive en usuarios/{uid}/notificaciones.
+/// Aviso personal del usuario, almacenado en la tabla 'notificaciones'.
 /// Son avisos personales, no la alerta de emergencia (ver AlertaCritica).
 enum TipoAlerta { critica, preventiva, completada, info }
 
