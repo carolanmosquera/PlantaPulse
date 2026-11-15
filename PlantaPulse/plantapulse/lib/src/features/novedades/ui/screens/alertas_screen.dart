@@ -1,9 +1,9 @@
-// lib/src/features/novedades/ui/screens/alertas_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
-import '../../../../core/data/datos_demo.dart';
+import '../../../../core/errors/fallos.dart';
 import '../../domain/usecases/alertas_criticas.dart';
+import '../../../notificaciones/notificaciones.dart';
 
 class AlertasScreen extends StatefulWidget {
   const AlertasScreen({super.key});
@@ -13,31 +13,26 @@ class AlertasScreen extends StatefulWidget {
 }
 
 class _AlertasScreenState extends State<AlertasScreen> {
-  /// Alertas críticas abiertas de la planta (KAN-90). Null si no hay
-  /// sesión de planta o el servicio no está disponible.
+  String? _usuarioId;
+  Stream<List<Alerta>>? _avisos;
   Stream<List<AlertaCritica>>? _criticas;
 
   @override
   void initState() {
     super.initState();
-    final plantaId = context.read<SesionBloc>().state.usuario?.plantaId ?? '';
-    if (plantaId.isEmpty) return;
-    try {
-      _criticas = context.read<ObservarAlertasCriticas>().ejecutar(plantaId);
-    } catch (_) {
-      _criticas = null;
+    final usuario = context.read<SesionBloc>().state.usuario;
+    _usuarioId = usuario?.uid;
+
+    if (usuario == null) return;
+    _avisos = context.read<ObservarAvisos>().ejecutar(usuario.uid);
+    if (usuario.plantaId.isNotEmpty) {
+      _criticas =
+          context.read<ObservarAlertasCriticas>().ejecutar(usuario.plantaId);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Agrupa por el getter 'grupo' (calculado desde createdAt),
-    // conservando el orden de aparición
-    final grupos = <String, List<Alerta>>{};
-    for (final a in alertasDemo) {
-      grupos.putIfAbsent(a.grupo, () => []).add(a);
-    }
-
     return PantallaBase(
       titulo: 'Alertas de Planta',
       mostrarAtras: false,
@@ -47,50 +42,44 @@ class _AlertasScreenState extends State<AlertasScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           const SizedBox(height: 12),
-
-          // ══ BARRA DE FILTROS ══
-          Row(
-            children: [
-              _botonFiltro(context, Icons.filter_list, 'Filtrar'),
-              const SizedBox(width: 8),
-              _botonFiltro(context, Icons.calendar_today_outlined, 'Fecha'),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {},
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, size: 15,
-                         color: AppColors.textoGris.segunTema(context)),
-                    SizedBox(width: 5),
-                    Text('Limpiar leídas',
-                      style: TextStyle(fontSize: 12,
-                                       color: AppColors.textoGris.segunTema(context))),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // ══ ALERTAS CRÍTICAS ABIERTAS (tiempo real) ══
           if (_criticas != null)
             StreamBuilder<List<AlertaCritica>>(
               stream: _criticas,
               builder: (context, snap) {
-                final lista = snap.data ?? const <AlertaCritica>[];
-                if (lista.isEmpty) return const SizedBox.shrink();
+                final error = snap.hasError
+                    ? TileAviso(
+                        icono: Icons.cloud_off,
+                        titulo: 'No se pudieron cargar las alertas críticas',
+                        subtitulo: FalloApp.mensajeDe(snap.error!),
+                        color: AppColors.rojo,
+                      )
+                    : null;
+                if (!snap.hasData) {
+                  return error ?? const SizedBox.shrink();
+                }
+
+                final lista = snap.data!;
+                if (lista.isEmpty && error == null) {
+                  return const SizedBox.shrink();
+                }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SeccionHeader(titulo: 'ALERTAS CRÍTICAS ABIERTAS'),
-                    for (final a in lista)
+                    if (error != null) error,
+                    if (lista.isNotEmpty)
+                      const SeccionHeader(
+                        titulo: 'ALERTAS CRÍTICAS ABIERTAS',
+                      ),
+                    for (final alerta in lista)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: FilaAlerta(
-                          icono: a.tipo.icono,
-                          titulo: a.tipo.etiqueta,
+                          key: ValueKey('alerta-critica-${alerta.id}'),
+                          icono: alerta.tipo.icono,
+                          titulo: alerta.tipo.etiqueta,
                           descripcion:
-                              '${a.creadoPor.nombre}: ${a.descripcion}',
-                          hora: a.hora,
+                              '${alerta.creadoPor.nombre}: ${alerta.descripcion}',
+                          hora: alerta.hora,
                           color: AppColors.rojo,
                           noLeida: true,
                         ),
@@ -99,28 +88,22 @@ class _AlertasScreenState extends State<AlertasScreen> {
                 );
               },
             ),
-
-          // ══ GRUPOS ══
-          for (final entrada in grupos.entries) ...[
-            SeccionHeader(titulo: entrada.key),
-            ...entrada.value.map((a) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: FilaAlerta(
-                icono: a.tipo.icono,
-                titulo: a.titulo,
-                descripcion: a.descripcion,
-                hora: a.hora,
-                codigo: a.codigo,
-                color: a.tipo.color,
-                noLeida: a.noLeida,
-              ),
-            )),
-          ],
-
+          if (_avisos == null)
+            const TileAviso(
+              icono: Icons.info_outline,
+              titulo: 'Inicia sesión para consultar tus avisos.',
+              color: AppColors.ambar,
+            )
+          else
+            StreamBuilder<List<Alerta>>(
+              stream: _avisos,
+              builder: _construirAvisos,
+            ),
           const SizedBox(height: 12),
           const TileAviso(
-            icono: Icons.settings_outlined,
-            titulo: 'Gestiona tus preferencias de alertas en Ajustes',
+            icono: Icons.info_outline,
+            titulo: 'La barra azul identifica los avisos no leídos. '
+                'Toca un aviso para marcarlo como leído.',
             color: AppColors.azul,
           ),
           const SizedBox(height: 24),
@@ -129,22 +112,115 @@ class _AlertasScreenState extends State<AlertasScreen> {
     );
   }
 
-  Widget _botonFiltro(BuildContext context, IconData icono, String texto) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.borde.segunTema(context)),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icono, size: 14, color: AppColors.textoGris.segunTema(context)),
-          const SizedBox(width: 6),
-          Text(texto, style: TextStyle(fontSize: 12.5,
-                                             color: AppColors.texto.segunTema(context))),
-        ],
-      ),
+  Widget _construirAvisos(
+    BuildContext context,
+    AsyncSnapshot<List<Alerta>> snap,
+  ) {
+    final error = snap.hasError
+        ? TileAviso(
+            icono: Icons.cloud_off,
+            titulo: 'No se pudieron cargar tus avisos',
+            subtitulo: FalloApp.mensajeDe(snap.error!),
+            color: AppColors.rojo,
+          )
+        : null;
+    if (!snap.hasData) {
+      if (error != null) return error;
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final avisos = snap.data!;
+    final sinLeer = avisos.where((aviso) => aviso.noLeida).length;
+    final grupos = <String, List<Alerta>>{};
+    for (final aviso in avisos) {
+      grupos.putIfAbsent(aviso.grupo, () => []).add(aviso);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (error != null) error,
+        SeccionHeader(
+          titulo: 'AVISOS PERSONALES',
+          accion: '$sinLeer SIN LEER',
+          colorAccion: sinLeer == 0 ? AppColors.textoGris : AppColors.azul,
+        ),
+        if (avisos.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: Text(
+                'Todavía no tienes avisos.',
+                style: AppText.gris.segunTema(context),
+              ),
+            ),
+          )
+        else
+          for (final grupo in const [
+            'HOY',
+            'AYER',
+            'ESTA SEMANA',
+            'ANTERIORES',
+          ])
+            if (grupos.containsKey(grupo)) ...[
+              SeccionHeader(titulo: grupo),
+              for (final aviso in grupos[grupo]!)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: FilaAlerta(
+                    key: ValueKey('aviso-${aviso.id}'),
+                    icono: aviso.tipo.icono,
+                    titulo: aviso.titulo,
+                    descripcion: aviso.descripcion,
+                    hora: aviso.hora,
+                    codigo: aviso.codigo,
+                    color: aviso.tipo.color,
+                    noLeida: aviso.noLeida,
+                    onTap: () => _abrirAviso(aviso),
+                  ),
+                ),
+            ],
+      ],
+    );
+  }
+
+  Future<void> _abrirAviso(Alerta aviso) async {
+    final usuarioId = _usuarioId;
+    if (usuarioId == null) return;
+
+    try {
+      if (aviso.noLeida) {
+        await context.read<MarcarAvisoLeido>().ejecutar(
+              usuarioId: usuarioId,
+              avisoId: aviso.id,
+            );
+      }
+
+      final ordenId = aviso.ordenId;
+      if (ordenId == null) return;
+      final orden = await context.read<OrdenRepositorio>().obtener(ordenId);
+      if (!mounted) return;
+      if (orden == null) {
+        _mostrarError('La orden de este aviso ya no está disponible.');
+        return;
+      }
+      await Navigator.pushNamed(
+        context,
+        Rutas.detalleOrden,
+        arguments: orden,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _mostrarError(FalloApp.mensajeDe(error));
+    }
+  }
+
+  void _mostrarError(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje)),
     );
   }
 }

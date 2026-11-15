@@ -154,6 +154,23 @@ create table alertas (
   created_at timestamptz default now()
 );
 
+-- Avisos personales; solo el destinatario puede leerlos y marcarlos leídos.
+create table notificaciones (
+  id uuid primary key default gen_random_uuid(),
+  usuario_id uuid not null references usuarios(id) on delete cascade,
+  tipo text not null check (tipo in ('critica', 'preventiva', 'completada', 'info')),
+  titulo text not null,
+  descripcion text not null default '',
+  codigo text,
+  orden_id uuid references ordenes(id) on delete set null,
+  alerta_id uuid references alertas(id) on delete set null,
+  leida boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index notificaciones_usuario_fecha
+  on notificaciones (usuario_id, created_at desc);
+
 
 -- ─── ÍNDICES ───────────────────────────────────────────────────────
 -- Reemplazan a los índices compuestos de Firestore.
@@ -397,6 +414,92 @@ end $$;
 create trigger trg_a_proteger before update on alertas
   for each row execute function public.proteger_alertas();
 
+create or replace function public.notificar_asignacion_orden()
+returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  receptor public.usuarios%rowtype;
+begin
+  if tg_op = 'UPDATE' then
+    if new.asignado_a_uid is not distinct from old.asignado_a_uid then
+      return new;
+    end if;
+  end if;
+  if new.asignado_a_uid is null then
+    return new;
+  end if;
+
+  select * into receptor
+    from public.usuarios
+   where id = new.asignado_a_uid
+     and planta_id = new.planta_id
+     and rol = 'tecnico'
+     and estado = 'activo'
+     and activo;
+  if not found
+     or not coalesce((receptor.preferencias_avisos ->> 'mantenimiento')::boolean, true)
+     or (
+       coalesce((receptor.preferencias_avisos ->> 'soloCriticas')::boolean, false)
+       and new.prioridad not in ('alta', 'critica')
+     ) then
+    return new;
+  end if;
+
+  insert into public.notificaciones
+    (usuario_id, tipo, titulo, descripcion, codigo, orden_id)
+  values
+    (receptor.id, 'preventiva', 'Nueva orden asignada',
+     'Se te asignó: ' || new.titulo, new.codigo, new.id);
+  return new;
+end $$;
+
+create trigger trg_notificar_asignacion_orden_insert
+  after insert on ordenes
+  for each row execute function public.notificar_asignacion_orden();
+create trigger trg_notificar_asignacion_orden_update
+  after update of asignado_a_uid on ordenes
+  for each row execute function public.notificar_asignacion_orden();
+
+create or replace function public.notificar_alerta_critica()
+returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.estado <> 'abierta' then
+    return new;
+  end if;
+
+  insert into public.notificaciones
+    (usuario_id, tipo, titulo, descripcion, codigo, orden_id, alerta_id)
+  select
+    u.id,
+    'critica',
+    'Alerta crítica: ' || new.tipo,
+    case
+      when nullif(new.zona_nombre, '') is null then new.descripcion
+      else new.zona_nombre || ': ' || new.descripcion
+    end,
+    o.codigo,
+    new.orden_id,
+    new.id
+  from public.usuarios u
+  left join public.ordenes o on o.id = new.orden_id
+  where u.planta_id = new.planta_id
+    and u.rol in ('supervisor', 'admin')
+    and u.estado = 'activo'
+    and u.activo
+    and u.id is distinct from (new.creado_por ->> 'uid')::uuid;
+  return new;
+end $$;
+
+create trigger trg_notificar_alerta_critica
+  after insert on alertas
+  for each row execute function public.notificar_alerta_critica();
+
+revoke all on function public.notificar_asignacion_orden()
+  from public, anon, authenticated;
+revoke all on function public.notificar_alerta_critica()
+  from public, anon, authenticated;
+
 
 -- ─── RLS ───────────────────────────────────────────────────────────
 -- Sin 'enable row level security' la tabla queda legible y escribible
@@ -416,6 +519,7 @@ alter table ordenes   enable row level security;
 alter table reportes  enable row level security;
 alter table novedades enable row level security;
 alter table alertas   enable row level security;
+alter table notificaciones enable row level security;
 
 -- ─── PLANTAS: lectura pública ───
 -- Solo son nombres de sedes: no es información sensible.
@@ -576,6 +680,16 @@ create policy "alertas update supervisor" on alertas for update
   using ((select public.soy_supervisor()) and planta_id = (select public.mi_planta()))
   with check (planta_id = (select public.mi_planta()));
 
+-- Cada usuario solo consulta y marca sus propios avisos como leídos.
+-- No hay política de insert ni delete: las notificaciones las generan
+-- los triggers de confianza sobre órdenes y alertas críticas.
+create policy "notificaciones lectura propia" on notificaciones for select
+  using ((select public.estoy_activo()) and usuario_id = (select auth.uid()));
+
+create policy "notificaciones update propia" on notificaciones for update
+  using ((select public.estoy_activo()) and usuario_id = (select auth.uid()))
+  with check ((select public.estoy_activo()) and usuario_id = (select auth.uid()));
+
 
 -- ─── PERMISOS DE LA API ────────────────────────────────────────────
 -- RLS decide qué filas; estos GRANT deciden qué operaciones expone la
@@ -588,6 +702,9 @@ grant select on zonas to authenticated;
 grant select, update on equipos to authenticated;
 grant select, insert, update on usuarios, ordenes, novedades, alertas to authenticated;
 grant select, insert on reportes to authenticated;
+revoke all on notificaciones from public, anon, authenticated;
+grant select on notificaciones to authenticated;
+grant update (leida) on notificaciones to authenticated;
 
 
 -- ─── TIEMPO REAL ───────────────────────────────────────────────────
@@ -596,8 +713,9 @@ grant select, insert on reportes to authenticated;
 -- recargar. Realtime respeta RLS: cada quien recibe solo lo que puede leer.
 --   ordenes  → feed y "Mis Tareas"
 --   usuarios → bandeja de solicitudes del admin y perfil propio
+--   notificaciones → avisos personales
 
-alter publication supabase_realtime add table ordenes, usuarios;
+alter publication supabase_realtime add table ordenes, usuarios, notificaciones;
 
 
 -- ─── DATOS SEMILLA ─────────────────────────────────────────────────
