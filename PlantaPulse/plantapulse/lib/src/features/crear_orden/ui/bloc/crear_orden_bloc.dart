@@ -31,6 +31,7 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
   final PublicarOrden _publicarOrden;
   final NuevoIdDeOrden _nuevoIdDeOrden;
   final SubirEvidencia _subirEvidencia;
+  final Future<String> Function(Orden)? _publicarConversion;
   int _siguienteFoto = 0;
 
   CrearOrdenBloc({
@@ -40,7 +41,13 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     required this._publicarOrden,
     required this._nuevoIdDeOrden,
     required this._subirEvidencia,
-  }) : super(CrearOrdenState.inicial()) {
+    String descripcionInicial = '',
+    Future<String> Function(Orden)? publicarConversion,
+  }) : _publicarConversion = publicarConversion,
+       super(CrearOrdenState.inicial(
+         descripcion: descripcionInicial,
+         requiereTecnico: publicarConversion != null,
+       )) {
     on<CrearOrdenIniciada>(_alIniciar);
     on<DescripcionCambiada>(
         (e, emit) => emit(state.copyWith(descripcion: e.texto)));
@@ -162,7 +169,7 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
   ) async {
     final equipo = state.equipo;
     final tecnico = state.tecnico;      // null = la orden nace sin asignar
-    if (!state.paso2Valido || equipo == null) return;
+    if (state.publicando || !state.paso2Valido || equipo == null) return;
 
     // El id se reserva una vez y se reutiliza en cada reintento: las fotos
     // ya subidas están en la carpeta de ESE id
@@ -186,7 +193,7 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
       try {
         final ruta = await _subirEvidencia.ejecutar(
           plantaId: state.plantaId,
-          ordenId: ordenId,
+          registroId: ordenId,
           bytes: foto.foto.bytes,
           extension: foto.foto.extension,
         );
@@ -247,7 +254,8 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     );
 
     try {
-      final id = await _publicarOrden.ejecutar(orden);
+      final publicar = _publicarConversion ?? _publicarOrden.ejecutar;
+      final id = await publicar(orden);
       emit(state.copyWith(
         status: EstadoCrearOrden.publicada,
         ordenIdCreada: id,

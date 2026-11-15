@@ -3,6 +3,10 @@ import 'evidencia.dart';
 import '../utils/formato_fechas.dart';
 import 'usuario.dart';
 
+const minDescripcionNovedad = 5;
+const maxDescripcionNovedad = 500;
+const maxFotosPorNovedad = 4;
+
 /// Ciclo de vida de una novedad:
 ///   reportada  →  revisada  →  convertida (en orden)
 ///                          ↘  descartada
@@ -12,7 +16,7 @@ extension EstadoNovedadX on EstadoNovedad {
   String get etiqueta => switch (this) {
         EstadoNovedad.reportada  => 'REPORTADA',
         EstadoNovedad.revisada   => 'EN REVISIÓN',
-        EstadoNovedad.convertida => 'ORDEN CREADA',
+        EstadoNovedad.convertida => 'CONVERTIDA',
         EstadoNovedad.descartada => 'DESCARTADA',
       };
 
@@ -69,11 +73,12 @@ class Novedad {
   final String descripcion;      // NO se llama 'texto': chocaría con la función texto()
   final CategoriaNovedad categoria;
   final UsuarioRef autor;
-  final List<Evidencia> evidencias;   // opcional, máximo 30
+  final List<Evidencia> evidencias;
   final EstadoNovedad estado;
   final String? ordenId;         // si se convirtió en orden, cuál
   final UsuarioRef? revisadaPor;
   final DateTime? revisadaEn;
+  final String? motivoDescarte;
   final DateTime createdAt;
 
   const Novedad({
@@ -89,6 +94,7 @@ class Novedad {
     this.ordenId,
     this.revisadaPor,
     this.revisadaEn,
+    this.motivoDescarte,
     required this.createdAt,
   });
 

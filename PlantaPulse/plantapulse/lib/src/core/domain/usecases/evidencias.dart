@@ -36,13 +36,13 @@ class SubirEvidencia {
 
   Future<String> ejecutar({
     required String plantaId,
-    required String ordenId,
+    required String registroId,
     required Uint8List bytes,
     required String extension,
   }) =>
       _almacenamiento.subir(
         plantaId: plantaId,
-        ordenId: ordenId,
+        ordenId: registroId,
         bytes: bytes,
         extension: extension,
       );

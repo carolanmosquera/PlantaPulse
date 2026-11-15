@@ -4,6 +4,7 @@ import '../../../../core/domain/entities/categoria.dart';
 import '../../../../core/domain/entities/equipo.dart';
 import '../../../../core/domain/entities/evidencia.dart';
 import '../../../../core/domain/entities/foto_pendiente.dart';
+import '../../../../core/domain/entities/novedad.dart';
 import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
 
@@ -27,6 +28,7 @@ class CrearOrdenState extends Equatable {
   final Prioridad prioridad;
   final DateTime fechaLimite;
   final Usuario? tecnico;
+  final bool requiereTecnico;
   final String observaciones;
 
   /// Fotos del hallazgo (P2, "Evidencia y notas"). Máximo 30.
@@ -58,6 +60,7 @@ class CrearOrdenState extends Equatable {
     this.prioridad = Prioridad.media,
     required this.fechaLimite,
     this.tecnico,
+    this.requiereTecnico = false,
     this.observaciones = '',
     this.fotos = const [],
     this.subiendo = 0,
@@ -69,14 +72,22 @@ class CrearOrdenState extends Equatable {
   });
 
   /// Por defecto la orden vence mañana.
-  factory CrearOrdenState.inicial() => CrearOrdenState(
+  factory CrearOrdenState.inicial({
+    String descripcion = '',
+    bool requiereTecnico = false,
+  }) => CrearOrdenState(
+        descripcion: descripcion,
+        requiereTecnico: requiereTecnico,
         fechaLimite: DateTime.now().add(const Duration(days: 1)),
       );
 
-  bool get paso1Valido => descripcion.trim().length >= 10 && equipo != null;
+  int get minimoDescripcion => requiereTecnico ? minDescripcionNovedad : 10;
+  int get largoDescripcion => requiereTecnico
+      ? descripcion.trim().runes.length
+      : descripcion.trim().length;
+  bool get paso1Valido => largoDescripcion >= minimoDescripcion && equipo != null;
 
-  /// El técnico NO es obligatorio: una orden puede nacer sin asignar.
-  bool get paso2Valido => paso1Valido;
+  bool get paso2Valido => paso1Valido && (!requiereTecnico || tecnico != null);
 
   bool get publicando => status == EstadoCrearOrden.publicando;
 
@@ -124,6 +135,7 @@ class CrearOrdenState extends Equatable {
         prioridad: prioridad ?? this.prioridad,
         fechaLimite: fechaLimite ?? this.fechaLimite,
         tecnico: limpiarTecnico ? null : (tecnico ?? this.tecnico),
+        requiereTecnico: requiereTecnico,
         observaciones: observaciones ?? this.observaciones,
         fotos: fotos ?? this.fotos,
         subiendo: subiendo ?? this.subiendo,
@@ -148,6 +160,7 @@ class CrearOrdenState extends Equatable {
         prioridad,
         fechaLimite,
         tecnico?.uid,
+        requiereTecnico,
         observaciones,
         fotos,
         subiendo,

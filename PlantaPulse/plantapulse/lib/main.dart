@@ -25,8 +25,11 @@ import 'src/features/crear_orden/data/datasources/equipo_fuente_supabase.dart';
 import 'src/features/crear_orden/data/repositories/equipo_repositorio_impl.dart';
 import 'src/features/notificaciones/data/datasources/push_fuente_fcm.dart';
 import 'src/features/novedades/data/datasources/alerta_critica_fuente_supabase.dart';
+import 'src/features/novedades/data/datasources/novedad_fuente_supabase.dart';
 import 'src/features/novedades/data/datasources/ubicacion_fuente_geolocator.dart';
 import 'src/features/novedades/data/repositories/alerta_critica_repositorio_impl.dart';
+import 'src/features/novedades/data/repositories/novedad_repositorio_impl.dart';
+import 'src/features/novedades/domain/repositories/novedad_repositorio.dart';
 import 'src/features/notificaciones/data/repositories/push_repositorio_impl.dart';
 import 'src/features/ordenes/data/datasources/orden_fuente_supabase.dart';
 import 'src/features/ordenes/data/repositories/orden_repositorio_impl.dart';
@@ -81,6 +84,7 @@ class PlantaPulseApp extends StatelessWidget {
   final PreferenciasRepositorio? preferenciasRepositorio;
   final PushRepositorio? pushRepositorio;
   final AlertaCriticaRepositorio? alertaCriticaRepositorio;
+  final NovedadRepositorio? novedadRepositorio;
   final UbicacionRepositorio? ubicacionRepositorio;
 
   /// El Navigator del MaterialApp. Lo usa EscuchaPush, que está por
@@ -102,6 +106,7 @@ class PlantaPulseApp extends StatelessWidget {
     this.preferenciasRepositorio,
     this.pushRepositorio,
     this.alertaCriticaRepositorio,
+    this.novedadRepositorio,
     this.ubicacionRepositorio,
   });
 
@@ -176,6 +181,11 @@ class PlantaPulseApp extends StatelessWidget {
           create: (_) =>
               alertaCriticaRepositorio ??
               AlertaCriticaRepositorioImpl(AlertaCriticaFuenteSupabase()),
+        ),
+        RepositoryProvider<NovedadRepositorio>(
+          create: (_) =>
+              novedadRepositorio ??
+              NovedadRepositorioImpl(NovedadFuenteSupabase()),
         ),
         RepositoryProvider<UbicacionRepositorio>(
           create: (_) =>

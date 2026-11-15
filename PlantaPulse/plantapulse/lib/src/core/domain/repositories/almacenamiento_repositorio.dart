@@ -16,8 +16,8 @@ abstract class AlmacenamientoRepositorio {
   Future<FotoElegida?> obtenerFoto(OrigenFoto origen);
 
   /// Sube los bytes y devuelve la RUTA del objeto, nunca una URL.
-  /// La ruta empieza por la planta y la orden:
-  /// `planta_id/orden_id/uuid.ext`.
+  /// La ruta empieza por la planta y el registro al que pertenece la foto.
+  /// El parámetro [ordenId] también admite el UUID de una novedad.
   Future<String> subir({
     required String plantaId,
     required String ordenId,

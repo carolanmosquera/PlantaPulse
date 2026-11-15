@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
+import '../../../novedades/ui/widgets/novedades_feed.dart';
 import '../bloc/ordenes_bloc.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -119,6 +120,8 @@ class _FeedScreenState extends State<FeedScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             children: [
               const SizedBox(height: 12),
+              if (usuario != null && usuario.puedeEntrar)
+                NovedadesFeed(key: ValueKey(usuario.plantaId), usuario: usuario),
 
               // ══ MIS TAREAS (técnico) ══
               if (esTecnico) ...[

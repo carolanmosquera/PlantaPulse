@@ -4,9 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../bloc/crear_orden_bloc.dart';
 
-/// Segundo paso del asistente. Recibe el CrearOrdenBloc de P1 por
-/// BlocProvider.value. No devuelve nada por Navigator.pop: el feed se
-/// entera de la orden nueva porque está suscrito al stream en tiempo real.
+/// Segundo paso del asistente. Comparte el Bloc de P1 y devuelve el ID
+/// publicado para cerrar ambos pasos y regresar a la pantalla de origen.
 class CrearOrdenP2Screen extends StatefulWidget {
   const CrearOrdenP2Screen({super.key});
 
@@ -70,7 +69,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
       iconoDe: (_) => Icons.engineering_outlined,
       seleccionado: state.tecnico,
       claveDe: (u) => u.uid,
-      textoNinguno: 'Sin asignar',
+      textoNinguno: state.requiereTecnico ? null : 'Sin asignar',
     );
     if (eleccion == null) return;            // cerró la hoja sin elegir
     final tecnico = eleccion.valor;
@@ -108,8 +107,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
   void _alCambiarEstado(BuildContext context, CrearOrdenState state) {
     final mensajero = ScaffoldMessenger.of(context);
     if (state.status == EstadoCrearOrden.publicada) {
-      // Cierra P2 y P1 de una vez: el feed ya recibió la orden por stream
-      Navigator.popUntil(context, ModalRoute.withName(Rutas.feed));
+      Navigator.pop(context, state.ordenIdCreada);
       mensajero.showSnackBar(SnackBar(
         backgroundColor: AppColors.verde,
         content: Text('Orden ${state.codigoCreado} publicada'),
@@ -130,9 +128,11 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
       builder: (context, state) {
         final equipo = state.equipo;
 
-        return PantallaBase(
+        final pantalla = PantallaBase(
           titulo: 'Nueva Orden: Paso 2',
           tabActiva: 0,
+          mostrarAtras: !state.publicando,
+          conNavegacion: !state.requiereTecnico && !state.publicando,
           cuerpo: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             children: [
@@ -195,16 +195,21 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                           Icon(Icons.calendar_today_outlined, size: 17,
                             color: AppColors.textoGris.segunTema(context)),
                           const SizedBox(width: 10),
-                          Text(_fechaTexto(state.fechaLimite),
-                            style: TextStyle(fontSize: 13.5,
-                                                   color: AppColors.texto.segunTema(context))),
+                          Expanded(
+                            child: Text(
+                              _fechaTexto(state.fechaLimite),
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: AppColors.texto.segunTema(context),
+                              ),
+                            ),
+                          ),
                         ]),
                       ),
                     ),
                     const SizedBox(height: 18),
 
                     // ══ RESPONSABLE ══
-                    // Opcional: sin técnico la orden se publica "Sin asignar"
                     CampoSeleccion(
                       label: 'Técnico Responsable',
                       icono: Icons.engineering_outlined,
@@ -213,7 +218,9 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                         final u when u.especialidad.isEmpty => u.nombre,
                         final u => '${u.nombre} • ${u.especialidad}',
                       },
-                      vacio: 'Sin asignar',
+                      vacio: state.requiereTecnico
+                          ? 'Selecciona un técnico'
+                          : 'Sin asignar',
                       onTap: () => _elegirTecnico(state),
                     ),
                   ],
@@ -269,6 +276,10 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
               const SizedBox(height: 24),
             ],
           ),
+        );
+        return PopScope(
+          canPop: !state.publicando,
+          child: AbsorbPointer(absorbing: state.publicando, child: pantalla),
         );
       },
     );
