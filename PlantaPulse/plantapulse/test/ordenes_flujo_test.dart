@@ -86,6 +86,7 @@ void main() {
     Prioridad prioridad = Prioridad.media,
     String? asignadoA = 'tec1',          // null = orden sin asignar
     String zona = 'Línea A',
+    Duration venceEn = const Duration(days: 1),
   }) {
     final ahora = DateTime.now();
     final orden = Orden(
@@ -101,7 +102,7 @@ void main() {
       estado: estado,
       prioridad: prioridad,
       createdAt: ahora,
-      fechaLimite: ahora.add(const Duration(days: 1)),
+      fechaLimite: ahora.add(venceEn),
       ultimaActividad: ahora,
     );
     ordenes.ordenes.add(orden);
@@ -758,5 +759,70 @@ void main() {
     sembrar('o1', 'Cambio de filtro', estado: EstadoOrden.validando);
     await entrarComo(tester, 'tec1');
     expect(find.text('Órdenes por validar'), findsNothing);
+  });
+
+  // 31
+  probar('el resumen cuenta estados, filtra órdenes y muestra vencimientos',
+      (tester) async {
+    sembrar('o1', 'Pendiente próxima', venceEn: const Duration(minutes: 30));
+    sembrar('o2', 'Pendiente futura', prioridad: Prioridad.critica,
+        venceEn: const Duration(days: 3));
+    sembrar('o3', 'En progreso planta',
+        estado: EstadoOrden.enProgreso,
+        venceEn: const Duration(days: 3));
+    sembrar('o4', 'Orden completada',
+        estado: EstadoOrden.completada,
+        venceEn: const Duration(minutes: 30));
+    sembrar('o5', 'Orden crítica',
+        estado: EstadoOrden.critica,
+        venceEn: const Duration(days: 3));
+    await entrarComo(tester, 'sup1');
+
+    await tester.tap(find.byTooltip('Resumen de planta'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Resumen de Planta'), findsOneWidget);
+    for (final (key, valor) in [
+      ('resumen-pendientes', '2'),
+      ('resumen-en-progreso', '1'),
+      ('resumen-completadas', '1'),
+      ('resumen-criticas', '1'),
+    ]) {
+      expect(
+        find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.text(valor),
+        ),
+        findsOneWidget,
+      );
+    }
+
+    expect(find.byKey(const ValueKey('resumen-por-vencer-o1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-por-vencer-o4')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('resumen-pendientes')));
+    await tester.pumpAndSettle();
+    expect(find.text('ÓRDENES PENDIENTES (2)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o3')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('resumen-en-progreso')));
+    await tester.pumpAndSettle();
+    expect(find.text('ÓRDENES EN PROGRESO (1)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o1')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('resumen-completadas')));
+    await tester.pumpAndSettle();
+    expect(find.text('ÓRDENES COMPLETADAS (1)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o4')), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o3')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('resumen-criticas')));
+    await tester.pumpAndSettle();
+    expect(find.text('ÓRDENES CRÍTICAS (1)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o5')), findsOneWidget);
+    expect(find.byKey(const ValueKey('resumen-orden-o2')), findsNothing);
   });
 }
