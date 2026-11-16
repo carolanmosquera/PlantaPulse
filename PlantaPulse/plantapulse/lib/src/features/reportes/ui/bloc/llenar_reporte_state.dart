@@ -7,7 +7,13 @@ import '../../../../core/domain/entities/reporte.dart';
 // FotoPendiente vive en core (también la usa crear orden)
 export '../../../../core/domain/entities/foto_pendiente.dart';
 
-enum EstadoLlenarReporte { editando, publicando, publicado, error }
+enum EstadoLlenarReporte {
+  editando,
+  publicando,
+  publicado,
+  pendienteOffline,
+  error,
+}
 
 class LlenarReporteState extends Equatable {
   final EstadoLlenarReporte status;

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../bloc/ordenes_bloc.dart';
+import '../../../../core/offline/servicio_offline.dart';
+import '../../../../core/offline/indicador_offline.dart';
 
 class MisTareasScreen extends StatefulWidget {
   const MisTareasScreen({super.key});
@@ -65,6 +67,10 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           const SizedBox(height: 12),
+          IndicadorOffline(
+          servicio: context.read<ServicioOffline>(),
+        ),
+        const SizedBox(height: 12),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

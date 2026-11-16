@@ -1,23 +1,43 @@
-// lib/src/features/reportes/domain/usecases/reportes_casos.dart
-// Casos de uso del ciclo del reporte: el técnico documenta, el supervisor
-// valida y cierra (o devuelve). SubirEvidencia vive en core
-// (core/domain/usecases/evidencias.dart): crear orden también sube fotos.
+
 import '../../../../core/domain/entities/reporte.dart';
 import '../../../../core/domain/entities/usuario.dart';
 import '../../../../core/domain/repositories/orden_repositorio.dart';
 import '../../../../core/domain/repositories/reporte_repositorio.dart';
+import '../../../../core/errors/fallos.dart';
+import '../../../../core/offline/servicio_offline.dart';
 
-/// Inserta el reporte con las rutas ya subidas. La orden NO se toca: el
-/// servidor la actualiza solo y el cambio vuelve por el stream.
 class PublicarReporte {
   final ReporteRepositorio _reportes;
+  final ServicioOffline? _offline;
 
-  const PublicarReporte(this._reportes);
+  const PublicarReporte(
+    this._reportes, {
+    ServicioOffline? servicioOffline,
+  }) : _offline = servicioOffline;
 
-  Future<void> ejecutar(Reporte reporte) => _reportes.crear(reporte);
+  // Devuelve true cuando se publicó en Supabase.
+  // Devuelve false cuando quedó pendiente en el dispositivo.
+  Future<bool> ejecutar(Reporte reporte) async {
+    if (_offline != null && !_offline.conectado) {
+      await _offline.guardarReportePendiente(reporte);
+      return false;
+    }
+
+    try {
+      await _reportes.crear(reporte);
+      return true;
+    } on FalloRed {
+      if (_offline == null || reporte.evidencias.isNotEmpty) {
+        rethrow;
+      }
+
+      await _offline.guardarReportePendiente(reporte);
+      return false;
+    }
+  }
 }
 
-/// "Aprobar y cerrar".
+/// Aprobar el trabajo y cerrar la orden.
 class CerrarOrden {
   final OrdenRepositorio _ordenes;
 
@@ -35,8 +55,7 @@ class CerrarOrden {
       );
 }
 
-/// "Solicitar correcciones": las observaciones son obligatorias, el
-/// técnico tiene que saber qué corregir.
+/// Devolver el trabajo para correcciones.
 class DevolverOrden {
   final OrdenRepositorio _ordenes;
 
@@ -46,5 +65,8 @@ class DevolverOrden {
     required String ordenId,
     required String observaciones,
   }) =>
-      _ordenes.devolver(ordenId: ordenId, observaciones: observaciones);
+      _ordenes.devolver(
+        ordenId: ordenId,
+        observaciones: observaciones,
+      );
 }

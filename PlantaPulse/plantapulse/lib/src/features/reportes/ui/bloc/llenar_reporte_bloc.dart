@@ -6,6 +6,7 @@ import '../../../../core/domain/entities/reporte.dart';
 import '../../../../core/domain/usecases/evidencias.dart';
 import '../../../../core/errors/fallos.dart';
 import '../../domain/usecases/reportes_casos.dart';
+import '../../../../core/offline/servicio_offline.dart';
 import 'llenar_reporte_event.dart';
 import 'llenar_reporte_state.dart';
 
@@ -25,16 +26,19 @@ export 'llenar_reporte_state.dart';
 class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
   final SubirEvidencia _subirEvidencia;
   final PublicarReporte _publicarReporte;
+  final ServicioOffline? _offline;
   final String ordenId;
   final String plantaId;
   int _siguienteFoto = 0;
 
-  LlenarReporteBloc({
-    required this._subirEvidencia,
-    required this._publicarReporte,
-    required this.ordenId,
-    required this.plantaId,
-  }) : super(const LlenarReporteState()) {
+LlenarReporteBloc({
+  required this._subirEvidencia,
+  required this._publicarReporte,
+  required this.ordenId,
+  required this.plantaId,
+  ServicioOffline? servicioOffline,
+})  : _offline = servicioOffline,
+      super(const LlenarReporteState()) {
     on<DetallesCambiados>(
         (e, emit) => emit(state.copyWith(detalles: e.texto)));
     on<EstadoTrabajoCambiado>(
@@ -70,6 +74,18 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
     Emitter<LlenarReporteState> emit,
   ) async {
     if (!state.valido || state.publicando) return;
+    // KAN-98: las fotografías aún requieren conexión.
+if (_offline != null &&
+    !_offline.conectado &&
+    state.fotos.isNotEmpty) {
+  emit(state.copyWith(
+    status: EstadoLlenarReporte.error,
+    mensajeError:
+        'Sin conexión. Para guardar el reporte pendiente, '
+        'quita las fotografías por ahora.',
+  ));
+  return;
+}
 
     final fotos = [...state.fotos];
     final porSubir = fotos.where((f) => !f.subida).length;
@@ -124,8 +140,11 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
     );
 
     try {
-      await _publicarReporte.ejecutar(reporte);
-      emit(state.copyWith(status: EstadoLlenarReporte.publicado));
+await _publicarReporte.ejecutar(reporte);
+
+emit(state.copyWith(
+  status: EstadoLlenarReporte.publicado,
+));
     } catch (err) {
       // Las fotos ya subidas quedan huérfanas en el bucket si el usuario
       // abandona. Es un costo aceptado (sin compensación).

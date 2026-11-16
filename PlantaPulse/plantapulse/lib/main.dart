@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'src/core/core.dart';
+import 'src/core/offline/servicio_offline.dart';
+import 'src/core/offline/orden_repositorio_offline.dart';
 import 'src/features/auth/auth.dart';
 import 'src/features/crear_orden/crear_orden.dart';
 import 'src/features/notificaciones/notificaciones.dart';
@@ -123,6 +125,13 @@ class PlantaPulseApp extends StatelessWidget {
     // El CrearOrdenBloc NO va aquí: vive y muere dentro del asistente.
     return MultiRepositoryProvider(
       providers: [
+                // KAN-98: caché y sincronización local
+        RepositoryProvider<ServicioOffline>(
+          create: (_) => ServicioOffline(
+            ReporteRepositorioImpl(ReporteFuenteSupabase()),
+          )..iniciar(),
+          dispose: (servicio) => servicio.dispose(),
+        ),
         RepositoryProvider<PreferenciasRepositorio>(
           create: (c) =>
               preferenciasRepositorio ??
@@ -142,8 +151,12 @@ class PlantaPulseApp extends StatelessWidget {
               plantaRepository ?? PlantaRepositorioImpl(PlantaFuenteSupabase()),
         ),
         RepositoryProvider<OrdenRepositorio>(
-          create: (_) =>
-              ordenRepository ?? OrdenRepositorioImpl(OrdenFuenteSupabase()),
+          create: (c) =>
+              ordenRepository ??
+              OrdenRepositorioOffline(
+                OrdenRepositorioImpl(OrdenFuenteSupabase()),
+                c.read<ServicioOffline>(),
+              ),
         ),
         RepositoryProvider<EquipoRepositorio>(
           create: (_) =>

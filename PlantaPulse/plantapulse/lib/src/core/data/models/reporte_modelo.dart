@@ -44,6 +44,7 @@ class ReporteModelo extends Reporte {
 
   /// Sin id ni created_at: los ponen Postgres y el trigger.
   Map<String, dynamic> toJson() => {
+        if (id.isNotEmpty) 'id': id,
         'orden_id': ordenId,
         'autor': refAJson(autor),
         'detalles': detalles,

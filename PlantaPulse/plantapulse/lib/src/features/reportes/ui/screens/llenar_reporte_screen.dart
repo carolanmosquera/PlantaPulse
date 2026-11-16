@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../../domain/usecases/reportes_casos.dart';
 import '../bloc/llenar_reporte_bloc.dart';
+import '../../../../core/offline/servicio_offline.dart';
+import '../../../../core/offline/indicador_offline.dart';
 
 /// Reporte de avance de una orden: texto, estado del trabajo, hasta treinta
 /// fotos y la bandera de alerta crítica.
@@ -24,6 +26,7 @@ class LlenarReporteScreen extends StatelessWidget {
         publicarReporte: context.read<PublicarReporte>(),
         ordenId: orden.id,
         plantaId: orden.plantaId,
+        servicioOffline: context.read<ServicioOffline>(),
       ),
       child: _LlenarReporteVista(orden: orden),
     );
@@ -94,16 +97,30 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
     context.read<LlenarReporteBloc>().add(ReportePublicado(autor.ref));
   }
 
-  void _alCambiarEstado(BuildContext context, LlenarReporteState state) {
-    if (state.status == EstadoLlenarReporte.publicado) {
-      // La orden ya cambió en el servidor; el detalle lo recibe por stream
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        backgroundColor: AppColors.verde,
-        content: Text('Reporte publicado'),
-      ));
-      Navigator.pop(context);
-    }
+void _alCambiarEstado(
+  BuildContext context,
+  LlenarReporteState state,
+) {
+  if (state.status == EstadoLlenarReporte.publicado ||
+      state.status == EstadoLlenarReporte.pendienteOffline) {
+    final pendiente =
+        state.status == EstadoLlenarReporte.pendienteOffline;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor:
+            pendiente ? AppColors.ambar : AppColors.verde,
+        content: Text(
+          pendiente
+              ? 'Reporte guardado. Se enviará cuando vuelva la conexión.'
+              : 'Reporte publicado',
+        ),
+      ),
+    );
+
+    Navigator.pop(context);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +140,10 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
                 const SizedBox(height: 14),
+                IndicadorOffline(
+                    servicio: context.read<ServicioOffline>(),
+                  ),
+                  const SizedBox(height: 12),
 
                 TarjetaOscura(
                   icono: const Icon(Icons.description_outlined,
