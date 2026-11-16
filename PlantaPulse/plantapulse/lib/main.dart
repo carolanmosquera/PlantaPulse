@@ -37,6 +37,9 @@ import 'src/features/reportes/data/datasources/reporte_fuente_supabase.dart';
 import 'src/features/reportes/data/repositories/reporte_repositorio_impl.dart';
 import 'src/features/perfil/data/datasources/preferencias_fuente_supabase.dart';
 import 'src/features/perfil/data/repositories/preferencias_repositorio_impl.dart';
+import 'src/features/perfil/data/datasources/foto_perfil_fuente_supabase.dart';
+import 'src/features/perfil/data/repositories/foto_perfil_repositorio_impl.dart';
+import 'src/features/perfil/domain/repositories/foto_perfil_repositorio.dart';
 
 // Proyecto de Supabase. La clave es la PUBLISHABLE: está pensada para ir
 // en el cliente, y lo que protege los datos es RLS (supabase/esquema.sql).
@@ -86,6 +89,7 @@ class PlantaPulseApp extends StatelessWidget {
   final AlertaCriticaRepositorio? alertaCriticaRepositorio;
   final NovedadRepositorio? novedadRepositorio;
   final UbicacionRepositorio? ubicacionRepositorio;
+  final dynamic fotoPerfilRepositorio;
 
   /// El Navigator del MaterialApp. Lo usa EscuchaPush, que está por
   /// encima del MaterialApp, para abrir la orden de una notificación.
@@ -108,12 +112,13 @@ class PlantaPulseApp extends StatelessWidget {
     this.alertaCriticaRepositorio,
     this.novedadRepositorio,
     this.ubicacionRepositorio,
+    this.fotoPerfilRepositorio,
   });
 
   @override
   Widget build(BuildContext context) {
     // La cadena completa se arma aquí, en este orden:
-    //   implementaciones de repositorio → casos de uso → Blocs.
+    //   implementaciones de repositorio → casos de use → Blocs.
     //
     // Todo va POR ENCIMA del MaterialApp: el splash necesita la sesión
     // antes de que exista cualquier ruta, el feed es una ruta con nombre,
@@ -193,6 +198,15 @@ class PlantaPulseApp extends StatelessWidget {
               UbicacionRepositorioImpl(UbicacionFuenteGeolocator()),
         ),
 
+        // KAN-99: Repositorio de fotografías de perfil
+        RepositoryProvider<dynamic>(
+          create: (_) =>
+              fotoPerfilRepositorio ??
+              FotoPerfilRepositorioImpl(
+                FotoPerfilFuenteSupabase(),
+              ),
+        ),
+
         // ── Casos de uso que las pantallas leen directamente ──
         RepositoryProvider(
           create: (c) =>
@@ -254,6 +268,14 @@ class PlantaPulseApp extends StatelessWidget {
         RepositoryProvider(
           create: (c) => SubirEvidencia(c.read<AlmacenamientoRepositorio>()),
         ),
+
+        // KAN-99: Caso de uso para subir fotografía de perfil
+        RepositoryProvider(
+          create: (c) => SubirFotoPerfil(
+            c.read(),
+          ),
+        ),
+
         RepositoryProvider(
           create: (c) => PublicarReporte(c.read<ReporteRepositorio>()),
         ),

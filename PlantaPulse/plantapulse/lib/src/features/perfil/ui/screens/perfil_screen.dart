@@ -1,7 +1,11 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/core.dart';
 import '../../domain/usecases/consultar_perfil.dart';
+import '../../domain/usecases/actualizar_perfil.dart';
+import '../../domain/usecases/subir_foto_perfil.dart';
 
 class PerfilScreen extends StatelessWidget {
   const PerfilScreen({super.key});
@@ -10,6 +14,7 @@ class PerfilScreen extends StatelessWidget {
   Widget build(BuildContext context) => BlocBuilder<SesionBloc, AuthState>(
     builder: (context, sesion) {
       final usuario = sesion.usuario;
+
       if (usuario == null || sesion.sesion != EstadoSesion.activa) {
         return const PantallaBase(
           titulo: 'Mi Perfil',
@@ -20,14 +25,22 @@ class PerfilScreen extends StatelessWidget {
           ),
         );
       }
-      return _PerfilVista(key: ValueKey(usuario.uid), uid: usuario.uid);
+
+      return _PerfilVista(
+        key: ValueKey(usuario.uid),
+        uid: usuario.uid,
+      );
     },
   );
 }
 
 class _PerfilVista extends StatefulWidget {
   final String uid;
-  const _PerfilVista({super.key, required this.uid});
+
+  const _PerfilVista({
+    super.key,
+    required this.uid,
+  });
 
   @override
   State<_PerfilVista> createState() => _PerfilVistaState();
@@ -35,6 +48,7 @@ class _PerfilVista extends StatefulWidget {
 
 class _PerfilVistaState extends State<_PerfilVista> {
   late Future<DatosPerfil> _datos;
+  bool _guardando = false;
 
   @override
   void initState() {
@@ -42,9 +56,213 @@ class _PerfilVistaState extends State<_PerfilVista> {
     _datos = context.read<ConsultarPerfil>().ejecutar(widget.uid);
   }
 
-  void _recargar() => setState(() {
-    _datos = context.read<ConsultarPerfil>().ejecutar(widget.uid);
-  });
+  void _recargar() {
+    setState(() {
+      _datos = context.read<ConsultarPerfil>().ejecutar(widget.uid);
+    });
+  }
+
+  Future<void> _editarPerfil(Usuario usuario) async {
+    final formulario = GlobalKey<FormState>();
+
+    String nombre = usuario.nombre;
+    String especialidad = usuario.especialidad;
+    FotoElegida? nuevaFoto;
+    bool eligiendoFoto = false;
+
+    final cambios = await showDialog<_CambiosPerfil>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogo) => StatefulBuilder(
+        builder: (dialogo, actualizar) => AlertDialog(
+          title: const Text('Editar mi perfil'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formulario,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: nuevaFoto != null
+                        ? MemoryImage(nuevaFoto!.bytes)
+                        : (usuario.fotoUrl?.trim().isNotEmpty ?? false)
+                            ? NetworkImage(usuario.fotoUrl!)
+                            : null,
+                    child: nuevaFoto == null &&
+                            (usuario.fotoUrl?.trim().isEmpty ?? true)
+                        ? const Icon(Icons.person, size: 40)
+                        : null,
+                  ),
+
+                  TextButton.icon(
+                    onPressed: eligiendoFoto
+                        ? null
+                        : () async {
+                            final origen = await elegirOrigenFoto(
+                              dialogo,
+                              camara: OrigenFoto.camara,
+                              galeria: OrigenFoto.galeria,
+                            );
+
+                            if (!dialogo.mounted || origen == null) return;
+
+                            actualizar(() => eligiendoFoto = true);
+
+                            try {
+                              final foto = await context
+                                  .read<ObtenerFoto>()
+                                  .ejecutar(origen);
+
+                              if (!dialogo.mounted) return;
+
+                              if (foto != null) {
+                                actualizar(() => nuevaFoto = foto);
+                              }
+                            } catch (error) {
+                              if (!dialogo.mounted) return;
+
+                              ScaffoldMessenger.of(dialogo).showSnackBar(
+                                SnackBar(
+                                  content: Text(FalloApp.mensajeDe(error)),
+                                ),
+                              );
+                            } finally {
+                              if (dialogo.mounted) {
+                                actualizar(() => eligiendoFoto = false);
+                              }
+                            }
+                          },
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: Text(
+                      eligiendoFoto ? 'Abriendo fotos...' : 'Cambiar foto',
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    initialValue: usuario.nombre,
+                    maxLength: 100,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre',
+                    ),
+                    onChanged: (valor) => nombre = valor,
+                    validator: (valor) {
+                      if (valor == null || valor.trim().isEmpty) {
+                        return 'Ingresa tu nombre';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  TextFormField(
+                    initialValue: usuario.especialidad,
+                    maxLength: 100,
+                    decoration: const InputDecoration(
+                      labelText: 'Especialidad',
+                    ),
+                    onChanged: (valor) => especialidad = valor,
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  const Text(
+                    'El rol y la planta no se pueden modificar aquí.',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: eligiendoFoto
+                  ? null
+                  : () => Navigator.pop(dialogo),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: eligiendoFoto
+                  ? null
+                  : () {
+                      if (!formulario.currentState!.validate()) return;
+
+                      Navigator.pop(
+                        dialogo,
+                        _CambiosPerfil(
+                          nombre: nombre.trim(),
+                          especialidad: especialidad.trim(),
+                          foto: nuevaFoto,
+                        ),
+                      );
+                    },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (cambios == null || !mounted) return;
+
+    final modificaciones = <String, dynamic>{};
+
+    if (cambios.nombre != usuario.nombre) {
+      modificaciones['nombre'] = cambios.nombre;
+    }
+
+    if (cambios.especialidad != usuario.especialidad) {
+      modificaciones['especialidad'] = cambios.especialidad;
+    }
+
+    if (modificaciones.isEmpty && cambios.foto == null) return;
+
+    setState(() => _guardando = true);
+
+    try {
+      if (cambios.foto != null) {
+        final url = await context.read<SubirFotoPerfil>().ejecutar(
+          uid: widget.uid,
+          foto: cambios.foto!,
+        );
+
+        modificaciones['fotoUrl'] = url;
+      }
+
+      await context.read<ActualizarPerfil>().ejecutar(
+        widget.uid,
+        modificaciones,
+      );
+
+      if (!mounted) return;
+
+      _recargar();
+
+      context.read<SesionBloc>().add(
+        const AuthRecargarPerfil(),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Perfil actualizado correctamente'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(FalloApp.mensajeDe(error)),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _guardando = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) => PantallaBase(
@@ -62,8 +280,11 @@ class _PerfilVistaState extends State<_PerfilVista> {
       future: _datos,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
         }
+
         if (snapshot.hasError) {
           return Center(
             child: Padding(
@@ -84,23 +305,39 @@ class _PerfilVistaState extends State<_PerfilVista> {
             ),
           );
         }
+
         final datos = snapshot.data!;
         final usuario = datos.usuario;
+
         final planta = usuario.plantaId.isEmpty
             ? 'Sin planta asignada'
             : datos.planta?.nombre ?? 'Planta no disponible';
+
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
             const SizedBox(height: 20),
+
             Center(
               child: CircleAvatar(
                 radius: 46,
                 backgroundColor: AppColors.borde.segunTema(context),
-                child: Icon(Icons.person, size: 46, color: AppColors.textoGris.segunTema(context)),
+                backgroundImage:
+                    usuario.fotoUrl?.trim().isNotEmpty ?? false
+                        ? NetworkImage(usuario.fotoUrl!)
+                        : null,
+                child: usuario.fotoUrl?.trim().isEmpty ?? true
+                    ? Icon(
+                        Icons.person,
+                        size: 46,
+                        color: AppColors.textoGris.segunTema(context),
+                      )
+                    : null,
               ),
             ),
+
             const SizedBox(height: 12),
+
             Center(
               child: Text(
                 usuario.nombre,
@@ -112,7 +349,28 @@ class _PerfilVistaState extends State<_PerfilVista> {
                 ),
               ),
             ),
-            const SeccionHeader(titulo: 'INFORMACIÓN DEL PERFIL'),
+
+            const SizedBox(height: 12),
+
+            Center(
+              child: OutlinedButton.icon(
+                onPressed: _guardando
+                    ? null
+                    : () => _editarPerfil(usuario),
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(
+                  _guardando ? 'Guardando...' : 'Editar mi perfil',
+                ),
+              ),
+            ),
+
+            if (_guardando)
+              const LinearProgressIndicator(),
+
+            const SeccionHeader(
+              titulo: 'INFORMACIÓN DEL PERFIL',
+            ),
+
             TarjetaBlanca(
               child: Column(
                 children: [
@@ -121,13 +379,17 @@ class _PerfilVistaState extends State<_PerfilVista> {
                     texto: 'Rol',
                     valor: usuario.rol.etiqueta,
                   ),
+
                   const SizedBox(height: 14),
+
                   MetaRow(
                     icono: Icons.place_outlined,
                     texto: 'Planta',
                     valor: planta,
                   ),
+
                   const SizedBox(height: 14),
+
                   MetaRow(
                     icono: Icons.build_outlined,
                     texto: 'Especialidad',
@@ -135,6 +397,7 @@ class _PerfilVistaState extends State<_PerfilVista> {
                         ? 'Sin especialidad registrada'
                         : usuario.especialidad,
                   ),
+
                   if (usuario.email.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     MetaRow(
@@ -143,6 +406,7 @@ class _PerfilVistaState extends State<_PerfilVista> {
                       valor: usuario.email,
                     ),
                   ],
+
                   if (usuario.turno.trim().isNotEmpty) ...[
                     const SizedBox(height: 14),
                     MetaRow(
@@ -154,21 +418,33 @@ class _PerfilVistaState extends State<_PerfilVista> {
                 ],
               ),
             ),
-            const SeccionHeader(titulo: 'CONFIGURACIÓN Y GESTIÓN'),
+
+            const SeccionHeader(
+              titulo: 'CONFIGURACIÓN Y GESTIÓN',
+            ),
+
             if (usuario.rol.esAdmin)
               FilaOpcion(
                 icono: Icons.how_to_reg_outlined,
                 titulo: 'Solicitudes de registro',
                 subtitulo: 'Aprobar o rechazar cuentas nuevas',
                 color: AppColors.ambar,
-                onTap: () => Navigator.pushNamed(context, Rutas.solicitudes),
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  Rutas.solicitudes,
+                ),
               ),
+
             FilaOpcion(
               icono: Icons.settings_outlined,
               titulo: 'Ajustes de Cuenta',
               subtitulo: 'Consultar y guardar tus preferencias',
-              onTap: () => Navigator.pushNamed(context, Rutas.ajustes),
+              onTap: () => Navigator.pushNamed(
+                context,
+                Rutas.ajustes,
+              ),
             ),
+
             FilaOpcion(
               icono: Icons.logout,
               titulo: 'CERRAR SESIÓN',
@@ -176,6 +452,7 @@ class _PerfilVistaState extends State<_PerfilVista> {
               color: AppColors.rojo,
               onTap: () => _confirmarSalida(context),
             ),
+
             const SizedBox(height: 24),
           ],
         );
@@ -188,7 +465,9 @@ class _PerfilVistaState extends State<_PerfilVista> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Cerrar sesión?'),
-        content: const Text('Se desconectará del sistema central.'),
+        content: const Text(
+          'Se desconectará del sistema central.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -197,17 +476,38 @@ class _PerfilVistaState extends State<_PerfilVista> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.read<SesionBloc>().add(const AuthCerrarSesion());
+
+              context.read<SesionBloc>().add(
+                const AuthCerrarSesion(),
+              );
+
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 Rutas.login,
                 (_) => false,
               );
             },
-            child: Text('Salir', style: TextStyle(color: AppColors.rojo.segunTema(context))),
+            child: Text(
+              'Salir',
+              style: TextStyle(
+                color: AppColors.rojo.segunTema(context),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+class _CambiosPerfil {
+  final String nombre;
+  final String especialidad;
+  final FotoElegida? foto;
+
+  const _CambiosPerfil({
+    required this.nombre,
+    required this.especialidad,
+    required this.foto,
+  });
 }
