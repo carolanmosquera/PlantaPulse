@@ -1,146 +1,275 @@
-// lib/src/features/ordenes/ui/screens/resumen_turno_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
+import '../bloc/ordenes_bloc.dart';
 
-class ResumenTurnoScreen extends StatelessWidget {
+enum _FiltroResumen { pendientes, enProgreso, completadas, criticas }
+
+class ResumenTurnoScreen extends StatefulWidget {
   const ResumenTurnoScreen({super.key});
+
+  @override
+  State<ResumenTurnoScreen> createState() => _ResumenTurnoScreenState();
+}
+
+class _ResumenTurnoScreenState extends State<ResumenTurnoScreen> {
+  _FiltroResumen? _filtro;
+
+  @override
+  void initState() {
+    super.initState();
+    final plantaId =
+        context.read<SesionBloc>().state.usuario?.plantaId ?? '';
+    context.read<OrdenesBloc>().add(OrdenesSuscritas(plantaId));
+  }
+
+  List<Orden> _filtrar(List<Orden> ordenes) {
+    final filtro = _filtro;
+    if (filtro == null) return ordenes;
+
+    final estado = switch (filtro) {
+      _FiltroResumen.pendientes => EstadoOrden.pendiente,
+      _FiltroResumen.enProgreso => EstadoOrden.enProgreso,
+      _FiltroResumen.completadas => EstadoOrden.completada,
+      _FiltroResumen.criticas => EstadoOrden.critica,
+    };
+    return ordenes.where((orden) => orden.estado == estado).toList();
+  }
+
+  List<Orden> _porVencer(List<Orden> ordenes) {
+    final limite = DateTime.now().add(const Duration(hours: 24));
+    final proximas = ordenes
+        .where((orden) =>
+            orden.estado.estaAbierta &&
+            !orden.fechaLimite.isAfter(limite))
+        .toList()
+      ..sort((a, b) => a.fechaLimite.compareTo(b.fechaLimite));
+    return proximas;
+  }
+
+  int _contar(List<Orden> ordenes, EstadoOrden estado) =>
+      ordenes.where((orden) => orden.estado == estado).length;
+
+  void _seleccionar(_FiltroResumen filtro) {
+    setState(() => _filtro = _filtro == filtro ? null : filtro);
+  }
 
   @override
   Widget build(BuildContext context) {
     return PantallaBase(
-      titulo: 'Resumen de Turno',
-      mostrarAtras: false,
+      titulo: 'Resumen de Planta',
+      mostrarAtras: true,
       mostrarMenu: true,
       tabActiva: 0,
-      accionesExtra: [
-        IconButton(icon: Icon(Icons.notifications_none,
-          color: AppColors.texto.segunTema(context)), onPressed: () {}),
-      ],
-      cuerpo: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          const SizedBox(height: 12),
+      cuerpo: BlocBuilder<OrdenesBloc, OrdenesState>(
+        builder: (context, state) {
+          final ordenes = state.ordenes;
+          final visibles = _filtrar(ordenes);
+          final porVencer = _porVencer(ordenes);
 
-          Row(
+          if (state.status == EstadoOrdenes.cargando && ordenes.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          return ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             children: [
-              Icon(Icons.calendar_today_outlined, size: 15,
-                color: AppColors.textoGris.segunTema(context)),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 12),
+              Text(
+                'Estado general de la planta',
+                style: AppText.titulo.segunTema(context),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Selecciona un contador para filtrar las órdenes.',
+                style: AppText.gris.segunTema(context),
+              ),
+              const SizedBox(height: 16),
+              Row(
                 children: [
-                  Text('PERIODO', style: TextStyle(fontSize: 9,
-                    letterSpacing: 1, color: AppColors.textoGris.segunTema(context))),
-                  Text('Hoy, 24 Mayo', style: TextStyle(fontSize: 13.5,
-                    fontWeight: FontWeight.w600, color: AppColors.texto.segunTema(context))),
+                  _contador(
+                    key: 'resumen-pendientes',
+                    filtro: _FiltroResumen.pendientes,
+                    valor: _contar(ordenes, EstadoOrden.pendiente),
+                    etiqueta: 'Pendientes',
+                    icono: Icons.pending_actions,
+                    color: AppColors.ambar,
+                  ),
+                  const SizedBox(width: 10),
+                  _contador(
+                    key: 'resumen-en-progreso',
+                    filtro: _FiltroResumen.enProgreso,
+                    valor: _contar(ordenes, EstadoOrden.enProgreso),
+                    etiqueta: 'En progreso',
+                    icono: Icons.sync,
+                    color: AppColors.azul,
+                  ),
                 ],
               ),
-              Icon(Icons.keyboard_arrow_down, size: 18,
-                color: AppColors.textoGris.segunTema(context)),
-              const Spacer(),
-              const PillEstado(texto: 'TURNO A',
-                color: AppColors.azulOscuro, relleno: true),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _contador(
+                    key: 'resumen-completadas',
+                    filtro: _FiltroResumen.completadas,
+                    valor: _contar(ordenes, EstadoOrden.completada),
+                    etiqueta: 'Completadas',
+                    icono: Icons.check_circle_outline,
+                    color: AppColors.verde,
+                  ),
+                  const SizedBox(width: 10),
+                  _contador(
+                    key: 'resumen-criticas',
+                    filtro: _FiltroResumen.criticas,
+                    valor: _contar(ordenes, EstadoOrden.critica),
+                    etiqueta: 'Críticas',
+                    icono: Icons.error_outline,
+                    color: AppColors.rojo,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SeccionHeader(
+                icono: Icons.schedule,
+                titulo: 'ÓRDENES POR VENCER',
+                accion: '${porVencer.length}',
+                colorAccion: AppColors.rojo,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  'Órdenes abiertas que vencen en 24 horas o ya están vencidas.',
+                  style: AppText.gris.segunTema(context),
+                ),
+              ),
+              if (porVencer.isEmpty)
+                _mensajeVacio(context, 'No hay órdenes próximas a vencer.')
+              else
+                ...porVencer.map(
+                  (orden) => FilaAlerta(
+                    key: ValueKey('resumen-por-vencer-${orden.id}'),
+                    icono: Icons.schedule,
+                    titulo: orden.titulo,
+                    descripcion: orden.ubicacion,
+                    hora: orden.tiempoRestante,
+                    codigo: orden.codigo,
+                    color: orden.estaVencida ? AppColors.rojo : AppColors.ambar,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      Rutas.detalleOrden,
+                      arguments: orden,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              SeccionHeader(
+                titulo: _filtro == null
+                    ? 'DETALLE DE ÓRDENES (${visibles.length})'
+                    : 'ÓRDENES ${_nombreFiltro(_filtro!)} (${visibles.length})',
+                accion: _filtro == null ? null : 'Ver todas',
+                onAccion: _filtro == null
+                    ? null
+                    : () => setState(() => _filtro = null),
+              ),
+              if (state.status == EstadoOrdenes.error) ...[
+                TileAviso(
+                  icono: Icons.cloud_off,
+                  titulo: 'No se pudieron actualizar las órdenes',
+                  subtitulo: state.mensajeError,
+                  color: AppColors.rojo,
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (visibles.isEmpty)
+                _mensajeVacio(
+                  context,
+                  _filtro == null
+                      ? 'Aún no hay órdenes en esta planta.'
+                      : 'No hay órdenes en este estado.',
+                )
+              else
+                ...visibles.map(
+                  (orden) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: OrdenCard(
+                      key: ValueKey('resumen-orden-${orden.id}'),
+                      codigo: orden.codigo,
+                      titulo: orden.titulo,
+                      ubicacion: orden.ubicacion,
+                      estado: orden.estado.etiqueta,
+                      estadoColor: orden.estado.color,
+                      hora: orden.hora,
+                      prioridad: orden.prioridadTexto,
+                      estilo: EstiloOrden.conBarra,
+                      sinAsignar: orden.sinAsignar,
+                      reportes: orden.totalReportes,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        Rutas.detalleOrden,
+                        arguments: orden,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 24),
             ],
-          ),
-          const SizedBox(height: 18),
-
-          // ══ MÉTRICAS ══
-          const Row(children: [
-            Expanded(child: StatCard(icono: Icons.bar_chart,
-              valor: '24', etiqueta: 'TOTAL ÓRDENES', nota: 'Turno Mañana')),
-            SizedBox(width: 12),
-            Expanded(child: StatCard(icono: Icons.warning_amber_rounded,
-              valor: '08', etiqueta: 'PENDIENTES',
-              nota: 'Requieren atención', color: AppColors.ambar)),
-          ]),
-          const SizedBox(height: 12),
-          const Row(children: [
-            Expanded(child: StatCard(icono: Icons.check_circle_outline,
-              valor: '14', etiqueta: 'COMPLETADAS',
-              nota: '92% de la meta', color: AppColors.verde)),
-            SizedBox(width: 12),
-            Expanded(child: StatCard(icono: Icons.error_outline,
-              valor: '02', etiqueta: 'CRÍTICAS',
-              nota: 'Acción inmediata', color: AppColors.rojo)),
-          ]),
-          const SizedBox(height: 18),
-
-          // ══ AGENTE IA ══
-          TarjetaOscura(
-            icono: const CircleAvatar(radius: 22,
-              backgroundColor: Colors.white24,
-              child: Icon(Icons.auto_awesome, color: AppColors.naranja)),
-            etiqueta: 'Análisis Predictivo PlantaPulse',
-            titulo: 'Resumen del Agente IA',
-            subtitulo: 'Se detectó un patrón de vibración inusual en la '
-                'Turbina-04. Recomiendo priorizar la inspección preventiva '
-                'antes del cambio de turno para evitar paradas no programadas.',
-            extra: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 14),
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: AppColors.naranja,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Generar Reporte Detallado',
-                    style: TextStyle(color: Colors.white, fontSize: 14,
-                                     fontWeight: FontWeight.w600)),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, color: Colors.white, size: 16),
-                ],
-              ),
-            ),
-          ),
-
-          // ══ POR VENCER ══
-          SeccionHeader(
-            icono: Icons.error_outline,
-            titulo: 'ÓRDENES POR VENCER',
-            accion: 'Urgente',
-            colorAccion: AppColors.rojo,
-            onAccion: () {},
-          ),
-          const FilaAlerta(icono: Icons.schedule,
-            titulo: 'Fuga Hidráulica Prensa 05',
-            descripcion: 'Planta A - Sector 2', hora: '15 min',
-            codigo: 'OT-9021', color: AppColors.rojo, noLeida: true),
-          const SizedBox(height: 10),
-          const FilaAlerta(icono: Icons.schedule,
-            titulo: 'Calibración Sensor Temp',
-            descripcion: 'Línea de Envasado', hora: '45 min',
-            codigo: 'OT-9024', color: AppColors.rojo),
-          const SizedBox(height: 10),
-          const FilaAlerta(icono: Icons.schedule,
-            titulo: 'Revisión Motor Banda B',
-            descripcion: 'Almacén Central', hora: '1h 20m',
-            codigo: 'OT-9028', color: AppColors.ambar),
-
-          const SizedBox(height: 14),
-          Center(child: Text('Ver todas las tareas pendientes  ⌄',
-            style: TextStyle(fontSize: 12.5, color: AppColors.azul.segunTema(context),
-                             fontWeight: FontWeight.w600))),
-
-          const SizedBox(height: 18),
-          const TileAviso(
-            icono: Icons.sync,
-            titulo: 'Última Sincronización',
-            subtitulo: 'Sistemas centrales actualizados hace 2 min. • CONECTADO',
-            color: AppColors.verde,
-          ),
-          const SizedBox(height: 12),
-          TileAviso(
-            icono: Icons.lightbulb_outline,
-            titulo: 'Tip: Usa la validación por fotos para cerrar órdenes '
-                    'más rápido',
-            color: AppColors.textoGris.segunTema(context),
-          ),
-          const SizedBox(height: 24),
-        ],
+          );
+        },
       ),
     );
   }
+
+  Widget _contador({
+    required String key,
+    required _FiltroResumen filtro,
+    required int valor,
+    required String etiqueta,
+    required IconData icono,
+    required Color color,
+  }) {
+    final seleccionado = _filtro == filtro;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: seleccionado,
+        label: '$etiqueta: $valor',
+        child: GestureDetector(
+          key: ValueKey(key),
+          onTap: () => _seleccionar(filtro),
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: seleccionado
+                    ? AppColors.azul.segunTema(context)
+                    : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: StatCard(
+              icono: icono,
+              valor: '$valor',
+              etiqueta: etiqueta,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _nombreFiltro(_FiltroResumen filtro) => switch (filtro) {
+        _FiltroResumen.pendientes => 'PENDIENTES',
+        _FiltroResumen.enProgreso => 'EN PROGRESO',
+        _FiltroResumen.completadas => 'COMPLETADAS',
+        _FiltroResumen.criticas => 'CRÍTICAS',
+      };
+
+  Widget _mensajeVacio(BuildContext context, String mensaje) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        child: Center(
+          child: Text(mensaje, style: AppText.gris.segunTema(context)),
+        ),
+      );
 }

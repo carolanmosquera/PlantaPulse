@@ -80,6 +80,14 @@ class _FeedScreenState extends State<FeedScreen> {
                 color: AppColors.texto.segunTema(context)),
             onPressed: _abrirMisTareas,
           ),
+        if (puedeCrear)
+          IconButton(
+            tooltip: 'Resumen de planta',
+            icon: Icon(Icons.dashboard_outlined,
+                color: AppColors.texto.segunTema(context)),
+            onPressed: () =>
+                Navigator.pushNamed(context, Rutas.resumenTurno),
+          ),
         IconButton(
           icon: Icon(Icons.notifications_none, color: AppColors.texto.segunTema(context)),
           onPressed: () => Navigator.pushReplacementNamed(context, Rutas.alertas),
