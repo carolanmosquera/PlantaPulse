@@ -123,6 +123,12 @@ class PlantaPulseApp extends StatelessWidget {
     // El CrearOrdenBloc NO va aquí: vive y muere dentro del asistente.
     return MultiRepositoryProvider(
       providers: [
+        // ── Repositorios (contratos del dominio) ──
+        RepositoryProvider<UsuarioRepositorio>(
+          create: (_) =>
+              usuarioRepository ??
+              UsuarioRepositorioImpl(UsuarioFuenteSupabase()),
+        ),
         RepositoryProvider<PreferenciasRepositorio>(
           create: (c) =>
               preferenciasRepositorio ??
@@ -130,12 +136,6 @@ class PlantaPulseApp extends StatelessWidget {
                 PreferenciasFuenteSupabase(),
                 c.read<UsuarioRepositorio>(),
               ),
-        ),
-        // ── Repositorios (contratos del dominio) ──
-        RepositoryProvider<UsuarioRepositorio>(
-          create: (_) =>
-              usuarioRepository ??
-              UsuarioRepositorioImpl(UsuarioFuenteSupabase()),
         ),
         RepositoryProvider<PlantaRepositorio>(
           create: (_) =>
