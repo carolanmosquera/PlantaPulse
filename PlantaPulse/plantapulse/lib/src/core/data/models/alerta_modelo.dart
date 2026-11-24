@@ -5,9 +5,7 @@ import '../json_helpers.dart';
 import 'evidencia_modelo.dart';
 import 'usuario_modelo.dart';
 
-/// Aviso personal del usuario.
-/// OJO: el esquema actual de Supabase aún NO tiene tabla para estos
-/// avisos; el modelo queda listo para cuando se cree 'notificaciones'.
+/// Aviso personal del usuario almacenado en 'notificaciones'.
 class AlertaModelo extends Alerta {
   const AlertaModelo({
     required super.id,
