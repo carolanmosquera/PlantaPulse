@@ -22,13 +22,36 @@ class _ReportarNovedadScreenState extends State<ReportarNovedadScreen> {
   bool _eligiendoFoto = false;
   int _siguienteFoto = 0;
 
-  bool get _puedePublicar {
-    final largo = _descripcion.trim().runes.length;
-    return !_publicando &&
-        !_eligiendoFoto &&
-        _categoria != null &&
-        largo >= minDescripcionNovedad &&
-        largo <= maxDescripcionNovedad;
+  int get _largoDescripcion => _descripcion.trim().runes.length;
+
+  bool get _descripcionValida =>
+      _largoDescripcion >= minDescripcionNovedad &&
+      _largoDescripcion <= maxDescripcionNovedad;
+
+  bool get _puedePublicar =>
+      !_publicando && !_eligiendoFoto && _categoria != null && _descripcionValida;
+
+  /// Error visible bajo la descripción en cuanto se escribe algo demasiado corto.
+  String? get _errorDescripcion {
+    if (_descripcion.isEmpty || _descripcionValida) return null;
+    if (_largoDescripcion > maxDescripcionNovedad) {
+      return 'Máximo $maxDescripcionNovedad caracteres.';
+    }
+    final faltan = minDescripcionNovedad - _largoDescripcion;
+    return 'Escribe al menos $minDescripcionNovedad caracteres '
+        '(${faltan == 1 ? 'falta 1' : 'faltan $faltan'}).';
+  }
+
+  /// Explica por qué el botón de publicar está deshabilitado.
+  String? get _requisitosPendientes {
+    if (_publicando || _eligiendoFoto) return null;
+    final faltan = [
+      if (!_descripcionValida)
+        'describe la novedad con al menos $minDescripcionNovedad caracteres',
+      if (_categoria == null) 'elige una categoría',
+    ];
+    if (faltan.isEmpty) return null;
+    return 'Para publicar, ${faltan.join(' y ')}.';
   }
 
   Future<void> _agregarFoto() async {
@@ -132,11 +155,12 @@ class _ReportarNovedadScreenState extends State<ReportarNovedadScreen> {
                 minLines: 3,
                 maxLines: 5,
                 maxLength: maxDescripcionNovedad,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Descripción',
                   hintText: '¿Qué observaste?',
                   helperText: 'Mínimo $minDescripcionNovedad caracteres',
-                  border: OutlineInputBorder(),
+                  errorText: _errorDescripcion,
+                  border: const OutlineInputBorder(),
                   alignLabelWithHint: true,
                 ),
                 onChanged: (texto) => setState(() => _descripcion = texto),
@@ -178,6 +202,14 @@ class _ReportarNovedadScreenState extends State<ReportarNovedadScreen> {
                   color: AppColors.rojo,
                 ),
                 const SizedBox(height: 12),
+              ],
+              if (_requisitosPendientes case final pendientes?) ...[
+                Text(
+                  pendientes,
+                  key: const Key('novedad-requisitos'),
+                  style: TextStyle(color: AppColors.rojo.segunTema(context)),
+                ),
+                const SizedBox(height: 8),
               ],
               BotonAncho(
                 texto: _publicando ? 'Publicando…' : 'Publicar novedad',
