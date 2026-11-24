@@ -23,3 +23,4 @@ export '../components/fotos_locales.dart';
 export '../components/hoja_formulario.dart';
 export '../components/iconos_categoria.dart';
 export '../components/selector_buscable.dart';
+export '../components/marca_ia.dart';

@@ -10,20 +10,30 @@ class AltaCategoriaHoja extends StatefulWidget {
   final String plantaId;
   final UsuarioRef creadaPor;
 
+  /// El nombre que propuso la IA, para no tener que reescribirlo. La hoja
+  /// solo se abre si el supervisor lo pide: la IA nunca crea categorías.
+  final String nombreInicial;
+
   const AltaCategoriaHoja({
     super.key,
     required this.plantaId,
     required this.creadaPor,
+    this.nombreInicial = '',
   });
 
   static Future<Categoria?> mostrar(
     BuildContext context, {
     required String plantaId,
     required UsuarioRef creadaPor,
+    String nombreInicial = '',
   }) =>
       HojaFormulario.mostrar<Categoria>(
         context,
-        AltaCategoriaHoja(plantaId: plantaId, creadaPor: creadaPor),
+        AltaCategoriaHoja(
+          plantaId: plantaId,
+          creadaPor: creadaPor,
+          nombreInicial: nombreInicial,
+        ),
       );
 
   @override
@@ -39,6 +49,7 @@ class _AltaCategoriaHojaState extends State<AltaCategoriaHoja> {
   @override
   void initState() {
     super.initState();
+    _nombre.text = widget.nombreInicial;
     _nombre.addListener(() => setState(() {}));
   }
 

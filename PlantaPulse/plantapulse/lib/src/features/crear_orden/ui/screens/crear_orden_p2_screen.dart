@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../bloc/crear_orden_bloc.dart';
+import '../widgets/elegir_categoria.dart';
 
 /// Segundo paso del asistente. Comparte el Bloc de P1 y devuelve el ID
 /// publicado para cerrar ambos pasos y regresar a la pantalla de origen.
@@ -15,10 +16,14 @@ class CrearOrdenP2Screen extends StatefulWidget {
 
 class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
   final _obsCtrl = TextEditingController();
+  final _tituloCtrl = TextEditingController();
+  final _descTecCtrl = TextEditingController();
 
-  static const _prioridades = ['BAJA', 'MEDIA', 'CRÍTICA'];
+  // ALTA no estaba: la IA la sugiere, y sin chip el valor 'alta' se pintaba
+  // como BAJA (indexOf daba -1)
+  static const _prioridades = ['BAJA', 'MEDIA', 'ALTA', 'CRÍTICA'];
   static const _prioridadesModelo = [
-    Prioridad.baja, Prioridad.media, Prioridad.critica,
+    Prioridad.baja, Prioridad.media, Prioridad.alta, Prioridad.critica,
   ];
   static const _meses = ['enero','febrero','marzo','abril','mayo','junio',
     'julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -32,12 +37,73 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
     _obsCtrl.text = bloc.state.observaciones;
     _obsCtrl.addListener(
         () => bloc.add(ObservacionesCambiadas(_obsCtrl.text)));
+    // Lo que propuso la IA (o lo que ya se había escrito) llega prerrellenado
+    // y sigue siendo editable
+    _tituloCtrl.text = bloc.state.titulo;
+    _tituloCtrl.addListener(
+        () => bloc.add(TituloCambiado(_tituloCtrl.text)));
+    _descTecCtrl.text = bloc.state.descripcionTecnica;
+    _descTecCtrl.addListener(
+        () => bloc.add(DescripcionTecnicaCambiada(_descTecCtrl.text)));
   }
 
   @override
   void dispose() {
     _obsCtrl.dispose();
+    _tituloCtrl.dispose();
+    _descTecCtrl.dispose();
     super.dispose();
+  }
+
+  /// La etiqueta de un campo, con la marca si lo propuso la IA.
+  Widget _etiqueta(String texto, bool deIa) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          Flexible(child: Text(texto,
+              style: AppText.subtitulo.segunTema(context))),
+          if (deIa) ...[const SizedBox(width: 8), const MarcaIa()],
+        ]),
+      );
+
+  /// La IA propuso una categoría que la planta no tiene. No se crea sola:
+  /// el supervisor la crea (con el nombre ya puesto) o la descarta.
+  Widget _sugerenciaCategoria(String nombre) {
+    final bloc = context.read<CrearOrdenBloc>();
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 4, 4),
+      decoration: BoxDecoration(
+        color: AppColors.naranja.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.naranja.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.auto_awesome, size: 16, color: AppColors.naranja),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'La IA sugiere la categoría «$nombre», que no existe en '
+                'esta planta.',
+                style: TextStyle(fontSize: 12.5,
+                    color: AppColors.texto.segunTema(context), height: 1.35)),
+            ),
+          ]),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton(
+              onPressed: () => bloc.add(const SugerenciaCategoriaDescartada()),
+              child: const Text('Descartar'),
+            ),
+            TextButton(
+              onPressed: () => crearCategoriaSugerida(context, bloc, nombre),
+              child: const Text('Crear categoría'),
+            ),
+          ]),
+        ],
+      ),
+    );
   }
 
   String _fechaTexto(DateTime f) =>
@@ -161,15 +227,24 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                     '${equipo == null || equipo.zonaNombre.isEmpty ? "—" : equipo.zonaNombre}',
               ),
 
+              // ══ DATOS DE LA ORDEN (KAN-92) ══
+              if (state.errorIa != null) ...[
+                const SizedBox(height: 12),
+                TileAviso(
+                  icono: Icons.error_outline,
+                  titulo: state.errorIa!,
+                  color: AppColors.rojo,
+                ),
+              ],
               const SeccionHeader(icono: Icons.info_outline,
                 titulo: 'PROGRAMACIÓN Y PRIORIDAD'),
               TarjetaBlanca(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Prioridad de la Intervención',
-                      style: AppText.subtitulo.segunTema(context)),
-                    const SizedBox(height: 12),
+                    _etiqueta('Prioridad de la Intervención',
+                        state.marcadoPorIa(CampoIa.prioridad)),
+                    const SizedBox(height: 4),
                     ChipsFila(
                       opciones: _prioridades,
                       colorActivo: AppColors.naranja,
@@ -226,6 +301,47 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                   ],
                 ),
               ),
+
+              // Convertir una novedad no pasa por la IA: el título es la
+              // descripción de la novedad, como antes
+              if (!state.requiereTecnico) ...[
+              const SeccionHeader(icono: Icons.edit_note,
+                titulo: 'DATOS DE LA ORDEN'),
+              TarjetaBlanca(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _etiqueta('Título', state.marcadoPorIa(CampoIa.titulo)),
+                    CampoTexto(
+                      label: '',
+                      hint: 'Si lo dejas vacío, se usa tu nota del paso 1',
+                      controller: _tituloCtrl,
+                    ),
+                    const SizedBox(height: 14),
+                    _etiqueta('Descripción técnica',
+                        state.marcadoPorIa(CampoIa.descripcion)),
+                    CampoTexto(
+                      label: '',
+                      hint: 'Qué falla, dónde y qué hay que revisar...',
+                      lineas: 3,
+                      controller: _descTecCtrl,
+                    ),
+                    const SizedBox(height: 14),
+                    _etiqueta('Categoría', state.marcadoPorIa(CampoIa.categoria)),
+                    CampoSeleccion(
+                      label: '',
+                      icono: Icons.label_outline,
+                      valor: state.categoria.isEmpty ? null : state.categoria,
+                      vacio: 'Sin categoría',
+                      onTap: () => elegirCategoria(
+                          context, context.read<CrearOrdenBloc>()),
+                    ),
+                    if (state.categoriaSugeridaIa != null)
+                      _sugerenciaCategoria(state.categoriaSugeridaIa!),
+                  ],
+                ),
+              ),
+              ],
 
               SeccionHeader(
                 icono: Icons.photo_camera_outlined,

@@ -22,8 +22,10 @@ class LlenarReporteScreen extends StatelessWidget {
       create: (context) => LlenarReporteBloc(
         subirEvidencia: context.read<SubirEvidencia>(),
         publicarReporte: context.read<PublicarReporte>(),
+        redactarReporte: context.read<RedactarReporte>(),
         ordenId: orden.id,
         plantaId: orden.plantaId,
+        equipo: orden.equipoNombre ?? '',
       ),
       child: _LlenarReporteVista(orden: orden),
     );
@@ -59,7 +61,8 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
     super.initState();
     final bloc = context.read<LlenarReporteBloc>();
     _detallesCtrl.addListener(
-        () => bloc.add(DetallesCambiados(_detallesCtrl.text)));
+      () => bloc.add(DetallesCambiados(_detallesCtrl.text)),
+    );
   }
 
   @override
@@ -74,17 +77,22 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
     final bloc = context.read<LlenarReporteBloc>();
     final obtener = context.read<ObtenerFoto>();
     final avisos = ScaffoldMessenger.of(context);
-    final origen = await elegirOrigenFoto(context,
-        camara: OrigenFoto.camara, galeria: OrigenFoto.galeria);
+    final origen = await elegirOrigenFoto(
+      context,
+      camara: OrigenFoto.camara,
+      galeria: OrigenFoto.galeria,
+    );
     if (origen == null) return;
     try {
       final foto = await obtener.ejecutar(origen);
       if (foto != null) bloc.add(FotoAgregada(foto.bytes, foto.extension));
     } catch (e) {
-      avisos.showSnackBar(SnackBar(
-        backgroundColor: AppColors.rojo,
-        content: Text(FalloApp.mensajeDe(e)),
-      ));
+      avisos.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.rojo,
+          content: Text(FalloApp.mensajeDe(e)),
+        ),
+      );
     }
   }
 
@@ -94,143 +102,248 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
     context.read<LlenarReporteBloc>().add(ReportePublicado(autor.ref));
   }
 
+  /// La redacción terminó: el texto vuelve al MISMO campo, editable. Si
+  /// falló, el aviso sale bajo el campo (un SnackBar taparía el botón de
+  /// enviar) y el texto se queda como estaba.
+  void _alTerminarRedaccion(BuildContext context, LlenarReporteState state) {
+    if (state.errorIa != null) return;
+    _detallesCtrl.value = TextEditingValue(
+      text: state.detalles,
+      selection: TextSelection.collapsed(offset: state.detalles.length),
+    );
+  }
+
   void _alCambiarEstado(BuildContext context, LlenarReporteState state) {
     if (state.status == EstadoLlenarReporte.publicado) {
       // La orden ya cambió en el servidor; el detalle lo recibe por stream
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        backgroundColor: AppColors.verde,
-        content: Text('Reporte publicado'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.verde,
+          content: Text('Reporte publicado'),
+        ),
+      );
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<LlenarReporteBloc, LlenarReporteState>(
-      listenWhen: (antes, ahora) => antes.status != ahora.status,
-      listener: _alCambiarEstado,
-      builder: (context, state) {
-        final orden = widget.orden;
-        return PopScope(
-          // No se sale a mitad de una subida
-          canPop: !state.publicando,
-          child: PantallaBase(
-            titulo: 'Llenar reporte de avance',
-            mostrarMenu: true,
-            tabActiva: 0,
-            cuerpo: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                const SizedBox(height: 14),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<LlenarReporteBloc, LlenarReporteState>(
+          listenWhen: (antes, ahora) => antes.status != ahora.status,
+          listener: _alCambiarEstado,
+        ),
+        BlocListener<LlenarReporteBloc, LlenarReporteState>(
+          listenWhen: (antes, ahora) => antes.redactando && !ahora.redactando,
+          listener: _alTerminarRedaccion,
+        ),
+      ],
+      child: BlocBuilder<LlenarReporteBloc, LlenarReporteState>(
+        builder: (context, state) {
+          final orden = widget.orden;
+          return PopScope(
+            // No se sale a mitad de una subida
+            canPop: !state.publicando,
+            child: PantallaBase(
+              titulo: 'Llenar reporte de avance',
+              mostrarMenu: true,
+              tabActiva: 0,
+              cuerpo: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  const SizedBox(height: 14),
 
-                TarjetaOscura(
-                  icono: const Icon(Icons.description_outlined,
-                      color: Colors.white, size: 26),
-                  titulo: 'Resumen de Intervención',
-                  subtitulo: 'ORDEN ID\n#${orden.codigo}\n\nEQUIPO\n'
-                      '${orden.equipoNombre ?? orden.titulo}',
-                  extra: orden.zonaNombre.isEmpty
-                      ? null
-                      : Row(children: [
-                          PillEstado(texto: orden.zonaNombre,
-                              color: Colors.white70),
-                        ]),
-                ),
-
-                const SeccionHeader(icono: Icons.schedule,
-                    titulo: 'ESTATUS DE AVANCE'),
-                ChipsFila(
-                  opciones: [for (final e in _estados) e.etiqueta],
-                  iconos: _iconosEstado,
-                  colorActivo: AppColors.ambar,
-                  inicial: _estados.indexOf(state.estadoTrabajo).clamp(0, 2),
-                  onCambio: (i) => context
-                      .read<LlenarReporteBloc>()
-                      .add(EstadoTrabajoCambiado(_estados[i])),
-                ),
-
-                SeccionHeader(
-                  icono: Icons.info_outline,
-                  titulo: 'DETALLES TÉCNICOS',
-                  accion: 'REQUERIDO',
-                  colorAccion:
-                      state.valido ? AppColors.textoGris.segunTema(context) : AppColors.rojo,
-                ),
-                CampoTexto(
-                  label: '',
-                  hint: 'Describa el trabajo realizado, hallazgos técnicos y '
-                      'ajustes de parámetros...',
-                  lineas: 4,
-                  controller: _detallesCtrl,
-                ),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    state.valido
-                        ? '${state.detalles.length} caracteres'
-                        : 'Mínimo 10 caracteres (${state.detalles.trim().length})',
-                    style: AppText.gris.segunTema(context)),
-                ),
-
-                SeccionHeader(
-                  icono: Icons.photo_camera_outlined,
-                  titulo: 'EVIDENCIA FOTOGRÁFICA',
-                  accion: '${state.fotos.length}/$maxFotosPorReporte · OPCIONAL',
-                ),
-                _cuadriculaFotos(state),
-
-                const SizedBox(height: 16),
-                FilaOpcion(
-                  icono: Icons.priority_high,
-                  titulo: 'Incidente Crítico',
-                  subtitulo: 'Notificar al supervisor de inmediato',
-                  color: state.esAlertaCritica
-                      ? AppColors.rojo : AppColors.textoGris.segunTema(context),
-                  trailing: Switch(
-                    value: state.esAlertaCritica,
-                    activeThumbColor: AppColors.rojo.segunTema(context),
-                    onChanged: state.publicando
+                  TarjetaOscura(
+                    icono: const Icon(
+                      Icons.description_outlined,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                    titulo: 'Resumen de Intervención',
+                    subtitulo:
+                        'ORDEN ID\n#${orden.codigo}\n\nEQUIPO\n'
+                        '${orden.equipoNombre ?? orden.titulo}',
+                    extra: orden.zonaNombre.isEmpty
                         ? null
-                        : (v) => context
-                            .read<LlenarReporteBloc>()
-                            .add(AlertaCriticaCambiada(v)),
+                        : Row(
+                            children: [
+                              PillEstado(
+                                texto: orden.zonaNombre,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ),
                   ),
-                ),
 
-                if (state.status == EstadoLlenarReporte.error &&
-                    state.mensajeError != null) ...[
-                  const SizedBox(height: 12),
-                  TileAviso(
-                    icono: Icons.error_outline,
-                    titulo: state.mensajeError!,
-                    subtitulo: state.fotos.any((f) => f.subida)
-                        ? 'Las fotos ya subidas no se volverán a subir al reintentar.'
+                  const SeccionHeader(
+                    icono: Icons.schedule,
+                    titulo: 'ESTATUS DE AVANCE',
+                  ),
+                  ChipsFila(
+                    opciones: [for (final e in _estados) e.etiqueta],
+                    iconos: _iconosEstado,
+                    colorActivo: AppColors.ambar,
+                    inicial: _estados.indexOf(state.estadoTrabajo).clamp(0, 2),
+                    onCambio: (i) => context.read<LlenarReporteBloc>().add(
+                      EstadoTrabajoCambiado(_estados[i]),
+                    ),
+                  ),
+
+                  SeccionHeader(
+                    icono: Icons.info_outline,
+                    titulo: 'DETALLES TÉCNICOS',
+                    accion: 'REQUERIDO',
+                    colorAccion: state.valido
+                        ? AppColors.textoGris.segunTema(context)
+                        : AppColors.rojo,
+                  ),
+                  // Bloqueado solo mientras la IA redacta; después se edita
+                  IgnorePointer(
+                    ignoring: state.redactando,
+                    child: Opacity(
+                      opacity: state.redactando ? 0.5 : 1,
+                      child: CampoTexto(
+                        label: '',
+                        hint:
+                            'Describa el trabajo realizado, hallazgos técnicos y '
+                            'ajustes de parámetros...',
+                        lineas: 4,
+                        controller: _detallesCtrl,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      // Deshabilitado con el campo vacío: no hay nada que
+                      // redactar y se gastaría cuota
+                      TextButton.icon(
+                        onPressed: state.puedeRedactar
+                            ? () => context.read<LlenarReporteBloc>().add(
+                                const DetallesRedactados(),
+                              )
+                            : null,
+                        icon: state.redactando
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.auto_awesome, size: 16),
+                        label: Text(
+                          state.redactando
+                              ? 'Redactando...'
+                              : 'Redactar con IA',
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        state.valido
+                            ? '${state.detalles.length} caracteres'
+                            : 'Mínimo 10 caracteres (${state.detalles.trim().length})',
+                        style: AppText.gris.segunTema(context),
+                      ),
+                    ],
+                  ),
+                  if (state.errorIa != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: TileAviso(
+                        icono: Icons.error_outline,
+                        titulo: state.errorIa!,
+                        color: AppColors.rojo,
+                      ),
+                    ),
+                  if (state.textoDeIa)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Row(
+                        children: [
+                          MarcaIa(texto: 'REDACTADO CON IA'),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Revísalo antes de enviar: tú firmas el reporte.',
+                              style: AppText.gris,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  SeccionHeader(
+                    icono: Icons.photo_camera_outlined,
+                    titulo: 'EVIDENCIA FOTOGRÁFICA',
+                    accion:
+                        '${state.fotos.length}/$maxFotosPorReporte · OPCIONAL',
+                  ),
+                  _cuadriculaFotos(state),
+
+                  const SizedBox(height: 16),
+                  FilaOpcion(
+                    icono: Icons.priority_high,
+                    titulo: 'Incidente Crítico',
+                    subtitulo: 'Notificar al supervisor de inmediato',
+                    color: state.esAlertaCritica
+                        ? AppColors.rojo
+                        : AppColors.textoGris.segunTema(context),
+                    trailing: Switch(
+                      value: state.esAlertaCritica,
+                      activeThumbColor: AppColors.rojo.segunTema(context),
+                      onChanged: state.publicando
+                          ? null
+                          : (v) => context.read<LlenarReporteBloc>().add(
+                              AlertaCriticaCambiada(v),
+                            ),
+                    ),
+                  ),
+
+                  if (state.status == EstadoLlenarReporte.error &&
+                      state.mensajeError != null) ...[
+                    const SizedBox(height: 12),
+                    TileAviso(
+                      icono: Icons.error_outline,
+                      titulo: state.mensajeError!,
+                      subtitulo: state.fotos.any((f) => f.subida)
+                          ? 'Las fotos ya subidas no se volverán a subir al reintentar.'
+                          : null,
+                      color: AppColors.rojo,
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+                  BotonAncho(
+                    texto:
+                        state.progresoTexto ??
+                        (state.publicando ? 'PUBLICANDO...' : 'ENVIAR REPORTE'),
+                    icono: Icons.arrow_forward,
+                    onTap:
+                        state.valido && !state.publicando && !state.redactando
+                        ? _publicar
                         : null,
-                    color: AppColors.rojo,
                   ),
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Text(
+                      'Al enviar, el registro se sincronizará con el sistema '
+                      'central de PlantaPulse.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textoGris.segunTema(context),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
-
-                const SizedBox(height: 20),
-                BotonAncho(
-                  texto: state.progresoTexto ??
-                      (state.publicando ? 'PUBLICANDO...' : 'ENVIAR REPORTE'),
-                  icono: Icons.arrow_forward,
-                  onTap: state.valido && !state.publicando ? _publicar : null,
-                ),
-                const SizedBox(height: 10),
-                Center(child: Text(
-                  'Al enviar, el registro se sincronizará con el sistema '
-                  'central de PlantaPulse.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: AppColors.textoGris.segunTema(context)))),
-                const SizedBox(height: 24),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

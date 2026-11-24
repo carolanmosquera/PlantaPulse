@@ -4,6 +4,7 @@ import '../../../../core/domain/entities/evidencia.dart';
 import '../../../../core/domain/entities/foto_elegida.dart';
 import '../../../../core/domain/entities/reporte.dart';
 import '../../../../core/domain/usecases/evidencias.dart';
+import '../../../../core/domain/usecases/ia.dart';
 import '../../../../core/errors/fallos.dart';
 import '../../domain/usecases/reportes_casos.dart';
 import 'llenar_reporte_event.dart';
@@ -25,16 +26,23 @@ export 'llenar_reporte_state.dart';
 class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
   final SubirEvidencia _subirEvidencia;
   final PublicarReporte _publicarReporte;
+  final RedactarReporte _redactarReporte;
   final String ordenId;
   final String plantaId;
+
+  /// Nombre del equipo de la orden: contexto para que la IA redacte.
+  final String equipo;
   int _siguienteFoto = 0;
 
   LlenarReporteBloc({
     required this._subirEvidencia,
     required this._publicarReporte,
+    required this._redactarReporte,
     required this.ordenId,
     required this.plantaId,
+    this.equipo = '',
   }) : super(const LlenarReporteState()) {
+    on<DetallesRedactados>(_alRedactar);
     on<DetallesCambiados>(
         (e, emit) => emit(state.copyWith(detalles: e.texto)));
     on<EstadoTrabajoCambiado>(
@@ -44,6 +52,32 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
     on<FotoAgregada>(_alAgregarFoto);
     on<FotoQuitada>(_alQuitarFoto);
     on<ReportePublicado>(_alPublicar);
+  }
+
+  /// KAN-93. El técnico firma el reporte: la IA solo le ahorra escribir.
+  /// Sin reintentos automáticos; si falla, el texto se queda como estaba.
+  Future<void> _alRedactar(
+    DetallesRedactados e,
+    Emitter<LlenarReporteState> emit,
+  ) async {
+    if (!state.puedeRedactar) return;      // vacío: nada que redactar
+    emit(state.copyWith(redactando: true, limpiarErrorIa: true));
+    try {
+      final texto = await _redactarReporte.ejecutar(
+          notas: state.detalles, equipo: equipo);
+      emit(state.copyWith(
+        redactando: false,
+        detalles: texto,
+        textoIa: texto,
+        generadoPorIa: true,
+      ));
+    } catch (err) {
+      emit(state.copyWith(
+        redactando: false,
+        errorIa: 'El asistente no pudo redactar el reporte: '
+            '${FalloApp.mensajeDe(err)} Puedes escribirlo a mano.',
+      ));
+    }
   }
 
   void _alAgregarFoto(FotoAgregada e, Emitter<LlenarReporteState> emit) {
@@ -69,7 +103,7 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
     ReportePublicado e,
     Emitter<LlenarReporteState> emit,
   ) async {
-    if (!state.valido || state.publicando) return;
+    if (!state.valido || state.publicando || state.redactando) return;
 
     final fotos = [...state.fotos];
     final porSubir = fotos.where((f) => !f.subida).length;
@@ -120,6 +154,7 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
           Evidencia(ruta: f.ruta!, subidaEn: f.subidaEn!, autorUid: e.autor.uid),
       ],
       esAlertaCritica: state.esAlertaCritica,
+      generadoPorIA: state.generadoPorIa,
       createdAt: DateTime.now(),               // el trigger pone la del servidor
     );
 

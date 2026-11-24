@@ -5,9 +5,9 @@ import '../../../../core/core.dart';
 import '../../../novedades/domain/repositories/novedad_repositorio.dart';
 import '../../domain/usecases/crear_orden_casos.dart';
 import '../bloc/crear_orden_bloc.dart';
-import '../widgets/alta_categoria_hoja.dart';
 import '../widgets/alta_equipo_hoja.dart';
 import '../widgets/detalle_equipo_hoja.dart';
+import '../widgets/elegir_categoria.dart';
 import 'crear_orden_p2_screen.dart';
 
 /// Primer paso del asistente. Crea el CrearOrdenBloc, que vive solo
@@ -29,6 +29,7 @@ class CrearOrdenP1Screen extends StatelessWidget {
         publicarOrden: context.read<PublicarOrden>(),
         nuevoIdDeOrden: context.read<NuevoIdDeOrden>(),
         subirEvidencia: context.read<SubirEvidencia>(),
+        estructurarNota: context.read<EstructurarNota>(),
         descripcionInicial: origen?.descripcion ?? '',
         publicarConversion: origen == null
             ? null
@@ -87,31 +88,20 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
   }
 
   /// La lupa de la categoría: buscar entre todas o crear una nueva.
-  Future<void> _buscarCategoria() async {
-    final bloc = context.read<CrearOrdenBloc>();
-    final usuario = context.read<SesionBloc>().state.usuario;
-    final state = bloc.state;
-    final eleccion = await SelectorBuscable.mostrar<Categoria>(
-      context,
-      titulo: 'Categoría',
-      opciones: state.categorias,
-      textoDe: (c) => c.nombre,
-      iconoDe: (c) => iconoDeCategoria(c.icono),
-      seleccionado:
-          state.categorias.where((c) => c.nombre == state.categoria).firstOrNull,
-      claveDe: (c) => c.id,
-      textoCrear: usuario == null ? null : 'Crear categoría',
-      alCrear: usuario == null
-          ? null
-          : (ctx) => AltaCategoriaHoja.mostrar(ctx,
-              plantaId: state.plantaId, creadaPor: usuario.ref),
-    );
-    final categoria = eleccion?.valor;
-    if (categoria == null) return;
-    // Una recién creada aún no está en el catálogo: se añade y se marca
-    bloc.add(bloc.state.categorias.any((c) => c.id == categoria.id)
-        ? CategoriaCambiada(categoria.nombre)
-        : CategoriaAgregada(categoria));
+  Future<void> _buscarCategoria() =>
+      elegirCategoria(context, context.read<CrearOrdenBloc>());
+
+  /// KAN-92: la IA estructura la nota; al terminar (bien o mal) se navega
+  /// a P2 desde el listener.
+  void _estructurar() =>
+      context.read<CrearOrdenBloc>().add(const NotaEstructurada());
+
+  void _alCambiar(BuildContext context, CrearOrdenState antes,
+      CrearOrdenState ahora) {
+    if (antes.equipo?.id != ahora.equipo?.id) _mostrarEquipoElegido(ahora);
+    // Bien o mal, se sigue a P2. Si falló, P2 muestra el error en rojo
+    // arriba (un SnackBar taparía el botón de publicar) y se llena a mano.
+    if (antes.estructurando && !ahora.estructurando) _continuar();
   }
 
   /// "BUSCAR TODOS": el selector es el "ver todos" de equipos recientes.
@@ -165,9 +155,15 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
 
   @override
   Widget build(BuildContext context) {
+    // BlocConsumer no da el estado anterior al listener: se guarda aquí
+    var anterior = context.read<CrearOrdenBloc>().state;
     return BlocConsumer<CrearOrdenBloc, CrearOrdenState>(
-      listenWhen: (antes, ahora) => antes.equipo?.id != ahora.equipo?.id,
-      listener: (context, state) => _mostrarEquipoElegido(state),
+      listenWhen: (antes, ahora) {
+        anterior = antes;
+        return antes.equipo?.id != ahora.equipo?.id ||
+            antes.estructurando != ahora.estructurando;
+      },
+      listener: (context, state) => _alCambiar(context, anterior, state),
       builder: (context, state) {
         final largo = state.largoDescripcion;
         final minimo = state.minimoDescripcion;
@@ -324,17 +320,53 @@ class _CrearOrdenP1VistaState extends State<_CrearOrdenP1Vista> {
                                   letterSpacing: 1.5))),
                 const SizedBox(height: 16),
               ],
-              BotonAncho(
-                texto: state.requiereTecnico ? 'Continuar' : 'Estructurar con IA',
-                icono: state.requiereTecnico ? Icons.arrow_forward : Icons.auto_awesome,
-                onTap: state.paso1Valido ? _continuar : null,
-              ),
-              if (!state.requiereTecnico) ...[
+              if (state.requiereTecnico)
+                // Convertir una novedad: el texto ya lo escribió quien la
+                // reportó, así que se sigue directo, sin asistente
+                BotonAncho(
+                  texto: 'Continuar',
+                  icono: Icons.arrow_forward,
+                  onTap: state.paso1Valido ? _continuar : null,
+                )
+              else ...[
+                // La primera llamada puede tardar varios segundos (arranque
+                // en frío): el botón se deshabilita y dice que está trabajando
+                BotonAncho(
+                  texto: state.estructurando
+                      ? 'Estructurando...'
+                      : 'Estructurar con IA',
+                  icono: state.estructurando
+                      ? Icons.hourglass_top
+                      : Icons.auto_awesome,
+                  onTap: state.paso1Valido && !state.estructurando
+                      ? _estructurar
+                      : null,
+                ),
+                if (state.estructurando) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    minHeight: 3,
+                    backgroundColor: AppColors.borde.segunTema(context),
+                    color: AppColors.naranja,
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Center(child: Text(
-                  'La IA analizará tu reporte para sugerir equipo, prioridad y tags.',
+                  'La IA propondrá título, descripción, categoría y prioridad. '
+                  'Podrás corregirlos en el paso 2.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: AppColors.textoGris.segunTema(context)))),
+                  style: TextStyle(fontSize: 11,
+                      color: AppColors.textoGris.segunTema(context)))),
+                // Sin IA también se puede: no gasta cuota y sirve cuando el
+                // asistente no está disponible
+                Center(
+                  child: TextButton(
+                    onPressed: state.paso1Valido && !state.estructurando
+                        ? _continuar
+                        : null,
+                    child: const Text('Continuar sin IA'),
+                  ),
+                ),
               ],
               const SizedBox(height: 24),
             ],

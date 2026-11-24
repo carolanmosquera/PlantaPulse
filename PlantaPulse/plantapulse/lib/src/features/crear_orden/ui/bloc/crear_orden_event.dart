@@ -32,6 +32,37 @@ class DescripcionCambiada extends CrearOrdenEvent {
   List<Object?> get props => [texto];
 }
 
+/// "Estructurar con IA" en P1: manda la nota al asistente y prerrellena
+/// el paso 2. Falle o no, P1 navega a P2 al terminar.
+class NotaEstructurada extends CrearOrdenEvent {
+  const NotaEstructurada();
+}
+
+/// El título de la orden en P2 (lo propone la IA o lo escribe la persona).
+class TituloCambiado extends CrearOrdenEvent {
+  final String texto;
+
+  const TituloCambiado(this.texto);
+
+  @override
+  List<Object?> get props => [texto];
+}
+
+/// La descripción técnica en P2, separada de la nota original de P1.
+class DescripcionTecnicaCambiada extends CrearOrdenEvent {
+  final String texto;
+
+  const DescripcionTecnicaCambiada(this.texto);
+
+  @override
+  List<Object?> get props => [texto];
+}
+
+/// El supervisor no quiere crear la categoría que propuso la IA.
+class SugerenciaCategoriaDescartada extends CrearOrdenEvent {
+  const SugerenciaCategoriaDescartada();
+}
+
 /// Lleva el NOMBRE de la categoría: es lo que se guarda en la orden.
 class CategoriaCambiada extends CrearOrdenEvent {
   final String categoria;

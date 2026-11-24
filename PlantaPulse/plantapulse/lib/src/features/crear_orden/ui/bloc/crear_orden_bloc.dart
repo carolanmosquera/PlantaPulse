@@ -9,6 +9,7 @@ import '../../../../core/domain/entities/orden.dart';
 import '../../../../core/domain/entities/usuario.dart';
 import '../../../../core/domain/usecases/catalogos.dart';
 import '../../../../core/domain/usecases/evidencias.dart';
+import '../../../../core/domain/usecases/ia.dart';
 import '../../../../core/errors/fallos.dart';
 import '../../domain/usecases/crear_orden_casos.dart';
 import 'crear_orden_event.dart';
@@ -31,6 +32,7 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
   final PublicarOrden _publicarOrden;
   final NuevoIdDeOrden _nuevoIdDeOrden;
   final SubirEvidencia _subirEvidencia;
+  final EstructurarNota _estructurarNota;
   final Future<String> Function(Orden)? _publicarConversion;
   int _siguienteFoto = 0;
 
@@ -41,6 +43,7 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     required this._publicarOrden,
     required this._nuevoIdDeOrden,
     required this._subirEvidencia,
+    required this._estructurarNota,
     String descripcionInicial = '',
     Future<String> Function(Orden)? publicarConversion,
   }) : _publicarConversion = publicarConversion,
@@ -51,12 +54,38 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     on<CrearOrdenIniciada>(_alIniciar);
     on<DescripcionCambiada>(
         (e, emit) => emit(state.copyWith(descripcion: e.texto)));
-    on<CategoriaCambiada>(
-        (e, emit) => emit(state.copyWith(categoria: e.categoria)));
+    // Elegir una categoría a mano: si no es la que propuso la IA, deja de
+    // estar marcada, y la sugerencia pendiente ya no aplica
+    on<CategoriaCambiada>((e, emit) => emit(state.copyWith(
+          categoria: e.categoria,
+          marcasIa: e.categoria == state.categoria
+              ? null
+              : _sinMarca(CampoIa.categoria),
+          limpiarCategoriaSugerida: e.categoria != state.categoria,
+        )));
     on<EquipoSeleccionado>(
         (e, emit) => emit(state.copyWith(equipo: e.equipo)));
-    on<PrioridadCambiada>(
-        (e, emit) => emit(state.copyWith(prioridad: e.prioridad)));
+    on<PrioridadCambiada>((e, emit) => emit(state.copyWith(
+          prioridad: e.prioridad,
+          marcasIa: e.prioridad == state.prioridad
+              ? null
+              : _sinMarca(CampoIa.prioridad),
+        )));
+    on<NotaEstructurada>(_alEstructurar);
+    // El controlador de P2 repite el texto que puso la IA al cargarlo: solo
+    // un cambio real quita la marca
+    on<TituloCambiado>((e, emit) => emit(state.copyWith(
+          titulo: e.texto,
+          marcasIa: e.texto == state.titulo ? null : _sinMarca(CampoIa.titulo),
+        )));
+    on<DescripcionTecnicaCambiada>((e, emit) => emit(state.copyWith(
+          descripcionTecnica: e.texto,
+          marcasIa: e.texto == state.descripcionTecnica
+              ? null
+              : _sinMarca(CampoIa.descripcion),
+        )));
+    on<SugerenciaCategoriaDescartada>(
+        (e, emit) => emit(state.copyWith(limpiarCategoriaSugerida: true)));
     on<FechaLimiteCambiada>(
         (e, emit) => emit(state.copyWith(fechaLimite: e.fecha)));
     on<TecnicoSeleccionado>(
@@ -123,13 +152,88 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
     }
   }
 
+  Set<CampoIa> _sinMarca(CampoIa campo) => {...state.marcasIa}..remove(campo);
+
+  /// KAN-92. La IA propone; el supervisor decide en P2. Pase lo que pase,
+  /// P1 navega a P2 cuando `estructurando` vuelve a false: la IA no puede
+  /// dejar a nadie sin poder crear una orden.
+  Future<void> _alEstructurar(
+    NotaEstructurada e,
+    Emitter<CrearOrdenState> emit,
+  ) async {
+    if (state.estructurando || !state.paso1Valido) return;
+    final nota = state.descripcion.trim();
+    emit(state.copyWith(estructurando: true, limpiarErrorIa: true));
+
+    try {
+      final b = await _estructurarNota.ejecutar(nota);
+
+      // Solo se preselecciona una categoría que YA existe. Si no existe, la
+      // IA no la crea: queda como sugerencia y el supervisor decide.
+      final sugerida = b.categoriaSugerida.trim();
+      final existente = state.categorias
+          .where((c) => _mismoNombre(c.nombre, sugerida))
+          .firstOrNull;
+
+      emit(state.copyWith(
+        estructurando: false,
+        titulo: b.titulo,
+        descripcionTecnica: b.descripcion,
+        prioridad: b.prioridadSugerida,
+        categoria: existente?.nombre,
+        categoriaSugeridaIa:
+            existente == null && sugerida.isNotEmpty ? sugerida : null,
+        limpiarCategoriaSugerida: existente != null || sugerida.isEmpty,
+        marcasIa: {
+          CampoIa.titulo,
+          CampoIa.descripcion,
+          CampoIa.prioridad,
+          if (existente != null) CampoIa.categoria,
+        },
+        generadaPorIa: true,
+        notaOriginal: nota,
+      ));
+    } catch (err) {
+      // Sin reintento automático: gastaría cuota sin que nadie lo note.
+      // Se vacía lo que la IA había propuesto antes y nadie tocó; lo que
+      // escribió la persona se queda.
+      final m = state.marcasIa;
+      emit(state.copyWith(
+        estructurando: false,
+        errorIa: 'El asistente no pudo estructurar la nota: '
+            '${FalloApp.mensajeDe(err)} Completa los campos a mano.',
+        titulo: m.contains(CampoIa.titulo) ? '' : null,
+        descripcionTecnica: m.contains(CampoIa.descripcion) ? '' : null,
+        prioridad: m.contains(CampoIa.prioridad) ? Prioridad.media : null,
+        marcasIa: const {},
+        limpiarCategoriaSugerida: true,
+        generadaPorIa: false,
+        limpiarNotaOriginal: true,
+      ));
+    }
+  }
+
+  static bool _mismoNombre(String a, String b) =>
+      a.trim().toLowerCase() == b.trim().toLowerCase();
+
   void _alAgregarCategoria(CategoriaAgregada e, Emitter<CrearOrdenState> emit) {
     final lista = [
       for (final c in state.categorias)
         if (c.id != e.categoria.id) c,
       e.categoria,
     ]..sort(_porNombre<Categoria>((c) => c.nombre));
-    emit(state.copyWith(categorias: lista, categoria: e.categoria.nombre));
+    // Si es la que sugirió la IA, la sugerencia queda resuelta: la creó el
+    // supervisor, no el asistente
+    final eraSugerida = state.categoriaSugeridaIa != null &&
+        _mismoNombre(state.categoriaSugeridaIa!, e.categoria.nombre);
+    emit(state.copyWith(
+      categorias: lista,
+      categoria: e.categoria.nombre,
+      marcasIa: eraSugerida
+          ? {...state.marcasIa, CampoIa.categoria}
+          : _sinMarca(CampoIa.categoria),
+      limpiarCategoriaSugerida: true,
+    ));
   }
 
   void _alAgregarEquipo(EquipoAgregado e, Emitter<CrearOrdenState> emit) {
@@ -226,8 +330,13 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
       id: ordenId,                         // reservado: sus fotos ya están en su carpeta
       codigo: codigo,
       plantaId: state.plantaId,
-      titulo: state.descripcion.trim(),
-      descripcion: state.observaciones.trim(),
+      titulo: state.tituloFinal,
+      // La descripción técnica (de la IA o a mano) y las observaciones;
+      // sin IA queda como antes: solo las observaciones
+      descripcion: [
+        state.descripcionTecnica.trim(),
+        state.observaciones.trim(),
+      ].where((t) => t.isNotEmpty).join('\n\n'),
       categoria: state.categoria,
       // La ubicación sale del equipo, no de su código
       zonaId: equipo.zonaId,
@@ -251,6 +360,9 @@ class CrearOrdenBloc extends Bloc<CrearOrdenEvent, CrearOrdenState> {
       portadaUrl: evidencias.isEmpty ? null : evidencias.last.ruta,
       totalReportes: 0,
       totalAlertas: 0,
+      // Para comparar después qué escribió la persona y qué entendió el modelo
+      generadaPorIA: state.generadaPorIa,
+      notaOriginal: state.generadaPorIa ? state.notaOriginal : null,
     );
 
     try {
