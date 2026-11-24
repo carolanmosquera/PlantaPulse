@@ -50,19 +50,28 @@ export function motivoParaNoAvisar(
     return 'el responsable es quien creó la orden';
   }
   if (!usuario) return 'el responsable no existe';
+  return motivoPorUsuario(usuario, orden.prioridad, 'el responsable');
+}
+
+/**
+ * Lo que depende solo de quien recibe el aviso: que esté activo, lo que
+ * eligió en Ajustes (KAN-100) y que tenga un teléfono registrado.
+ * Lo comparten la asignación (KAN-97) y el recordatorio (KAN-95).
+ */
+function motivoPorUsuario(usuario: UsuarioFila, prioridad: string, quien: string): string | null {
   if (usuario.activo === false || (usuario.estado && usuario.estado !== 'activo')) {
-    return 'el responsable no está activo';
+    return `${quien} no está activo`;
   }
 
   const p = usuario.preferencias_avisos ?? {};
-  if (p.push === false) return 'el responsable apagó las notificaciones push';
-  // Una asignación es un aviso de órdenes ("mantenimiento" en Ajustes)
-  if (p.mantenimiento === false) return 'el responsable apagó los avisos de órdenes';
-  if (p.soloCriticas === true && !PRIORIDAD_ALTA.has(orden.prioridad)) {
-    return 'el responsable solo quiere avisos de prioridad alta o urgente';
+  if (p.push === false) return `${quien} apagó las notificaciones push`;
+  // Asignaciones y recordatorios son avisos de órdenes ("mantenimiento" en Ajustes)
+  if (p.mantenimiento === false) return `${quien} apagó los avisos de órdenes`;
+  if (p.soloCriticas === true && !PRIORIDAD_ALTA.has(prioridad)) {
+    return `${quien} solo quiere avisos de prioridad alta o urgente`;
   }
 
-  if (!usuario.fcm_token) return 'el responsable no tiene un dispositivo registrado';
+  if (!usuario.fcm_token) return `${quien} no tiene un dispositivo registrado`;
   return null;
 }
 
@@ -72,5 +81,45 @@ export function mensajeAsignacion(orden: OrdenFila): { titulo: string; cuerpo: s
   return {
     titulo: urgente ? 'Orden urgente asignada' : 'Nueva orden asignada',
     cuerpo: `${orden.codigo} · ${orden.titulo}`,
+  };
+}
+
+// ── KAN-95: recordatorio de órdenes críticas sin avance ──────────────
+
+/** Una fila de la función SQL public.ordenes_estancadas(). */
+export type OrdenEstancada = {
+  id: string;
+  codigo: string;
+  titulo: string;
+  planta_id: string;
+  prioridad: string;
+  estado: string;
+  ultimo_avance: string; // último reporte, o la creación si no tiene
+};
+
+/**
+ * Por qué NO se le recuerda a este supervisor, o null si sí.
+ * La orden ya llega filtrada por SQL (crítica, abierta, sin reportes hace
+ * más de 4 horas): aquí solo se decide por la persona. Una orden estancada
+ * siempre es crítica, así que "solo críticas" nunca la deja por fuera.
+ */
+export function motivoParaNoRecordar(supervisor: UsuarioFila): string | null {
+  return motivoPorUsuario(supervisor, 'critica', 'el supervisor');
+}
+
+/** Horas completas desde el último avance hasta 'ahora'. */
+export function horasSinAvance(ultimoAvance: string, ahora: Date = new Date()): number {
+  return Math.floor((ahora.getTime() - Date.parse(ultimoAvance)) / 3_600_000);
+}
+
+/** Título y cuerpo del recordatorio. */
+export function mensajeRecordatorio(
+  orden: OrdenEstancada,
+  ahora: Date = new Date(),
+): { titulo: string; cuerpo: string } {
+  const horas = horasSinAvance(orden.ultimo_avance, ahora);
+  return {
+    titulo: 'Orden crítica sin avance',
+    cuerpo: `${orden.codigo} · ${orden.titulo} lleva ${horas} h sin reportes`,
   };
 }

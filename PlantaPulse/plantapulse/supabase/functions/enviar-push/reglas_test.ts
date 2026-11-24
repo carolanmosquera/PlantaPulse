@@ -1,6 +1,15 @@
 // supabase/functions/enviar-push/reglas_test.ts
 // deno test supabase/functions/enviar-push/reglas_test.ts
-import { mensajeAsignacion, motivoParaNoAvisar, type OrdenFila, type UsuarioFila } from './reglas.ts';
+import {
+  horasSinAvance,
+  mensajeAsignacion,
+  mensajeRecordatorio,
+  motivoParaNoAvisar,
+  motivoParaNoRecordar,
+  type OrdenEstancada,
+  type OrdenFila,
+  type UsuarioFila,
+} from './reglas.ts';
 
 function iguales(real: unknown, esperado: unknown) {
   if (JSON.stringify(real) !== JSON.stringify(esperado)) {
@@ -88,4 +97,64 @@ Deno.test('no avisa a un usuario inactivo', () => {
 Deno.test('el mensaje dice código y título, y marca las urgentes', () => {
   iguales(mensajeAsignacion(orden()), { titulo: 'Nueva orden asignada', cuerpo: 'ORD-0042 · Fuga en la caldera 2' });
   iguales(mensajeAsignacion(orden({ prioridad: 'critica' })).titulo, 'Orden urgente asignada');
+});
+
+// ── KAN-95: recordatorio de órdenes críticas sin avance ──────────────
+
+const supervisor = (cambios: Partial<UsuarioFila> = {}): UsuarioFila => ({
+  id: 'sup1',
+  fcm_token: 'token-sup',
+  preferencias_avisos: { push: true, mantenimiento: true, soloCriticas: false },
+  activo: true,
+  estado: 'activo',
+  ...cambios,
+});
+
+const estancada: OrdenEstancada = {
+  id: 'o9',
+  codigo: 'ORD-0099',
+  titulo: 'Compresor detenido',
+  planta_id: 'p1',
+  prioridad: 'critica',
+  estado: 'en_progreso',
+  ultimo_avance: '2026-11-23T08:00:00Z',
+};
+
+Deno.test('recordatorio: avisa al supervisor activo con teléfono', () => {
+  iguales(motivoParaNoRecordar(supervisor()), null);
+});
+
+Deno.test('recordatorio: "solo críticas" no lo deja por fuera, porque la orden es crítica', () => {
+  iguales(motivoParaNoRecordar(supervisor({ preferencias_avisos: { soloCriticas: true } })), null);
+});
+
+Deno.test('recordatorio: respeta push y avisos de órdenes apagados', () => {
+  iguales(
+    motivoParaNoRecordar(supervisor({ preferencias_avisos: { push: false } })),
+    'el supervisor apagó las notificaciones push',
+  );
+  iguales(
+    motivoParaNoRecordar(supervisor({ preferencias_avisos: { mantenimiento: false } })),
+    'el supervisor apagó los avisos de órdenes',
+  );
+});
+
+Deno.test('recordatorio: no avisa sin teléfono ni a un supervisor inactivo', () => {
+  iguales(
+    motivoParaNoRecordar(supervisor({ fcm_token: null })),
+    'el supervisor no tiene un dispositivo registrado',
+  );
+  iguales(motivoParaNoRecordar(supervisor({ estado: 'pendiente' })), 'el supervisor no está activo');
+});
+
+Deno.test('recordatorio: cuenta las horas completas sin avance', () => {
+  iguales(horasSinAvance('2026-11-23T08:00:00Z', new Date('2026-11-23T12:59:00Z')), 4);
+  iguales(horasSinAvance('2026-11-23T08:00:00Z', new Date('2026-11-23T14:00:00Z')), 6);
+});
+
+Deno.test('recordatorio: el mensaje dice la orden y cuántas horas lleva', () => {
+  iguales(mensajeRecordatorio(estancada, new Date('2026-11-23T13:10:00Z')), {
+    titulo: 'Orden crítica sin avance',
+    cuerpo: 'ORD-0099 · Compresor detenido lleva 5 h sin reportes',
+  });
 });
