@@ -269,6 +269,7 @@ void main() {
       zonaRepositorio: FakeZonaRepository(),
       reporteRepositorio: reportes,
       almacenamientoRepositorio: FakeAlmacenamientoRepository(),
+      preferenciasRepositorio: PreferenciasFake(),
       iaRepositorio: ia,
     ));
     await tester.pump(const Duration(seconds: 3));

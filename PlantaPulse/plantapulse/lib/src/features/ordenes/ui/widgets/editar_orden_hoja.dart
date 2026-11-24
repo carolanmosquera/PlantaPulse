@@ -167,7 +167,7 @@ class _EditarOrdenHojaState extends State<EditarOrdenHoja> {
           ),
         ),
         const SizedBox(height: 16),
-        const Text('PRIORIDAD', style: AppText.label),
+        Text('PRIORIDAD', style: AppText.label.segunTema(context)),
         const SizedBox(height: 8),
         ChipsFila(
           opciones: [for (final p in _prioridades) p.etiqueta],

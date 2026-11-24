@@ -1,4 +1,5 @@
 // lib/src/core/domain/entities/usuario.dart
+import 'preferencias_avisos.dart';
 
 enum RolUsuario { admin, supervisor, tecnico }
 
@@ -102,6 +103,7 @@ class Usuario {
   final EstadoCuenta estado;     // flujo de aprobación por el admin
   final UsuarioRef? aprobadoPor; // admin que aprobó o rechazó
   final DateTime? aprobadoEn;
+  final PreferenciasAvisos preferenciasAvisos; // KAN-100
 
   const Usuario({
     required this.uid,
@@ -119,6 +121,7 @@ class Usuario {
     this.estado = EstadoCuenta.pendiente,
     this.aprobadoPor,
     this.aprobadoEn,
+    this.preferenciasAvisos = const PreferenciasAvisos(),
   });
 
   UsuarioRef get ref => UsuarioRef.desdeUsuario(this);
@@ -137,6 +140,7 @@ class Usuario {
     String? turno,
     String? fcmToken,
     bool? activo,
+    PreferenciasAvisos? preferenciasAvisos,
   }) =>
       Usuario(
         uid: uid,
@@ -154,5 +158,6 @@ class Usuario {
         estado: estado ?? this.estado,
         aprobadoPor: aprobadoPor ?? this.aprobadoPor,
         aprobadoEn: aprobadoEn,
+        preferenciasAvisos: preferenciasAvisos ?? this.preferenciasAvisos,
       );
 }

@@ -19,7 +19,12 @@ abstract class UsuarioRepositorio {
   /// de la entidad), no el perfil completo.
   Future<void> actualizar(String uid, Map<String, dynamic> cambios);
 
+  /// Guarda el token de notificaciones del dispositivo en el perfil.
   Future<void> guardarTokenPush(String uid, String token);
+
+  /// Quita el token del perfil (al cerrar sesión), para que las
+  /// notificaciones dejen de llegarle a ese teléfono.
+  Future<void> borrarTokenPush(String uid);
 
   /// Técnicos activos y aprobados de una planta, ordenados por nombre.
   Future<List<Usuario>> tecnicosDePlanta(String plantaId);

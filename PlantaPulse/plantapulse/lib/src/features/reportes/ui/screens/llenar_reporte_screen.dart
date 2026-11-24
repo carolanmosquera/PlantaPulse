@@ -195,7 +195,7 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                     titulo: 'DETALLES TÉCNICOS',
                     accion: 'REQUERIDO',
                     colorAccion: state.valido
-                        ? AppColors.textoGris
+                        ? AppColors.textoGris.segunTema(context)
                         : AppColors.rojo,
                   ),
                   // Bloqueado solo mientras la IA redacta; después se edita
@@ -244,7 +244,7 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                         state.valido
                             ? '${state.detalles.length} caracteres'
                             : 'Mínimo 10 caracteres (${state.detalles.trim().length})',
-                        style: AppText.gris,
+                        style: AppText.gris.segunTema(context),
                       ),
                     ],
                   ),
@@ -289,10 +289,10 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                     subtitulo: 'Notificar al supervisor de inmediato',
                     color: state.esAlertaCritica
                         ? AppColors.rojo
-                        : AppColors.textoGris,
+                        : AppColors.textoGris.segunTema(context),
                     trailing: Switch(
                       value: state.esAlertaCritica,
-                      activeThumbColor: AppColors.rojo,
+                      activeThumbColor: AppColors.rojo.segunTema(context),
                       onChanged: state.publicando
                           ? null
                           : (v) => context.read<LlenarReporteBloc>().add(
@@ -326,14 +326,14 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                         : null,
                   ),
                   const SizedBox(height: 10),
-                  const Center(
+                  Center(
                     child: Text(
                       'Al enviar, el registro se sincronizará con el sistema '
                       'central de PlantaPulse.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textoGris,
+                        color: AppColors.textoGris.segunTema(context),
                       ),
                     ),
                   ),

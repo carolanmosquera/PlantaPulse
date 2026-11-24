@@ -16,6 +16,7 @@ void main() {
     // Build our app and trigger a frame.
     // Se inyecta un AuthBloc con servicios falsos: en pruebas no hay Supabase.
     await tester.pumpWidget(PlantaPulseApp(
+      preferenciasRepositorio: PreferenciasFake(),
       authBloc: authBlocDe(FakeAuthService(), FakeUsuarioRepository()),
     ));
 

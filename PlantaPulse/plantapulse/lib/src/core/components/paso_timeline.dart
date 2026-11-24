@@ -20,7 +20,7 @@ class PasoTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = completado ? AppColors.verde : AppColors.gris;
+    final color = (completado ? AppColors.verde : AppColors.gris).segunTema(context);
 
     return IntrinsicHeight(
       child: Row(
@@ -45,7 +45,7 @@ class PasoTimeline extends StatelessWidget {
               ),
               if (!esUltimo)
                 Expanded(
-                  child: Container(width: 2, color: AppColors.borde),
+                  child: Container(width: 2, color: AppColors.borde.segunTema(context)),
                 ),
             ],
           ),
@@ -69,19 +69,19 @@ class PasoTimeline extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.4,
                             color: completado
-                                ? AppColors.texto
-                                : AppColors.textoGris,
+                                ? AppColors.texto.segunTema(context)
+                                : AppColors.textoGris.segunTema(context),
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(hora, style: const TextStyle(
-                        fontSize: 11, color: AppColors.textoGris)),
+                      Text(hora, style: TextStyle(
+                        fontSize: 11, color: AppColors.textoGris.segunTema(context))),
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text(subtitulo, style: const TextStyle(
-                    fontSize: 11.5, color: AppColors.textoGris)),
+                  Text(subtitulo, style: TextStyle(
+                    fontSize: 11.5, color: AppColors.textoGris.segunTema(context))),
                 ],
               ),
             ),

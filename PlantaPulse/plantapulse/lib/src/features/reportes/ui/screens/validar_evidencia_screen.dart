@@ -99,17 +99,17 @@ class _ValidarEvidenciaScreenState extends State<ValidarEvidenciaScreen> {
 
               Row(
                 children: [
-                  Text('OT #${orden.codigo}', style: const TextStyle(
+                  Text('OT #${orden.codigo}', style: TextStyle(
                       fontSize: 11.5, letterSpacing: 0.5,
-                      color: AppColors.textoGris)),
+                      color: AppColors.textoGris.segunTema(context))),
                   const Spacer(),
                   PillEstado(texto: orden.estado.etiqueta,
                       color: orden.estado.color),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(orden.titulo, style: const TextStyle(fontSize: 18,
-                  fontWeight: FontWeight.bold, color: AppColors.texto,
+              Text(orden.titulo, style: TextStyle(fontSize: 18,
+                  fontWeight: FontWeight.bold, color: AppColors.texto.segunTema(context),
                   height: 1.3)),
 
               SeccionHeader(icono: Icons.photo_camera_outlined,
@@ -125,9 +125,9 @@ class _ValidarEvidenciaScreenState extends State<ValidarEvidenciaScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else if (fotos.isEmpty)
-                const TileAviso(icono: Icons.image_not_supported_outlined,
+                TileAviso(icono: Icons.image_not_supported_outlined,
                     titulo: 'Los reportes de esta orden no tienen fotos',
-                    color: AppColors.textoGris)
+                    color: AppColors.textoGris.segunTema(context))
               else
                 GaleriaFotos(urls: fotos, columnas: 2),
 
@@ -142,19 +142,19 @@ class _ValidarEvidenciaScreenState extends State<ValidarEvidenciaScreen> {
                           ? 'Aún no hay reportes del técnico'
                           : 'Último de ${reportes.length} '
                             '${reportes.length == 1 ? "reporte" : "reportes"}',
-                      style: AppText.gris),
+                      style: AppText.gris.segunTema(context)),
                     if (ultimo != null) ...[
                       const SizedBox(height: 12),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.fondo,
+                          color: AppColors.fondo.segunTema(context),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(ultimo.detalles,
-                          style: const TextStyle(fontSize: 13.5, height: 1.5,
-                              color: AppColors.texto)),
+                          style: TextStyle(fontSize: 13.5, height: 1.5,
+                              color: AppColors.texto.segunTema(context))),
                       ),
                       const SizedBox(height: 16),
                       MetaRow(icono: Icons.person_outline, texto: 'TÉCNICO',
@@ -183,11 +183,11 @@ class _ValidarEvidenciaScreenState extends State<ValidarEvidenciaScreen> {
                 controller: _obsCtrl,
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Las observaciones serán visibles para el equipo técnico. '
                 'Para solicitar correcciones son obligatorias.',
                 style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic,
-                    color: AppColors.textoGris)),
+                    color: AppColors.textoGris.segunTema(context))),
 
               const SizedBox(height: 20),
               BotonAncho(

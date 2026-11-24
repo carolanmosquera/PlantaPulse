@@ -1,5 +1,6 @@
 // lib/src/core/components/pill_estado.dart
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class PillEstado extends StatelessWidget {
   final String texto;
@@ -28,7 +29,7 @@ class PillEstado extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
-          color: relleno ? Colors.white : color,
+          color: relleno ? Colors.white : color.segunTema(context),
         ),
       ),
     );

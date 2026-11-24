@@ -123,7 +123,7 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
       try {
         final ruta = await _subirEvidencia.ejecutar(
           plantaId: plantaId,
-          ordenId: ordenId,
+          registroId: ordenId,
           bytes: foto.foto.bytes,
           extension: foto.foto.extension,
         );

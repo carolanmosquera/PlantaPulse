@@ -29,11 +29,11 @@ class CampoDropdown<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppText.label),
+        Text(label, style: AppText.label.segunTema(context)),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.borde),
+            border: Border.all(color: AppColors.borde.segunTema(context)),
             borderRadius: BorderRadius.circular(10),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -43,24 +43,24 @@ class CampoDropdown<T> extends StatelessWidget {
               isExpanded: true,
               hint: Row(
                 children: [
-                  Icon(icono, size: 18, color: AppColors.textoGris),
+                  Icon(icono, size: 18, color: AppColors.textoGris.segunTema(context)),
                   const SizedBox(width: 10),
-                  Text(hint, style: const TextStyle(
-                    fontSize: 14, color: AppColors.textoGris)),
+                  Text(hint, style: TextStyle(
+                    fontSize: 14, color: AppColors.textoGris.segunTema(context))),
                 ],
               ),
-              icon: const Icon(Icons.keyboard_arrow_down,
-                color: AppColors.textoGris),
+              icon: Icon(Icons.keyboard_arrow_down,
+                color: AppColors.textoGris.segunTema(context)),
               items: opciones.map((o) => DropdownMenuItem<T>(
                 value: o,
                 child: Row(
                   children: [
-                    Icon(icono, size: 18, color: AppColors.azul),
+                    Icon(icono, size: 18, color: AppColors.azul.segunTema(context)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(textoDe(o), overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14,
-                                               color: AppColors.texto)),
+                        style: TextStyle(fontSize: 14,
+                                               color: AppColors.texto.segunTema(context))),
                     ),
                   ],
                 ),

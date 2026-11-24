@@ -33,10 +33,10 @@ class FilaAlerta extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.segunTema(context),
           borderRadius: BorderRadius.circular(10),
           // Borde uniforme siempre. La marca de "no leída" va dentro.
-          border: Border.all(color: AppColors.borde),
+          border: Border.all(color: AppColors.borde.segunTema(context)),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(9),
@@ -46,7 +46,7 @@ class FilaAlerta extends StatelessWidget {
               children: [
                 // Barra azul de "no leída", como Container y no como borde
                 if (noLeida) Container(width: 3, color: AppColors.azul),
-                Expanded(child: _contenido()),
+                Expanded(child: _contenido(context)),
               ],
             ),
           ),
@@ -55,7 +55,7 @@ class FilaAlerta extends StatelessWidget {
     );
   }
 
-  Widget _contenido() {
+  Widget _contenido(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -68,7 +68,7 @@ class FilaAlerta extends StatelessWidget {
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icono, size: 17, color: color),
+            child: Icon(icono, size: 17, color: color.segunTema(context)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -82,31 +82,31 @@ class FilaAlerta extends StatelessWidget {
                     Expanded(
                       child: Text(
                         titulo.toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.texto,
+                          color: AppColors.texto.segunTema(context),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(hora, style: AppText.gris),
+                    Text(hora, style: AppText.gris.segunTema(context)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(descripcion, style: AppText.gris),
+                Text(descripcion, style: AppText.gris.segunTema(context)),
                 if (codigo != null) ...[
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      PillEstado(texto: codigo!, color: AppColors.textoGris),
+                      PillEstado(texto: codigo!, color: AppColors.textoGris.segunTema(context)),
                       const Spacer(),
-                      const Text(
+                      Text(
                         "VER MÁS →",
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.azul,
+                          color: AppColors.azul.segunTema(context),
                         ),
                       ),
                     ],

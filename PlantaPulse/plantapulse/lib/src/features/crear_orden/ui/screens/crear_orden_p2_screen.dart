@@ -5,9 +5,8 @@ import '../../../../core/core.dart';
 import '../bloc/crear_orden_bloc.dart';
 import '../widgets/elegir_categoria.dart';
 
-/// Segundo paso del asistente. Recibe el CrearOrdenBloc de P1 por
-/// BlocProvider.value. No devuelve nada por Navigator.pop: el feed se
-/// entera de la orden nueva porque está suscrito al stream en tiempo real.
+/// Segundo paso del asistente. Comparte el Bloc de P1 y devuelve el ID
+/// publicado para cerrar ambos pasos y regresar a la pantalla de origen.
 class CrearOrdenP2Screen extends StatefulWidget {
   const CrearOrdenP2Screen({super.key});
 
@@ -60,7 +59,8 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
   Widget _etiqueta(String texto, bool deIa) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Row(children: [
-          Flexible(child: Text(texto, style: AppText.subtitulo)),
+          Flexible(child: Text(texto,
+              style: AppText.subtitulo.segunTema(context))),
           if (deIa) ...[const SizedBox(width: 8), const MarcaIa()],
         ]),
       );
@@ -87,8 +87,8 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
               child: Text(
                 'La IA sugiere la categoría «$nombre», que no existe en '
                 'esta planta.',
-                style: const TextStyle(fontSize: 12.5, color: AppColors.texto,
-                    height: 1.35)),
+                style: TextStyle(fontSize: 12.5,
+                    color: AppColors.texto.segunTema(context), height: 1.35)),
             ),
           ]),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -135,7 +135,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
       iconoDe: (_) => Icons.engineering_outlined,
       seleccionado: state.tecnico,
       claveDe: (u) => u.uid,
-      textoNinguno: 'Sin asignar',
+      textoNinguno: state.requiereTecnico ? null : 'Sin asignar',
     );
     if (eleccion == null) return;            // cerró la hoja sin elegir
     final tecnico = eleccion.valor;
@@ -173,8 +173,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
   void _alCambiarEstado(BuildContext context, CrearOrdenState state) {
     final mensajero = ScaffoldMessenger.of(context);
     if (state.status == EstadoCrearOrden.publicada) {
-      // Cierra P2 y P1 de una vez: el feed ya recibió la orden por stream
-      Navigator.popUntil(context, ModalRoute.withName(Rutas.feed));
+      Navigator.pop(context, state.ordenIdCreada);
       mensajero.showSnackBar(SnackBar(
         backgroundColor: AppColors.verde,
         content: Text('Orden ${state.codigoCreado} publicada'),
@@ -195,9 +194,11 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
       builder: (context, state) {
         final equipo = state.equipo;
 
-        return PantallaBase(
+        final pantalla = PantallaBase(
           titulo: 'Nueva Orden: Paso 2',
           tabActiva: 0,
+          mostrarAtras: !state.publicando,
+          conNavegacion: !state.requiereTecnico && !state.publicando,
           cuerpo: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             children: [
@@ -209,9 +210,9 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                   const SizedBox(width: 6),
                   Expanded(child: Container(height: 4, color: AppColors.verde)),
                   const SizedBox(width: 12),
-                  const Text('PASO 2 DE 2',
+                  Text('PASO 2 DE 2',
                     style: TextStyle(fontSize: 10, letterSpacing: 1,
-                                     color: AppColors.textoGris)),
+                                     color: AppColors.textoGris.segunTema(context))),
                 ],
               ),
               const SizedBox(height: 16),
@@ -254,7 +255,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                           .add(PrioridadCambiada(_prioridadesModelo[i])),
                     ),
                     const SizedBox(height: 18),
-                    const Text('Fecha de Intervención', style: AppText.subtitulo),
+                    Text('Fecha de Intervención', style: AppText.subtitulo.segunTema(context)),
                     const SizedBox(height: 10),
                     GestureDetector(
                       onTap: () => _elegirFecha(state.fechaLimite),
@@ -262,23 +263,28 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(13),
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.borde),
+                          border: Border.all(color: AppColors.borde.segunTema(context)),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(children: [
-                          const Icon(Icons.calendar_today_outlined, size: 17,
-                            color: AppColors.textoGris),
+                          Icon(Icons.calendar_today_outlined, size: 17,
+                            color: AppColors.textoGris.segunTema(context)),
                           const SizedBox(width: 10),
-                          Text(_fechaTexto(state.fechaLimite),
-                            style: const TextStyle(fontSize: 13.5,
-                                                   color: AppColors.texto)),
+                          Expanded(
+                            child: Text(
+                              _fechaTexto(state.fechaLimite),
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: AppColors.texto.segunTema(context),
+                              ),
+                            ),
+                          ),
                         ]),
                       ),
                     ),
                     const SizedBox(height: 18),
 
                     // ══ RESPONSABLE ══
-                    // Opcional: sin técnico la orden se publica "Sin asignar"
                     CampoSeleccion(
                       label: 'Técnico Responsable',
                       icono: Icons.engineering_outlined,
@@ -287,13 +293,18 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                         final u when u.especialidad.isEmpty => u.nombre,
                         final u => '${u.nombre} • ${u.especialidad}',
                       },
-                      vacio: 'Sin asignar',
+                      vacio: state.requiereTecnico
+                          ? 'Selecciona un técnico'
+                          : 'Sin asignar',
                       onTap: () => _elegirTecnico(state),
                     ),
                   ],
                 ),
               ),
 
+              // Convertir una novedad no pasa por la IA: el título es la
+              // descripción de la novedad, como antes
+              if (!state.requiereTecnico) ...[
               const SeccionHeader(icono: Icons.edit_note,
                 titulo: 'DATOS DE LA ORDEN'),
               TarjetaBlanca(
@@ -330,6 +341,7 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
                   ],
                 ),
               ),
+              ],
 
               SeccionHeader(
                 icono: Icons.photo_camera_outlined,
@@ -350,8 +362,8 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Observaciones Técnicas Adicionales',
-                style: AppText.subtitulo),
+              Text('Observaciones Técnicas Adicionales',
+                style: AppText.subtitulo.segunTema(context)),
               const SizedBox(height: 10),
               CampoTexto(
                 label: '',
@@ -380,6 +392,10 @@ class _CrearOrdenP2ScreenState extends State<CrearOrdenP2Screen> {
               const SizedBox(height: 24),
             ],
           ),
+        );
+        return PopScope(
+          canPop: !state.publicando,
+          child: AbsorbPointer(absorbing: state.publicando, child: pantalla),
         );
       },
     );

@@ -27,7 +27,7 @@ class HojaFormulario extends StatelessWidget {
       showModalBottomSheet<T>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: AppColors.fondo,
+        backgroundColor: AppColors.fondo.segunTema(context),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
@@ -48,13 +48,13 @@ class HojaFormulario extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.borde,
+                decoration: BoxDecoration(color: AppColors.borde.segunTema(context),
                   borderRadius: BorderRadius.circular(2)))),
               Row(
                 children: [
-                  Expanded(child: Text(titulo, style: AppText.subtitulo)),
+                  Expanded(child: Text(titulo, style: AppText.subtitulo.segunTema(context))),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.textoGris),
+                    icon: Icon(Icons.close, color: AppColors.textoGris.segunTema(context)),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],

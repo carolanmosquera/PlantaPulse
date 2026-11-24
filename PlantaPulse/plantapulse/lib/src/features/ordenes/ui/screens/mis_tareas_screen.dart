@@ -73,10 +73,10 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Resumen de Hoy', style: AppText.titulo),
+                    Text('Resumen de Hoy', style: AppText.titulo.segunTema(context)),
                     const SizedBox(height: 3),
                     Text('Tienes $criticas tareas críticas pendientes',
-                      style: AppText.gris),
+                      style: AppText.gris.segunTema(context)),
                   ],
                 ),
               ),
@@ -84,12 +84,12 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 13,
                                                     vertical: 7),
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.borde),
+                  border: Border.all(color: AppColors.borde.segunTema(context)),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.filter_list, size: 14,
-                    color: AppColors.textoGris),
+                    color: AppColors.textoGris.segunTema(context)),
                   SizedBox(width: 6),
                   Text('Filtrar', style: TextStyle(fontSize: 12.5)),
                 ]),
@@ -128,7 +128,7 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 44),
               child: Center(child: Text('Sin tareas en este filtro',
-                style: AppText.gris)),
+                style: AppText.gris.segunTema(context))),
             )
           else
             ...visibles.map((t) => Padding(
@@ -164,12 +164,12 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
             color: AppColors.ambar,
           ),
           const SizedBox(height: 14),
-          const Center(child: Text('ID DISPOSITIVO: PULSE-MOB-7729',
+          Center(child: Text('ID DISPOSITIVO: PULSE-MOB-7729',
             style: TextStyle(fontSize: 9, letterSpacing: 1,
-                             color: AppColors.textoGris))),
-          const Center(child: Text('SINC: 2024-05-23 10:15:33',
+                             color: AppColors.textoGris.segunTema(context)))),
+          Center(child: Text('SINC: 2024-05-23 10:15:33',
             style: TextStyle(fontSize: 9, letterSpacing: 1,
-                             color: AppColors.textoGris))),
+                             color: AppColors.textoGris.segunTema(context)))),
           const SizedBox(height: 90),
         ],
       ),

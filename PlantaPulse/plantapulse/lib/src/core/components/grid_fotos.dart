@@ -45,7 +45,7 @@ class GridFotos extends StatelessWidget {
                   url,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    color: AppColors.borde,
+                    color: AppColors.borde.segunTema(context),
                     child: const Icon(Icons.broken_image_outlined,
                         color: Colors.white),
                   ),
@@ -75,13 +75,13 @@ class GridFotos extends StatelessWidget {
         if (permiteAgregar)
           GestureDetector(
             onTap: onAgregar,
-            child: const DottedBox(
+            child: DottedBox(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.camera_alt_outlined, color: AppColors.textoGris),
+                  Icon(Icons.camera_alt_outlined, color: AppColors.textoGris.segunTema(context)),
                   SizedBox(height: 4),
-                  Text("Tomar Foto", style: AppText.gris),
+                  Text("Tomar Foto", style: AppText.gris.segunTema(context)),
                 ],
               ),
             ),

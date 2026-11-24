@@ -11,6 +11,9 @@ class PlantaFuenteSupabase {
   PlantaFuenteSupabase({SupabaseClient? cliente})
       : _db = cliente ?? Supabase.instance.client;
 
+  Future<Map<String, dynamic>?> obtener(String id) => traducirSupabase(
+      () => _db.from('plantas').select().eq('id', id).maybeSingle());
+
   /// Todas las plantas. El filtro de activas y el orden los hace el
   /// repositorio en Dart: un 'activo' nulo cuenta como activo.
   Future<List<Map<String, dynamic>>> todas() =>

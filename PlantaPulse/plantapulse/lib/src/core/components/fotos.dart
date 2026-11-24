@@ -26,7 +26,7 @@ class FotoRed extends StatelessWidget {
         loadingBuilder: (context, hijo, progreso) => progreso == null
             ? hijo
             : Container(
-                color: AppColors.borde,
+                color: AppColors.borde.segunTema(context),
                 alignment: Alignment.center,
                 child: const SizedBox(
                   width: 20, height: 20,
@@ -34,10 +34,10 @@ class FotoRed extends StatelessWidget {
                 ),
               ),
         errorBuilder: (_, _, _) => Container(
-          color: AppColors.borde,
+          color: AppColors.borde.segunTema(context),
           alignment: Alignment.center,
-          child: const Icon(Icons.broken_image_outlined,
-              color: AppColors.textoGris),
+          child: Icon(Icons.broken_image_outlined,
+              color: AppColors.textoGris.segunTema(context)),
         ),
       ),
     );

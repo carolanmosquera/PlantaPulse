@@ -1,175 +1,210 @@
-// lib/src/features/perfil/ui/screens/perfil_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
+import '../../domain/usecases/consultar_perfil.dart';
 
 class PerfilScreen extends StatelessWidget {
   const PerfilScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return PantallaBase(
-      titulo: 'Mi Perfil',
-      mostrarAtras: false,
-      mostrarMenu: true,
-      tabActiva: 2,
-      cuerpo: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          const SizedBox(height: 20),
+  Widget build(BuildContext context) => BlocBuilder<SesionBloc, AuthState>(
+    builder: (context, sesion) {
+      final usuario = sesion.usuario;
+      if (usuario == null || sesion.sesion != EstadoSesion.activa) {
+        return const PantallaBase(
+          titulo: 'Mi Perfil',
+          conNavegacion: false,
+          mostrarAtras: false,
+          cuerpo: Center(
+            child: Text('Inicia sesión para consultar tu perfil.'),
+          ),
+        );
+      }
+      return _PerfilVista(key: ValueKey(usuario.uid), uid: usuario.uid);
+    },
+  );
+}
 
-          // ══ AVATAR ══
-          Center(
-            child: Stack(
-              children: [
-                const CircleAvatar(
-                  radius: 46,
-                  backgroundColor: AppColors.borde,
-                  child: Icon(Icons.person, size: 46,
-                              color: AppColors.textoGris),
-                ),
-                Positioned(
-                  right: 2, bottom: 2,
-                  child: Container(
-                    width: 18, height: 18,
-                    decoration: BoxDecoration(
-                      color: AppColors.verde,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.fondo, width: 2.5),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Center(child: Text('Ing. Carlos Mendoza',
-            style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold,
-                             color: AppColors.texto))),
-          const SizedBox(height: 6),
-          const Center(child: MetaRow(icono: Icons.badge_outlined,
-            texto: 'Supervisor de Mantenimiento')),
-          const SizedBox(height: 3),
-          const Center(child: MetaRow(icono: Icons.place_outlined,
-            texto: 'Planta Norte • Sector 04')),
-          const SizedBox(height: 10),
-          const Center(child: PillEstado(texto: 'ID: EMP-9420-B',
-            color: AppColors.azul)),
-          const SizedBox(height: 22),
+class _PerfilVista extends StatefulWidget {
+  final String uid;
+  const _PerfilVista({super.key, required this.uid});
 
-          // ══ MÉTRICAS 2×2 ══
-          const Row(children: [
-            Expanded(child: StatCard(icono: Icons.check_circle_outline,
-              valor: '142', etiqueta: 'ÓRDENES COMPLETADAS',
-              nota: '+12% este mes')),
-            SizedBox(width: 12),
-            Expanded(child: StatCard(icono: Icons.schedule,
-              valor: '45m', etiqueta: 'TIEMPO DE RESPUESTA',
-              nota: 'Óptimo')),
-          ]),
-          const SizedBox(height: 12),
-          const Row(children: [
-            Expanded(child: StatCard(icono: Icons.shield_outlined,
-              valor: '100%', etiqueta: 'ÍNDICE DE SEGURIDAD',
-              nota: 'Sin incidencias', color: AppColors.verde)),
-            SizedBox(width: 12),
-            Expanded(child: StatCard(icono: Icons.trending_up,
-              valor: '98.2%', etiqueta: 'EFICIENCIA',
-              nota: 'Top Supervisor', color: AppColors.verde)),
-          ]),
+  @override
+  State<_PerfilVista> createState() => _PerfilVistaState();
+}
 
-          // ══ CONTACTO ══
-          const SeccionHeader(titulo: 'INFORMACIÓN DE CONTACTO'),
-          TarjetaBlanca(
-            child: Column(children: const [
-              MetaRow(icono: Icons.mail_outline, texto: 'Correo Corporativo',
-                valor: 'c.mendoza@plantapulse.com'),
-              SizedBox(height: 14),
-              MetaRow(icono: Icons.business_outlined, texto: 'Departamento',
-                valor: 'Mantenimiento Industrial'),
-              SizedBox(height: 14),
-              MetaRow(icono: Icons.schedule, texto: 'Turno Actual',
-                valor: 'Matutino (06:00 - 14:00)'),
-            ]),
-          ),
+class _PerfilVistaState extends State<_PerfilVista> {
+  late Future<DatosPerfil> _datos;
 
-          // ══ CONFIGURACIÓN ══
-          const SeccionHeader(titulo: 'CONFIGURACIÓN Y GESTIÓN'),
-          // Solo el admin ve la bandeja de aprobación de cuentas
-          BlocBuilder<SesionBloc, AuthState>(
-            buildWhen: (antes, ahora) => antes.esAdmin != ahora.esAdmin,
-            builder: (context, state) => !state.esAdmin
-                ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: FilaOpcion(
-                      icono: Icons.how_to_reg_outlined,
-                      titulo: 'Solicitudes de registro',
-                      subtitulo: 'Aprobar o rechazar cuentas nuevas',
-                      color: AppColors.ambar,
-                      onTap: () =>
-                          Navigator.pushNamed(context, Rutas.solicitudes),
-                    ),
-                  ),
-          ),
-          FilaOpcion(
-            icono: Icons.settings_outlined,
-            titulo: 'Ajustes de Cuenta',
-            subtitulo: 'Privacidad, seguridad y notificaciones',
-            onTap: () => Navigator.pushNamed(context, Rutas.ajustes),
-          ),
-          const SizedBox(height: 10),
-          FilaOpcion(
-            icono: Icons.history,
-            titulo: 'Historial de Actividad',
-            subtitulo: 'Registros de intervenciones y cierres',
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-          FilaOpcion(
-            icono: Icons.description_outlined,
-            titulo: 'Certificaciones',
-            subtitulo: 'Capacitaciones técnicas activas',
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-          FilaOpcion(
-            icono: Icons.logout,
-            titulo: 'CERRAR SESIÓN',
-            subtitulo: 'Desconectar del sistema central',
-            color: AppColors.rojo,
-            onTap: () => _confirmarSalida(context),
-          ),
-
-          const SizedBox(height: 22),
-          const Center(child: Text('Versión del Sistema: 2.4.0-build.82',
-            style: TextStyle(fontSize: 10, color: AppColors.textoGris))),
-          const Center(child: Text('© 2024 PlantaPulse Industrial',
-            style: TextStyle(fontSize: 10, color: AppColors.textoGris))),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _datos = context.read<ConsultarPerfil>().ejecutar(widget.uid);
   }
 
+  void _recargar() => setState(() {
+    _datos = context.read<ConsultarPerfil>().ejecutar(widget.uid);
+  });
+
+  @override
+  Widget build(BuildContext context) => PantallaBase(
+    titulo: 'Mi Perfil',
+    mostrarAtras: false,
+    tabActiva: 2,
+    accionesExtra: [
+      IconButton(
+        tooltip: 'Actualizar perfil',
+        onPressed: _recargar,
+        icon: const Icon(Icons.refresh),
+      ),
+    ],
+    cuerpo: FutureBuilder<DatosPerfil>(
+      future: _datos,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    FalloApp.mensajeDe(snapshot.error!),
+                    textAlign: TextAlign.center,
+                  ),
+                  TextButton(
+                    onPressed: _recargar,
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        final datos = snapshot.data!;
+        final usuario = datos.usuario;
+        final planta = usuario.plantaId.isEmpty
+            ? 'Sin planta asignada'
+            : datos.planta?.nombre ?? 'Planta no disponible';
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            const SizedBox(height: 20),
+            Center(
+              child: CircleAvatar(
+                radius: 46,
+                backgroundColor: AppColors.borde.segunTema(context),
+                child: Icon(Icons.person, size: 46, color: AppColors.textoGris.segunTema(context)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                usuario.nombre,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.texto.segunTema(context),
+                ),
+              ),
+            ),
+            const SeccionHeader(titulo: 'INFORMACIÓN DEL PERFIL'),
+            TarjetaBlanca(
+              child: Column(
+                children: [
+                  MetaRow(
+                    icono: Icons.badge_outlined,
+                    texto: 'Rol',
+                    valor: usuario.rol.etiqueta,
+                  ),
+                  const SizedBox(height: 14),
+                  MetaRow(
+                    icono: Icons.place_outlined,
+                    texto: 'Planta',
+                    valor: planta,
+                  ),
+                  const SizedBox(height: 14),
+                  MetaRow(
+                    icono: Icons.build_outlined,
+                    texto: 'Especialidad',
+                    valor: usuario.especialidad.trim().isEmpty
+                        ? 'Sin especialidad registrada'
+                        : usuario.especialidad,
+                  ),
+                  if (usuario.email.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    MetaRow(
+                      icono: Icons.mail_outline,
+                      texto: 'Correo',
+                      valor: usuario.email,
+                    ),
+                  ],
+                  if (usuario.turno.trim().isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    MetaRow(
+                      icono: Icons.schedule,
+                      texto: 'Turno',
+                      valor: usuario.turno,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SeccionHeader(titulo: 'CONFIGURACIÓN Y GESTIÓN'),
+            if (usuario.rol.esAdmin)
+              FilaOpcion(
+                icono: Icons.how_to_reg_outlined,
+                titulo: 'Solicitudes de registro',
+                subtitulo: 'Aprobar o rechazar cuentas nuevas',
+                color: AppColors.ambar,
+                onTap: () => Navigator.pushNamed(context, Rutas.solicitudes),
+              ),
+            FilaOpcion(
+              icono: Icons.settings_outlined,
+              titulo: 'Ajustes de Cuenta',
+              subtitulo: 'Consultar y guardar tus preferencias',
+              onTap: () => Navigator.pushNamed(context, Rutas.ajustes),
+            ),
+            FilaOpcion(
+              icono: Icons.logout,
+              titulo: 'CERRAR SESIÓN',
+              subtitulo: 'Desconectar del sistema central',
+              color: AppColors.rojo,
+              onTap: () => _confirmarSalida(context),
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
+    ),
+  );
+
   void _confirmarSalida(BuildContext context) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Cerrar sesión?'),
         content: const Text('Se desconectará del sistema central.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () {
-              Navigator.pop(ctx);                      // cierra el diálogo
+              Navigator.pop(ctx);
               context.read<SesionBloc>().add(const AuthCerrarSesion());
-              Navigator.pushNamedAndRemoveUntil(       // vacía la pila
-                context, Rutas.login, (r) => false);
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                Rutas.login,
+                (_) => false,
+              );
             },
-            child: const Text('Salir',
-              style: TextStyle(color: AppColors.rojo)),
+            child: Text('Salir', style: TextStyle(color: AppColors.rojo.segunTema(context))),
           ),
         ],
       ),

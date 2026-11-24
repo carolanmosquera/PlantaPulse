@@ -87,7 +87,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.rojo),
+            style: TextButton.styleFrom(foregroundColor: AppColors.rojo.segunTema(context)),
             child: const Text('Eliminar'),
           ),
         ],
@@ -153,13 +153,13 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
         ),
         // Solo se ofrece si puede funcionar; el servidor revisa el resto
         if (orden.puedeEliminarse)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'eliminar',
             child: ListTile(
-              leading: Icon(Icons.delete_outline, color: AppColors.rojo),
+              leading: Icon(Icons.delete_outline, color: AppColors.rojo.segunTema(context)),
               title: Text(
                 'Eliminar orden',
-                style: TextStyle(color: AppColors.rojo),
+                style: TextStyle(color: AppColors.rojo.segunTema(context)),
               ),
               contentPadding: EdgeInsets.zero,
             ),
@@ -224,10 +224,10 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
               children: [
                 Text(
                   orden.titulo,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.texto,
+                    color: AppColors.texto.segunTema(context),
                     height: 1.3,
                   ),
                 ),
@@ -241,14 +241,14 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.fondo,
+                      color: AppColors.fondo.segunTema(context),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       orden.descripcion,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.texto,
+                        color: AppColors.texto.segunTema(context),
                         height: 1.5,
                       ),
                     ),
@@ -346,10 +346,10 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
                       child: Center(child: CircularProgressIndicator()),
                     )
                   else if (reportes.isEmpty)
-                    const TileAviso(
+                    TileAviso(
                       icono: Icons.forum_outlined,
                       titulo: 'Aún no hay reportes de avance',
-                      color: AppColors.textoGris,
+                      color: AppColors.textoGris.segunTema(context),
                     )
                   else ...[
                     // Supervisor/admin: estimación de la IA sobre los
@@ -415,7 +415,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
       return null;
     }
     return Container(
-      color: Colors.white,
+      color: Colors.white.segunTema(context),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: boton,
     );
@@ -442,9 +442,9 @@ class _TarjetaReporte extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.segunTema(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borde),
+        border: Border.all(color: AppColors.borde.segunTema(context)),
       ),
       // La barra roja va en un Stack y no en un Row con IntrinsicHeight:
       // la cuadrícula de fotos no deja calcular alturas intrínsecas y la
@@ -491,13 +491,13 @@ class _TarjetaReporte extends StatelessWidget {
                           children: [
                             Text(
                               r.autor.nombre,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.texto,
+                                color: AppColors.texto.segunTema(context),
                               ),
                             ),
-                            Text(haceCuanto(r.createdAt), style: AppText.gris),
+                            Text(haceCuanto(r.createdAt), style: AppText.gris.segunTema(context)),
                           ],
                         ),
                       ),
@@ -518,9 +518,9 @@ class _TarjetaReporte extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(
                     r.detalles,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.texto,
+                      color: AppColors.texto.segunTema(context),
                       height: 1.45,
                     ),
                   ),

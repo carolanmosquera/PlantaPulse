@@ -28,17 +28,17 @@ class TileAviso extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icono, size: 18, color: color),
+          Icon(icono, size: 18, color: color.segunTema(context)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titulo, style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.texto)),
+                Text(titulo, style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.texto.segunTema(context))),
                 if (subtitulo != null) ...[
                   const SizedBox(height: 2),
-                  Text(subtitulo!, style: AppText.gris),
+                  Text(subtitulo!, style: AppText.gris.segunTema(context)),
                 ],
               ],
             ),

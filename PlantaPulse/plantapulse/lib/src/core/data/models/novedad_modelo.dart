@@ -19,6 +19,7 @@ class NovedadModelo extends Novedad {
     super.ordenId,
     super.revisadaPor,
     super.revisadaEn,
+    super.motivoDescarte,
     required super.createdAt,
   });
 
@@ -35,11 +36,25 @@ class NovedadModelo extends Novedad {
         ordenId: textoOpcional(j['orden_id']),
         revisadaPor: UsuarioRefModelo.fromJsonOpcional(j['revisada_por']),
         revisadaEn: fechaOpcional(j['revisada_en']),
+        motivoDescarte: textoOpcional(j['motivo_descarte']),
         createdAt: fecha(j['created_at']),
       );
 
-  /// Sin id ni created_at: los ponen Postgres y el trigger.
+  factory NovedadModelo.desdeEntidad(Novedad novedad) => NovedadModelo(
+        id: novedad.id,
+        plantaId: novedad.plantaId,
+        zonaId: novedad.zonaId,
+        zonaNombre: novedad.zonaNombre,
+        descripcion: novedad.descripcion,
+        categoria: novedad.categoria,
+        autor: novedad.autor,
+        evidencias: novedad.evidencias,
+        createdAt: novedad.createdAt,
+      );
+
+  /// Datos de alta. El servidor fija la fecha y el estado inicial.
   Map<String, dynamic> toJson() => {
+        'id': id,
         'planta_id': plantaId,
         'zona_id': zonaId,
         'zona_nombre': zonaNombre,
@@ -47,9 +62,5 @@ class NovedadModelo extends Novedad {
         'categoria': categoria.db,
         'autor': refAJson(autor),
         'evidencias': evidenciasAJson(evidencias),
-        'estado': estado.db,
-        'orden_id': ordenId,
-        'revisada_por': refAJsonOpcional(revisadaPor),
-        'revisada_en': aIsoOpcional(revisadaEn),
       };
 }

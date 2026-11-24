@@ -50,10 +50,10 @@ class OrdenCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.segunTema(context),
           borderRadius: BorderRadius.circular(12),
           // Un ÚNICO borde, y uniforme. La barra de color NO va aquí.
-          border: Border.all(color: AppColors.borde),
+          border: Border.all(color: AppColors.borde.segunTema(context)),
         ),
         // ClipRRect recorta el contenido para que la foto y la barra
         // respeten las esquinas redondeadas de la tarjeta.
@@ -66,7 +66,7 @@ class OrdenCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (conBarra) Container(width: 4, color: estadoColor),
-                Expanded(child: _contenido()),
+                Expanded(child: _contenido(context)),
               ],
             ),
           ),
@@ -75,7 +75,7 @@ class OrdenCard extends StatelessWidget {
     );
   }
 
-  Widget _contenido() {
+  Widget _contenido(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -92,7 +92,7 @@ class OrdenCard extends StatelessWidget {
                 // Si la imagen falla, mostramos un bloque gris en vez de romper la UI
                 errorBuilder: (_, __, ___) => Container(
                   height: 120,
-                  color: AppColors.borde,
+                  color: AppColors.borde.segunTema(context),
                   child: const Icon(Icons.image_not_supported_outlined,
                       color: Colors.white),
                 ),
@@ -125,7 +125,7 @@ class OrdenCard extends StatelessWidget {
               if (estilo == EstiloOrden.conBarra) ...[
                 Row(
                   children: [
-                    Expanded(child: Text(codigo, style: AppText.gris)),
+                    Expanded(child: Text(codigo, style: AppText.gris.segunTema(context))),
                     PillEstado(texto: estado, color: estadoColor),
                   ],
                 ),
@@ -134,7 +134,7 @@ class OrdenCard extends StatelessWidget {
 
               Text(
                 titulo,
-                style: AppText.subtitulo,
+                style: AppText.subtitulo.segunTema(context),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -146,29 +146,29 @@ class OrdenCard extends StatelessWidget {
                     texto: 'Sin asignar'),
               ],
               const SizedBox(height: 10),
-              const Divider(height: 1, color: AppColors.borde),
+              Divider(height: 1, color: AppColors.borde.segunTema(context)),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.schedule,
-                      size: 14, color: AppColors.textoGris),
+                  Icon(Icons.schedule,
+                      size: 14, color: AppColors.textoGris.segunTema(context)),
                   const SizedBox(width: 4),
-                  Text(hora, style: AppText.gris),
+                  Text(hora, style: AppText.gris.segunTema(context)),
                   if (reportes > 0) ...[
                     const SizedBox(width: 10),
-                    const Icon(Icons.forum_outlined,
-                        size: 14, color: AppColors.textoGris),
+                    Icon(Icons.forum_outlined,
+                        size: 14, color: AppColors.textoGris.segunTema(context)),
                     const SizedBox(width: 4),
                     Text(reportes == 1 ? '1 reporte' : '$reportes reportes',
-                        style: AppText.gris),
+                        style: AppText.gris.segunTema(context)),
                   ],
                   const SizedBox(width: 12),
                   Flexible(
                     child: PillEstado(texto: prioridad, color: estadoColor),
                   ),
                   const Spacer(),
-                  const Icon(Icons.arrow_forward,
-                      size: 16, color: AppColors.textoGris),
+                  Icon(Icons.arrow_forward,
+                      size: 16, color: AppColors.textoGris.segunTema(context)),
                 ],
               ),
             ],

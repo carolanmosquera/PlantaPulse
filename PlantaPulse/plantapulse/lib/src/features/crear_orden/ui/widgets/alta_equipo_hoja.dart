@@ -169,7 +169,7 @@ class _AltaEquipoHojaState extends State<AltaEquipoHoja> {
             controller: _serial),
         CampoTexto(label: 'Modelo (opcional)', hint: 'Ej: 2022',
             controller: _modelo),
-        const Text('TIPO (OPCIONAL)', style: AppText.label),
+        Text('TIPO (OPCIONAL)', style: AppText.label.segunTema(context)),
         const SizedBox(height: 8),
         ChipsFila(
           opciones: _tipos.values.toList(),
