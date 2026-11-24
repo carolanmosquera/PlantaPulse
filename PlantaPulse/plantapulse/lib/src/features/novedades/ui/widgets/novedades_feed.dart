@@ -87,6 +87,7 @@ class _NovedadesFeedState extends State<NovedadesFeed>
                 in _expandida ? novedades : novedades.take(_cantidadResumen))
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                isThreeLine: true,
                 leading: Icon(novedad.categoria.icono),
                 title: Text(
                   novedad.descripcion,
@@ -94,7 +95,8 @@ class _NovedadesFeedState extends State<NovedadesFeed>
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(
-                  '${novedad.categoria.etiqueta} · ${novedad.estado.etiqueta}',
+                  '${novedad.categoria.etiqueta} · ${novedad.estado.etiqueta}\n'
+                  '${novedad.autor.nombre} · ${fechaCorta(novedad.createdAt)}',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push<void>(

@@ -120,10 +120,22 @@ void main() {
     await tester.pumpAndSettle();
     final publicar = find.widgetWithText(BotonAncho, 'Publicar novedad');
     expect(tester.widget<BotonAncho>(publicar).onTap, isNull);
+    expect(find.text('Escribe al menos 5 caracteres (falta 1).'), findsOneWidget);
+    expect(
+      find.text(
+        'Para publicar, describe la novedad con al menos 5 caracteres.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(publicar, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('Reportar novedad'), findsOneWidget);
     expect(novedades.filas.values.where((n) => n.plantaId == 'p1'), isEmpty);
 
     await tester.enterText(find.byType(TextField), '  Luz rota ');
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('novedad-requisitos')), findsNothing);
+    expect(find.textContaining('Escribe al menos'), findsNothing);
     await tocar(tester, 'Agregar foto');
     await tocar(tester, 'Elegir de la galería');
     await tocar(tester, 'Publicar novedad');
@@ -137,6 +149,52 @@ void main() {
     expect(novedad.autor.uid, 'tec');
     expect(novedad.categoria, CategoriaNovedad.seguridad);
     expect(novedad.evidencias.single.ruta, almacen.subidas.single);
+  });
+
+  testWidgets('sin categoría ni texto el formulario explica qué falta', (
+    tester,
+  ) async {
+    await entrar(tester, 'tec');
+    await tocar(tester, 'Reportar novedad');
+    expect(
+      find.text(
+        'Para publicar, describe la novedad con al menos 5 caracteres '
+        'y elige una categoría.',
+      ),
+      findsOneWidget,
+    );
+    // Solo espacios no cuentan como descripción.
+    await tester.enterText(find.byType(TextField), '        ');
+    await tester.pumpAndSettle();
+    expect(find.text('Escribe al menos 5 caracteres (faltan 5).'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Fuga de aceite');
+    await tester.pumpAndSettle();
+    expect(find.text('Para publicar, elige una categoría.'), findsOneWidget);
+    final publicar = find.widgetWithText(BotonAncho, 'Publicar novedad');
+    expect(tester.widget<BotonAncho>(publicar).onTap, isNull);
+    expect(novedades.filas, isEmpty);
+  });
+
+  testWidgets('lo que publica una técnica lo ve otra persona de la planta', (
+    tester,
+  ) async {
+    await entrar(tester, 'tec');
+    await tocar(tester, 'Reportar novedad');
+    await tocar(tester, 'Categoría');
+    await tocar(tester, 'Infraestructura');
+    await tester.enterText(find.byType(TextField), 'Ventana agrietada');
+    await tester.pumpAndSettle();
+    await tocar(tester, 'Publicar novedad');
+    expect(find.text('Ventana agrietada'), findsOneWidget);
+
+    // Otra sesión, con otro rol, en la misma planta.
+    await auth.salir();
+    await tester.pumpWidget(const SizedBox());
+    await entrar(tester, 'sup');
+    expect(find.text('Ventana agrietada'), findsOneWidget);
+    expect(find.textContaining('Infraestructura · REPORTADA'), findsOneWidget);
+    expect(find.textContaining('Ana Ruiz · Hoy'), findsOneWidget);
   });
 
   testWidgets('el supervisor convierte y vuelve a la novedad vinculada', (
