@@ -1,10 +1,14 @@
-# enviar-push (KAN-97)
+# enviar-push (KAN-97 y KAN-95)
 
-Envía la notificación push cuando a un técnico le asignan una orden. La
-llama el trigger de `supabase/06_push_asignacion.sql`. La app ya sabe
-abrir la orden al tocar la notificación (KAN-96).
+Envía las notificaciones push de órdenes. La app ya sabe abrir la orden
+al tocar cualquiera de ellas (KAN-96).
 
-## Quién recibe el aviso
+| Aviso | Para quién | Quién llama a la función |
+| --- | --- | --- |
+| Orden asignada (KAN-97) | El técnico responsable | El trigger de `supabase/06_push_asignacion.sql` |
+| Orden crítica sin avance (KAN-95) | Los supervisores de la planta | El cron de `supabase/07_recordatorios_estancadas.sql`, cada 15 minutos |
+
+## Quién recibe el aviso de asignación
 
 Solo el responsable nuevo de la orden, y solo si:
 
@@ -13,6 +17,19 @@ Solo el responsable nuevo de la orden, y solo si:
   (`preferencias_avisos`, KAN-100),
 - si marcó "solo críticas", la orden es de prioridad alta o urgente,
 - no es quien creó la orden (un supervisor que se asigna una orden a sí mismo).
+
+## Quién recibe el recordatorio de órdenes estancadas
+
+Una orden está estancada si es **crítica** (prioridad Urgente o estado
+crítica), sigue **abierta** (ni en validación ni completada) y su último
+reporte, o su creación si no tiene, fue hace **más de 4 horas**.
+
+Se avisa a cada **supervisor activo de la planta** que tenga teléfono
+registrado y no haya apagado las notificaciones push ni los avisos de
+órdenes. "Solo críticas" no lo deja por fuera, porque la orden es crítica.
+
+El recordatorio se repite cada 4 horas mientras la orden siga sin
+reportes. Si recibe un reporte, el conteo empieza de nuevo.
 
 ## Puesta en marcha (una sola vez)
 
@@ -40,7 +57,8 @@ Solo el responsable nuevo de la orden, y solo si:
    select vault.create_secret('<el mismo valor del paso 2>', 'push_webhook_secret');
    ```
 
-   Luego ejecutar entero `supabase/06_push_asignacion.sql`.
+   Luego ejecutar enteros `supabase/06_push_asignacion.sql` (KAN-97) y
+   `supabase/07_recordatorios_estancadas.sql` (KAN-95).
 
 ## Cómo probarlo
 
@@ -53,6 +71,21 @@ Solo el responsable nuevo de la orden, y solo si:
 
 Si no llega: Supabase → Edge Functions → enviar-push → Logs. La respuesta
 dice el motivo (`enviado: false, motivo: ...`).
+
+### Recordatorio de órdenes estancadas (KAN-95)
+
+Para no esperar 4 horas, en el SQL Editor se puede envejecer una orden de
+prueba (crítica, sin reportes):
+
+```sql
+update ordenes set created_at = now() - interval '5 hours' where codigo = 'ORD-XXXX';
+select * from public.ordenes_estancadas(4);      -- debe aparecer
+select public.revisar_ordenes_estancadas();      -- envía sin esperar al cron
+```
+
+Al supervisor de esa planta le llega "Orden crítica sin avance · ORD-… lleva
+5 h sin reportes". Si se vuelve a ejecutar, ya no sale de nuevo hasta dentro
+de 4 horas.
 
 ## Pruebas de las reglas
 
