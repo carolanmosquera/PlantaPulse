@@ -49,6 +49,24 @@ class OrdenRepositorioImpl implements OrdenRepositorio {
   }
 
   @override
+  Future<List<Orden>> buscarHistorial({
+    required String plantaId,
+    required String texto,
+    String? equipoId,
+    required int desde,
+    required int limite,
+  }) async {
+    final filas = await _fuente.buscarHistorial(
+      plantaId: plantaId,
+      texto: texto,
+      equipoId: equipoId,
+      desde: desde,
+      limite: limite,
+    );
+    return filas.map(OrdenModelo.fromJson).where((o) => !o.eliminada).toList();
+  }
+
+  @override
   String nuevoId() => _fuente.nuevoId();
 
   @override

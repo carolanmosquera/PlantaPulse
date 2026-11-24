@@ -16,6 +16,15 @@ abstract class OrdenRepositorio {
   /// notificación push para abrir la orden que menciona.
   Future<Orden?> obtener(String ordenId);
 
+  /// Página del historial, consultada en el servidor e independiente del feed.
+  Future<List<Orden>> buscarHistorial({
+    required String plantaId,
+    required String texto,
+    String? equipoId,
+    required int desde,
+    required int limite,
+  });
+
   /// Un id nuevo para una orden que aún no existe. Sirve para subir sus
   /// fotos a su carpeta ANTES de crearla: si una subida falla, la orden no
   /// se crea y no queda a medias.

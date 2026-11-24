@@ -759,4 +759,17 @@ void main() {
     await entrarComo(tester, 'tec1');
     expect(find.text('Órdenes por validar'), findsNothing);
   });
+  probar('el supervisor abre el historial independiente desde el feed', (
+    tester,
+  ) async {
+    await entrarComo(tester, 'sup1');
+    await tocar(tester, 'Historial de mantenimiento');
+    expect(find.text('No hay órdenes que coincidan'), findsOneWidget);
+    expect(find.text('Todos los equipos'), findsOneWidget);
+  });
+
+  probar('el técnico no ve el acceso al historial', (tester) async {
+    await entrarComo(tester, 'tec1');
+    expect(find.text('Historial de mantenimiento'), findsNothing);
+  });
 }

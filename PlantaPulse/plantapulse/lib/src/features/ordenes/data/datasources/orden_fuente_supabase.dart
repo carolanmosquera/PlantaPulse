@@ -52,6 +52,26 @@ class OrdenFuenteSupabase {
   Future<Map<String, dynamic>?> obtener(String ordenId) =>
       traducirSupabase(() => _tabla.select().eq('id', ordenId).maybeSingle());
 
+  Future<List<Map<String, dynamic>>> buscarHistorial({
+    required String plantaId,
+    required String texto,
+    String? equipoId,
+    required int desde,
+    required int limite,
+  }) => traducirSupabase(() async {
+    final filas = await _db.rpc(
+      'buscar_historial_ordenes',
+      params: {
+        'p_planta_id': plantaId,
+        'p_texto': texto,
+        'p_equipo_id': equipoId,
+        'p_desde': desde,
+        'p_limite': limite,
+      },
+    );
+    return List<Map<String, dynamic>>.from(filas as List);
+  });
+
   /// UUID v4, el mismo tipo que genera Postgres con gen_random_uuid().
   String nuevoId() => const Uuid().v4();
 

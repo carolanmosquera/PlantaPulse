@@ -191,6 +191,11 @@ class FakeEquipoRepository implements EquipoRepositorio {
   final List<Equipo> equipos = [];
 
   @override
+  Future<List<Equipo>> conHistorial(String plantaId) async =>
+      equipos.where((e) => e.plantaId == plantaId).toList()
+        ..sort((a, b) => a.nombre.compareTo(b.nombre));
+
+  @override
   Future<List<Equipo>> deLaPlanta(String plantaId) async => equipos
       .where((e) => e.plantaId == plantaId && e.activo)
       .toList()
@@ -308,6 +313,34 @@ class FakeOrdenRepository implements OrdenRepositorio {
   }
 
   final List<Orden> ordenes = [];
+
+  @override
+  Future<List<Orden>> buscarHistorial({
+    required String plantaId,
+    required String texto,
+    String? equipoId,
+    required int desde,
+    required int limite,
+  }) async {
+    final terminos = texto.trim().toLowerCase().split(RegExp(r'\s+'));
+    return (ordenes
+            .where(
+              (o) =>
+                  o.plantaId == plantaId &&
+                  !o.eliminada &&
+                  (equipoId == null || o.equipoId == equipoId) &&
+                  terminos.every(
+                    (t) => ('${o.titulo} ${o.descripcion}')
+                        .toLowerCase()
+                        .contains(t),
+                  ),
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)))
+        .skip(desde)
+        .take(limite)
+        .toList();
+  }
 
   /// Las órdenes que recibió crear(), tal como las entregó el Bloc.
   /// Las pruebas revisan la entidad (el contrato), no el formato de la

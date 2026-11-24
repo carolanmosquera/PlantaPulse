@@ -373,6 +373,19 @@ class PlantaPulseApp extends StatelessWidget {
                     Rutas.crearOrden: (_) => const CrearOrdenP1Screen(),
                     Rutas.resumenTurno: (_) => const ResumenTurnoScreen(),
                     Rutas.misTareas: (_) => const MisTareasScreen(),
+                    Rutas.historial: (context) => BlocProvider(
+                      create: (c) =>
+                          HistorialBloc(
+                            c.read<OrdenRepositorio>(),
+                            c.read<EquipoRepositorio>(),
+                          )..add(
+                            HistorialIniciado(
+                              c.read<SesionBloc>().state.usuario?.plantaId ??
+                                  '',
+                            ),
+                          ),
+                      child: const HistorialScreen(),
+                    ),
                     Rutas.emergencia: (_) => const EmergenciaScreen(),
                     Rutas.espera: (_) => const EsperaAprobacionScreen(),
                     Rutas.solicitudes: (_) => const SolicitudesScreen(),

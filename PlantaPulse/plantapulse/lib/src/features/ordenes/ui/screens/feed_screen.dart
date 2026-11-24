@@ -144,6 +144,13 @@ class _FeedScreenState extends State<FeedScreen> {
               // esperan revisión, y dentro de cada una está "Validar evidencia"
               if (puedeCrear) ...[
                 FilaOpcion(
+                  icono: Icons.history,
+                  titulo: 'Historial de mantenimiento',
+                  subtitulo: 'Buscar órdenes anteriores por texto y equipo',
+                  color: AppColors.azul,
+                  onTap: () => Navigator.pushNamed(context, Rutas.historial),
+                ),
+                FilaOpcion(
                   icono: Icons.fact_check_outlined,
                   titulo: 'Órdenes por validar',
                   subtitulo: switch (porValidar) {

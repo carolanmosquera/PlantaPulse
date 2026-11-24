@@ -13,6 +13,7 @@ class Rutas {
   static const resumenTurno = '/resumen-turno';
   static const validar      = '/validar-evidencia';
   static const misTareas    = '/mis-tareas';
+  static const historial    = '/historial';
   static const llenarReporte= '/llenar-reporte';
   static const emergencia   = '/emergencia';
   static const espera       = '/espera-aprobacion';
