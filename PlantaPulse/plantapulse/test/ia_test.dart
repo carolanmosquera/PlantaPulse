@@ -12,6 +12,7 @@ import 'package:plantapulse/main.dart';
 import 'package:plantapulse/src/core/core.dart';
 import 'package:plantapulse/src/core/data/data.dart';
 import 'package:plantapulse/src/features/crear_orden/crear_orden.dart';
+import 'package:plantapulse/src/features/perfil/perfil.dart';
 import 'package:plantapulse/src/features/reportes/reportes.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -186,6 +187,7 @@ void main() {
   late FakeCategoriaRepository categorias;
   late FakeReporteRepository reportes;
   late FakeIaRepositorio ia;
+  late PreferenciasFake preferencias;
 
   const nota = 'Fuga de aceite en sello del motor';
 
@@ -210,6 +212,7 @@ void main() {
     categorias = FakeCategoriaRepository();
     reportes = FakeReporteRepository();
     ia = FakeIaRepositorio();
+    preferencias = PreferenciasFake();
 
     categorias.categorias.addAll(const [
       Categoria(id: 'cat-elec', plantaId: 'p1', nombre: 'Eléctrico', icono: 'rayo'),
@@ -269,7 +272,7 @@ void main() {
       zonaRepositorio: FakeZonaRepository(),
       reporteRepositorio: reportes,
       almacenamientoRepositorio: FakeAlmacenamientoRepository(),
-      preferenciasRepositorio: PreferenciasFake(),
+      preferenciasRepositorio: preferencias,
       iaRepositorio: ia,
     ));
     await tester.pump(const Duration(seconds: 3));
@@ -649,6 +652,32 @@ void main() {
           findsOneWidget);
       expect(ia.progresos, hasLength(1));
       expect(find.text('CALCULAR PROGRESO'), findsOneWidget);
+    });
+
+    probar('en modo oscuro los textos de la tarjeta se aclaran (no quedan fijos)',
+        (tester) async {
+      preferencias.cuentas['sup1'] =
+          const PreferenciasUsuario(modoOscuro: true);
+      ia.progreso = const ProgresoOrdenIa(
+        porcentaje: 40,
+        resumen: 'Se desmontó el equipo.',
+        falta: 'Instalar el repuesto.',
+      );
+      await abrirDetalle(tester, 'sup1');
+      await bajarHasta(tester, find.text('CALCULAR PROGRESO'));
+      await tocar(tester, 'CALCULAR PROGRESO');
+
+      final etiqueta = find.text('Lo que se lleva');
+      expect(Theme.of(tester.element(etiqueta)).brightness, Brightness.dark);
+      Color? colorDe(Finder f) => tester.widget<Text>(f).style?.color;
+      const oscuro = Brightness.dark;
+      expect(colorDe(etiqueta), AppColors.adaptar(AppColors.textoGris, oscuro));
+      expect(colorDe(find.text('Se desmontó el equipo.')),
+          AppColors.adaptar(AppColors.texto, oscuro));
+      expect(colorDe(find.text('Instalar el repuesto.')),
+          AppColors.adaptar(AppColors.texto, oscuro));
+      expect(colorDe(find.textContaining('no debe tomarse como literal')),
+          AppColors.adaptar(AppColors.textoGris, oscuro));
     });
 
     probar('el técnico no ve "Calcular progreso"', (tester) async {

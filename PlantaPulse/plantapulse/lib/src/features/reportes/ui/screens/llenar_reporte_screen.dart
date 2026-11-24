@@ -258,16 +258,16 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
                       ),
                     ),
                   if (state.textoDeIa)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
                       child: Row(
                         children: [
-                          MarcaIa(texto: 'REDACTADO CON IA'),
-                          SizedBox(width: 8),
+                          const MarcaIa(texto: 'REDACTADO CON IA'),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Revísalo antes de enviar: tú firmas el reporte.',
-                              style: AppText.gris,
+                              style: AppText.gris.segunTema(context),
                             ),
                           ),
                         ],

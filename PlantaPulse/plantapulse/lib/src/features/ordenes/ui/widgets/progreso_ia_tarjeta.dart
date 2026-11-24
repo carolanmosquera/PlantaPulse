@@ -64,9 +64,9 @@ class _ProgresoIaVista extends StatelessWidget {
                 ),
               if (state.calculando && progreso == null) ...[
                 const SizedBox(height: 8),
-                const LinearProgressIndicator(
+                LinearProgressIndicator(
                   minHeight: 3,
-                  backgroundColor: AppColors.borde,
+                  backgroundColor: AppColors.borde.segunTema(context),
                   color: AppColors.naranja,
                 ),
               ],
@@ -91,6 +91,11 @@ class _ProgresoIaVista extends StatelessWidget {
     ProgresoOrdenIa progreso,
   ) {
     final hayNuevos = reportes.length != state.reportesAnalizados;
+    // Los estilos pasan por segunTema: en modo oscuro la tarjeta es oscura
+    // y el texto tiene que aclararse
+    final etiqueta = AppText.label.segunTema(context);
+    final cuerpo = AppText.cuerpo.segunTema(context);
+    final gris = AppColors.textoGris.segunTema(context);
     return TarjetaBlanca(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,8 +104,8 @@ class _ProgresoIaVista extends StatelessWidget {
             children: [
               const Icon(Icons.auto_awesome, size: 16, color: AppColors.naranja),
               const SizedBox(width: 6),
-              const Expanded(
-                child: Text('PROGRESO ESTIMADO POR IA', style: AppText.label),
+              Expanded(
+                child: Text('PROGRESO ESTIMADO POR IA', style: etiqueta),
               ),
               Text('≈ ${progreso.porcentaje} %',
                   style: const TextStyle(
@@ -124,14 +129,14 @@ class _ProgresoIaVista extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Text('Lo que se lleva', style: AppText.label),
+          Text('Lo que se lleva', style: etiqueta),
           const SizedBox(height: 4),
-          Text(progreso.resumen, style: AppText.cuerpo),
+          Text(progreso.resumen, style: cuerpo),
           if (progreso.falta.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Text('Lo que podría faltar', style: AppText.label),
+            Text('Lo que podría faltar', style: etiqueta),
             const SizedBox(height: 4),
-            Text(progreso.falta, style: AppText.cuerpo),
+            Text(progreso.falta, style: cuerpo),
           ],
           const SizedBox(height: 6),
           Row(
@@ -144,7 +149,7 @@ class _ProgresoIaVista extends StatelessWidget {
                           '${state.reportesAnalizados == 1 ? 'reporte' : 'reportes'}.',
                   style: TextStyle(
                       fontSize: 11.5,
-                      color: hayNuevos ? AppColors.naranja : AppColors.textoGris),
+                      color: hayNuevos ? AppColors.naranja : gris),
                 ),
               ),
               TextButton.icon(
@@ -161,11 +166,11 @@ class _ProgresoIaVista extends StatelessWidget {
           ),
           const Divider(height: 16),
           // El aviso va al final, siempre visible con el resultado
-          const Row(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, size: 14, color: AppColors.textoGris),
-              SizedBox(width: 6),
+              Icon(Icons.info_outline, size: 14, color: gris),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Análisis generado con criterio de IA a partir de los '
@@ -174,7 +179,7 @@ class _ProgresoIaVista extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 11,
                       fontStyle: FontStyle.italic,
-                      color: AppColors.textoGris,
+                      color: gris,
                       height: 1.35),
                 ),
               ),
