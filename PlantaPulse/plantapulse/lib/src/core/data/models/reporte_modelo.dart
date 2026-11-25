@@ -42,8 +42,11 @@ class ReporteModelo extends Reporte {
         createdAt: fecha(j['created_at']),
       );
 
-  /// Sin id ni created_at: los ponen Postgres y el trigger.
+  /// Sin created_at: lo pone el trigger. El id normalmente lo genera
+  /// Postgres; solo se manda si la app ya lo fijó (reportes que pueden
+  /// quedar en la cola sin conexión: así un reintento no se duplica).
   Map<String, dynamic> toJson() => {
+        if (id.isNotEmpty) 'id': id,
         'orden_id': ordenId,
         'autor': refAJson(autor),
         'detalles': detalles,

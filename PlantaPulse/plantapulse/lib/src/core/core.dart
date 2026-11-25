@@ -4,6 +4,9 @@
 // las implementaciones de repositorio y main.dart.
 export 'components/widgets.dart';
 export 'domain/domain.dart';
+export 'offline/aviso_reportes_pendientes.dart';
+export 'offline/cola_reportes_cubit.dart';
+export 'offline/sincronizador_reportes.dart';
 export 'sesion/sesion_bloc.dart';
 export 'theme/app_colors.dart';
 export 'theme/estilos_entidades.dart';

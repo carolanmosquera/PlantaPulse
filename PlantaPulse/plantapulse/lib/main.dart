@@ -83,6 +83,7 @@ class PlantaPulseApp extends StatelessWidget {
   final ZonaRepositorio? zonaRepositorio;
   final ReporteRepositorio? reporteRepositorio;
   final AlmacenamientoRepositorio? almacenamientoRepositorio;
+  final ColaReportesRepositorio? colaReportesRepositorio;
   final IaRepositorio? iaRepositorio;
   final PreferenciasRepositorio? preferenciasRepositorio;
   final PushRepositorio? pushRepositorio;
@@ -107,6 +108,7 @@ class PlantaPulseApp extends StatelessWidget {
     this.zonaRepositorio,
     this.reporteRepositorio,
     this.almacenamientoRepositorio,
+    this.colaReportesRepositorio,
     this.iaRepositorio,
     this.preferenciasRepositorio,
     this.pushRepositorio,
@@ -205,6 +207,12 @@ class PlantaPulseApp extends StatelessWidget {
         ),
         // El asistente: la fuente invoca la Edge Function 'ia' con el token
         // de la sesión. La clave de Gemini vive en la función, no en la app.
+        // KAN-98: reportes guardados en el teléfono cuando no hay conexión
+        RepositoryProvider<ColaReportesRepositorio>(
+          create: (_) =>
+              colaReportesRepositorio ??
+              ColaReportesRepositorioImpl(ColaReportesFuenteLocal()),
+        ),
         RepositoryProvider<IaRepositorio>(
           create: (_) =>
               iaRepositorio ?? IaRepositorioImpl(IaFuenteSupabase()),
@@ -275,7 +283,11 @@ class PlantaPulseApp extends StatelessWidget {
           create: (c) => SubirEvidencia(c.read<AlmacenamientoRepositorio>()),
         ),
         RepositoryProvider(
-          create: (c) => PublicarReporte(c.read<ReporteRepositorio>()),
+          // Sin conexión, el reporte queda en la cola en vez de perderse
+          create: (c) => PublicarReporte(
+            c.read<ReporteRepositorio>(),
+            cola: c.read<ColaReportesRepositorio>(),
+          ),
         ),
         RepositoryProvider(
           create: (c) => CerrarOrden(c.read<OrdenRepositorio>()),
@@ -381,12 +393,27 @@ class PlantaPulseApp extends StatelessWidget {
                 );
             },
           ),
+          // Reintenta enviar los reportes guardados sin conexión
+          BlocProvider<ColaReportesCubit>(
+            create: (context) {
+              final cola = context.read<ColaReportesRepositorio>();
+              return ColaReportesCubit(
+                sincronizar: SincronizarReportesPendientes(
+                  context.read<ReporteRepositorio>(),
+                  cola,
+                ),
+                contar: ContarReportesPendientes(cola),
+              );
+            },
+          ),
         ],
         child: BlocListener<SesionBloc, AuthState>(
           listener: (context, state) => context.read<TemaCubit>().cambiarCuenta(
             state.sesion == EstadoSesion.activa ? state.usuario?.uid : null,
           ),
-          child: EscuchaPush(
+          child: SincronizadorReportes(
+            navegador: navegador,
+            child: EscuchaPush(
             navegador: navegador,
             child: EscuchaAlertasCriticas(
               navegador: navegador,
@@ -454,6 +481,7 @@ class PlantaPulseApp extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ),
         ),
       ),

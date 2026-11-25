@@ -28,6 +28,13 @@ class FalloAutenticacion extends FalloApp {
   const FalloAutenticacion(super.mensaje);
 }
 
+/// El registro ya existe (índice único). Lo usa la cola de reportes sin
+/// conexión: si el reintento choca con su propio id, el envío anterior
+/// sí había llegado.
+class FalloDuplicado extends FalloApp {
+  const FalloDuplicado([super.mensaje = 'Ese registro ya existe.']);
+}
+
 /// Las reglas de seguridad de la base de datos rechazaron la operación.
 class FalloPermisos extends FalloApp {
   const FalloPermisos(

@@ -130,6 +130,10 @@ class _FeedScreenState extends State<FeedScreen> {
               if (usuario != null && usuario.puedeEntrar)
                 NovedadesFeed(key: ValueKey(usuario.plantaId), usuario: usuario),
 
+              // ══ REPORTES SIN ENVIAR (KAN-98) ══
+              // Solo aparece si hay reportes guardados sin conexión
+              const AvisoReportesPendientes(),
+
               // ══ MIS TAREAS (técnico) ══
               if (esTecnico) ...[
                 FilaOpcion(

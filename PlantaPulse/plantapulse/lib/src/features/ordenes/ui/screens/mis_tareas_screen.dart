@@ -64,6 +64,8 @@ class _MisTareasScreenState extends State<MisTareasScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           const SizedBox(height: 12),
+          // Reportes guardados sin conexión (KAN-98)
+          const AvisoReportesPendientes(),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

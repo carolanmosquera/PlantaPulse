@@ -114,6 +114,21 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
   }
 
   void _alCambiarEstado(BuildContext context, LlenarReporteState state) {
+    if (state.status == EstadoLlenarReporte.enCola) {
+      // Sin señal: no se perdió. El aviso del feed cuenta los pendientes
+      // y se envía solo cuando vuelva la conexión
+      context.read<ColaReportesCubit>().refrescar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.ambar,
+          duration: Duration(seconds: 6),
+          content: Text('Sin conexión: el reporte quedó guardado en el '
+              'teléfono y se enviará solo cuando vuelva la señal.'),
+        ),
+      );
+      Navigator.pop(context);
+      return;
+    }
     if (state.status == EstadoLlenarReporte.publicado) {
       // La orden ya cambió en el servidor; el detalle lo recibe por stream
       ScaffoldMessenger.of(context).showSnackBar(

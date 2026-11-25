@@ -11,10 +11,13 @@ import '../../../../core/errors/fallos.dart';
 /// la orden: duplicaría el trabajo y el técnico ni siquiera tiene permiso
 /// para cambiar esos campos.
 class ReporteFuenteSupabase {
-  final SupabaseClient _db;
+  final SupabaseClient? _cliente;
 
-  ReporteFuenteSupabase({SupabaseClient? cliente})
-      : _db = cliente ?? Supabase.instance.client;
+  ReporteFuenteSupabase({this._cliente});
+
+  // Se resuelve al usarla, no al crearla: la cola de reportes sin conexión
+  // (KAN-98) la crea al arrancar la app, antes de que haga falta.
+  SupabaseClient get _db => _cliente ?? Supabase.instance.client;
 
   SupabaseQueryBuilder get _tabla => _db.from('reportes');
 

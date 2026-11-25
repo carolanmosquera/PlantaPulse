@@ -34,7 +34,7 @@ FalloApp falloDesdeSupabase(
     // eliminar_orden); su mensaje ya está en español y explica el motivo.
     return switch (e.code) {
       '42501' || 'PGRST301' || 'PGRST302' => FalloPermisos(permisos),
-      '23505' => FalloApp(duplicado),
+      '23505' => FalloDuplicado(duplicado),
       'P0001' || 'P0002' => FalloApp(e.message),
       _ => FalloApp(generico),
     };

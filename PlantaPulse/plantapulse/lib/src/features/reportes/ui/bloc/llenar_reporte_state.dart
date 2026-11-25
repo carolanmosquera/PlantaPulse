@@ -7,7 +7,9 @@ import '../../../../core/domain/entities/reporte.dart';
 // FotoPendiente vive en core (también la usa crear orden)
 export '../../../../core/domain/entities/foto_pendiente.dart';
 
-enum EstadoLlenarReporte { editando, publicando, publicado, error }
+/// enCola: sin conexión, el reporte quedó guardado en el teléfono y se
+/// enviará solo (KAN-98). Para la pantalla es un final, como publicado.
+enum EstadoLlenarReporte { editando, publicando, publicado, enCola, error }
 
 class LlenarReporteState extends Equatable {
   final EstadoLlenarReporte status;

@@ -159,8 +159,12 @@ class LlenarReporteBloc extends Bloc<LlenarReporteEvent, LlenarReporteState> {
     );
 
     try {
-      await _publicarReporte.ejecutar(reporte);
-      emit(state.copyWith(status: EstadoLlenarReporte.publicado));
+      final resultado = await _publicarReporte.ejecutar(reporte);
+      emit(state.copyWith(
+        status: resultado == ResultadoPublicacion.enCola
+            ? EstadoLlenarReporte.enCola
+            : EstadoLlenarReporte.publicado,
+      ));
     } catch (err) {
       // Las fotos ya subidas quedan huérfanas en el bucket si el usuario
       // abandona. Es un costo aceptado (sin compensación).
