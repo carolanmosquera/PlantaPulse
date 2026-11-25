@@ -20,6 +20,12 @@ class EquipoRepositorioImpl implements EquipoRepositorio {
   }
 
   @override
+  Future<List<Equipo>> conHistorial(String plantaId) async =>
+      (await _fuente.conHistorial(
+        plantaId,
+      )).map(EquipoModelo.fromJson).toList();
+
+  @override
   Future<Equipo?> obtener(String equipoId) async {
     final fila = await _fuente.obtener(equipoId);
     return fila == null ? null : EquipoModelo.fromJson(fila);

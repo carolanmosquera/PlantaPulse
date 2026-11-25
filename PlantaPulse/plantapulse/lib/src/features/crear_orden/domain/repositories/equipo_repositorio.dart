@@ -7,6 +7,9 @@ abstract class EquipoRepositorio {
   /// Equipos activos de una planta, ordenados por nombre.
   Future<List<Equipo>> deLaPlanta(String plantaId);
 
+  /// Incluye equipos dados de baja para consultar su historial.
+  Future<List<Equipo>> conHistorial(String plantaId);
+
   /// Lee un equipo una sola vez. Devuelve null si no existe.
   Future<Equipo?> obtener(String equipoId);
 

@@ -4,8 +4,10 @@
 export 'domain/usecases/editar_orden.dart';
 export 'domain/usecases/observar_ordenes.dart';
 export 'ui/bloc/ordenes_bloc.dart';
+export 'ui/bloc/historial_bloc.dart';
 export 'ui/screens/detalle_orden_screen.dart';
 export 'ui/screens/feed_screen.dart';
+export 'ui/screens/historial_screen.dart';
 export 'ui/screens/mis_tareas_screen.dart';
 export 'ui/screens/resumen_turno_screen.dart';
 export 'ui/widgets/editar_orden_hoja.dart';

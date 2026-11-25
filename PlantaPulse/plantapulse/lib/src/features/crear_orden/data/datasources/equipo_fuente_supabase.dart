@@ -24,6 +24,24 @@ class EquipoFuenteSupabase {
           .eq('activo', true)
           .order('nombre', ascending: true));
 
+  Future<List<Map<String, dynamic>>> conHistorial(String plantaId) async {
+    const pagina = 500;
+    final resultado = <Map<String, dynamic>>[];
+    while (true) {
+      final desde = resultado.length;
+      final filas = await traducirSupabase(
+        () => _tabla
+            .select()
+            .eq('planta_id', plantaId)
+            .order('nombre', ascending: true)
+            .order('id', ascending: true)
+            .range(desde, desde + pagina - 1),
+      );
+      resultado.addAll(filas);
+      if (filas.length < pagina) return resultado;
+    }
+  }
+
   /// Una fila, o null si no existe.
   Future<Map<String, dynamic>?> obtener(String equipoId) =>
       traducirSupabase(() => _tabla.select().eq('id', equipoId).maybeSingle());
