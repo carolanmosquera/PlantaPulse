@@ -27,6 +27,21 @@ class AlertaCriticaFuenteSupabase {
     }
   }
 
+  /// La firma y el cierre los pone el servidor (resolver_alerta): solo un
+  /// supervisor o un admin de la planta. Sus mensajes llegan en español.
+  Future<void> resolver(String alertaId, String nota) async {
+    try {
+      await _db.rpc<void>('resolver_alerta',
+          params: {'p_alerta_id': alertaId, 'p_nota': nota});
+    } catch (e) {
+      throw falloDesdeSupabase(e,
+          permisos: 'Solo un supervisor o un administrador puede dar por '
+              'solucionada una alerta.',
+          generico: 'No se pudo marcar la alerta como solucionada. '
+              'Intenta de nuevo.');
+    }
+  }
+
   /// .stream() admite un solo .eq(): se filtra por planta en el servidor y
   /// el repositorio filtra el estado y ordena en Dart.
   Stream<List<Map<String, dynamic>>> deLaPlanta(String plantaId) => _tabla

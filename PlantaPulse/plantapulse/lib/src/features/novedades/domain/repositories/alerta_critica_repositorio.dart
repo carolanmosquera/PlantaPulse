@@ -9,6 +9,11 @@ abstract class AlertaCriticaRepositorio {
 
   /// Alertas abiertas de una planta en tiempo real, las más nuevas primero.
   Stream<List<AlertaCritica>> abiertasDeLaPlanta(String plantaId);
+
+  /// La da por solucionada: deja de estar abierta (sale de la lista de
+  /// todos) y sus avisos se archivan en las bandejas. Queda como historial
+  /// con quién la cerró, cuándo y la [nota].
+  Future<void> resolver(String alertaId, {String nota = ''});
 }
 
 /// Ubicación del dispositivo. Devuelve null si no hay permiso, el GPS está

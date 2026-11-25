@@ -31,7 +31,24 @@ class FakeAlertaCriticaRepository implements AlertaCriticaRepositorio {
       _abiertas.stream;
 
   /// Lo que recibiría el supervisor desde la base de datos.
-  void llega(List<AlertaCritica> lista) => _abiertas.add(lista);
+  void llega(List<AlertaCritica> lista) {
+    _ultima = lista;
+    _abiertas.add(lista);
+  }
+
+  // ─── "Alerta solucionada" ───
+  List<AlertaCritica> _ultima = const [];
+  final List<({String id, String nota})> resueltas = [];
+  Object? falloAlResolver;
+
+  /// Como el servidor: la alerta deja de estar abierta y la lista que
+  /// reciben todos ya no la trae.
+  @override
+  Future<void> resolver(String alertaId, {String nota = ''}) async {
+    if (falloAlResolver != null) throw falloAlResolver!;
+    resueltas.add((id: alertaId, nota: nota));
+    llega(_ultima.where((a) => a.id != alertaId).toList());
+  }
 }
 
 class FakeAvisosRepository implements AvisosRepositorio {
@@ -633,6 +650,97 @@ void main() {
         usuarios.perfiles['tec1']!.preferenciasAvisos.soloCriticas,
         isFalse,
       );
+    });
+  });
+
+  // ─────────────── Alerta solucionada ───────────────
+
+  group('alerta solucionada', () {
+    AlertaCritica alertaDePrueba(String id, String descripcion) => AlertaCritica(
+          id: id,
+          plantaId: 'p1',
+          tipo: TipoEmergencia.fuego,
+          descripcion: descripcion,
+          creadoPor: const UsuarioRef(uid: 'tec1', nombre: 'Persona tec1'),
+          createdAt: DateTime(2026, 3),
+        );
+
+    Future<void> abrirAlertas(WidgetTester tester, String uid,
+        List<AlertaCritica> abiertas) async {
+      await arrancar(tester, uid);
+      PlantaPulseApp.navegador.currentState!.pushNamed(Rutas.alertas);
+      await tester.pump();
+      alertas.llega(abiertas);
+      await tester.pumpAndSettle();
+      expect(find.text('Alertas de Planta'), findsOneWidget);
+    }
+
+    probar('el supervisor la marca como solucionada y sale de la lista', (
+      tester,
+    ) async {
+      await abrirAlertas(tester, 'sup1', [
+        alertaDePrueba('a1', 'Incendio en bodega 3'),
+        alertaDePrueba('a2', 'Fuga en la línea 2'),
+      ]);
+      expect(find.text('TOCA UNA PARA CERRARLA'), findsOneWidget);
+
+      await tocar(tester, find.byKey(const ValueKey('alerta-critica-a1')));
+      expect(find.text('Alerta crítica'), findsOneWidget);
+      expect(find.text('Reportada por Persona tec1'), findsOneWidget);
+
+      await tester.enterText(
+          find.widgetWithText(TextField, 'Ej: se aisló la fuga y se revisó la zona'),
+          '  Se apagó con extintor  ');
+      await tocar(tester, find.text('ALERTA SOLUCIONADA'));
+
+      expect(alertas.resueltas.single.id, 'a1');
+      expect(alertas.resueltas.single.nota, 'Se apagó con extintor');
+      // La hoja se cerró y la alerta ya no está; la otra sigue abierta
+      expect(find.text('ALERTA SOLUCIONADA'), findsNothing);
+      expect(find.byKey(const ValueKey('alerta-critica-a1')), findsNothing);
+      expect(find.byKey(const ValueKey('alerta-critica-a2')), findsOneWidget);
+      expect(find.textContaining('marcada como solucionada'), findsOneWidget);
+    });
+
+    probar('si el servidor la rechaza, la hoja muestra el motivo y no se cierra',
+        (tester) async {
+      alertas.falloAlResolver = const FalloPermisos(
+          'Solo un supervisor o un administrador puede dar por '
+          'solucionada una alerta.');
+      await abrirAlertas(
+          tester, 'sup1', [alertaDePrueba('a1', 'Incendio en bodega 3')]);
+
+      await tocar(tester, find.byKey(const ValueKey('alerta-critica-a1')));
+      await tocar(tester, find.text('ALERTA SOLUCIONADA'));
+
+      expect(find.textContaining('Solo un supervisor o un administrador'),
+          findsOneWidget);
+      expect(find.text('ALERTA SOLUCIONADA'), findsOneWidget); // sigue abierta
+      expect(alertas.resueltas, isEmpty);
+    });
+
+    probar('el técnico ve las alertas pero no puede cerrarlas', (tester) async {
+      await abrirAlertas(
+          tester, 'tec1', [alertaDePrueba('a1', 'Incendio en bodega 3')]);
+
+      expect(find.byKey(const ValueKey('alerta-critica-a1')), findsOneWidget);
+      expect(find.text('TOCA UNA PARA CERRARLA'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('alerta-critica-a1')));
+      await tester.pumpAndSettle();
+      expect(find.text('ALERTA SOLUCIONADA'), findsNothing);
+    });
+
+    test('una nota de más de 300 caracteres se rechaza sin llamar al servidor',
+        () async {
+      final caso = ResolverAlertaCritica(alertas);
+      Object? error;
+      try {
+        await caso.ejecutar(alertaId: 'a1', nota: 'x' * 301);
+      } catch (e) {
+        error = e;
+      }
+      expect(error, isA<FalloApp>());
+      expect(alertas.resueltas, isEmpty);
     });
   });
 }

@@ -27,6 +27,10 @@ class AlertaCriticaRepositorioImpl implements AlertaCriticaRepositorio {
         createdAt: a.createdAt,
       ).toJson());
 
+  @override
+  Future<void> resolver(String alertaId, {String nota = ''}) =>
+      _fuente.resolver(alertaId, nota.trim());
+
   /// Solo las abiertas, las más nuevas primero (ordenadas sobre DateTime).
   @override
   Stream<List<AlertaCritica>> abiertasDeLaPlanta(String plantaId) =>

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/core.dart';
 import '../../../../core/errors/fallos.dart';
 import '../../domain/usecases/alertas_criticas.dart';
+import '../widgets/resolver_alerta_hoja.dart';
 import '../../../notificaciones/notificaciones.dart';
 
 class AlertasScreen extends StatefulWidget {
@@ -14,6 +15,9 @@ class AlertasScreen extends StatefulWidget {
 
 class _AlertasScreenState extends State<AlertasScreen> {
   String? _usuarioId;
+
+  /// Supervisor o admin: puede dar una alerta por solucionada.
+  bool _puedeResolver = false;
   Stream<List<Alerta>>? _avisos;
   Stream<List<AlertaCritica>>? _criticas;
 
@@ -22,6 +26,7 @@ class _AlertasScreenState extends State<AlertasScreen> {
     super.initState();
     final usuario = context.read<SesionBloc>().state.usuario;
     _usuarioId = usuario?.uid;
+    _puedeResolver = usuario?.rol.puedeOperar ?? false;
 
     if (usuario == null) return;
     _avisos = context.read<ObservarAvisos>().ejecutar(usuario.uid);
@@ -67,8 +72,12 @@ class _AlertasScreenState extends State<AlertasScreen> {
                   children: [
                     if (error != null) error,
                     if (lista.isNotEmpty)
-                      const SeccionHeader(
+                      SeccionHeader(
                         titulo: 'ALERTAS CRÍTICAS ABIERTAS',
+                        accion: _puedeResolver
+                            ? 'TOCA UNA PARA CERRARLA'
+                            : null,
+                        colorAccion: AppColors.textoGris,
                       ),
                     for (final alerta in lista)
                       Padding(
@@ -82,6 +91,10 @@ class _AlertasScreenState extends State<AlertasScreen> {
                           hora: alerta.hora,
                           color: AppColors.rojo,
                           noLeida: true,
+                          // Supervisor o admin: abre "Alerta solucionada"
+                          onTap: _puedeResolver
+                              ? () => _resolver(alerta)
+                              : null,
                         ),
                       ),
                   ],
@@ -185,6 +198,18 @@ class _AlertasScreenState extends State<AlertasScreen> {
             ],
       ],
     );
+  }
+
+  /// Al cerrarla, la alerta sale sola de la lista (llega por el stream) y
+  /// sus avisos se archivan en las bandejas: no hay que recargar nada.
+  Future<void> _resolver(AlertaCritica alerta) async {
+    final avisos = ScaffoldMessenger.of(context);
+    final resuelta = await ResolverAlertaHoja.mostrar(context, alerta);
+    if (resuelta != true) return;
+    avisos.showSnackBar(SnackBar(
+      backgroundColor: AppColors.verde,
+      content: Text('Alerta "${alerta.tipo.etiqueta}" marcada como solucionada'),
+    ));
   }
 
   Future<void> _abrirAviso(Alerta aviso) async {

@@ -13,6 +13,13 @@ class HojaFormulario extends StatelessWidget {
   final bool guardando;
   final VoidCallback? alGuardar;
 
+  /// El botón de abajo: por defecto "GUARDAR"; otras hojas lo nombran
+  /// según su acción ("ALERTA SOLUCIONADA").
+  final String textoGuardar;
+  final String textoGuardando;
+  final IconData iconoGuardar;
+  final Color? colorGuardar;
+
   const HojaFormulario({
     super.key,
     required this.titulo,
@@ -20,6 +27,10 @@ class HojaFormulario extends StatelessWidget {
     required this.error,
     required this.guardando,
     required this.alGuardar,
+    this.textoGuardar = 'GUARDAR',
+    this.textoGuardando = 'GUARDANDO...',
+    this.iconoGuardar = Icons.check,
+    this.colorGuardar,
   });
 
   /// Abre [hoja] como hoja inferior y devuelve lo que ella devuelva al cerrar.
@@ -67,8 +78,9 @@ class HojaFormulario extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
               BotonAncho(
-                texto: guardando ? 'GUARDANDO...' : 'GUARDAR',
-                icono: Icons.check,
+                texto: guardando ? textoGuardando : textoGuardar,
+                icono: iconoGuardar,
+                color: colorGuardar,
                 onTap: guardando ? null : alGuardar,
               ),
             ],

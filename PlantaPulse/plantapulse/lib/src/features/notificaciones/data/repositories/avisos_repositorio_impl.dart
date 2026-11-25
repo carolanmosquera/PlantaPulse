@@ -11,6 +11,9 @@ class AvisosRepositorioImpl implements AvisosRepositorio {
   @override
   Stream<List<Alerta>> delUsuario(String usuarioId) =>
       _fuente.delUsuario(usuarioId).map((filas) => filas
+          // Archivados por el servidor (p. ej. su alerta ya se solucionó):
+          // ya no se muestran
+          .where((f) => f['archivada'] != true)
           .map(AlertaModelo.fromJson)
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));

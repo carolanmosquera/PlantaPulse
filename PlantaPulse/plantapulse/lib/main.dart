@@ -301,6 +301,10 @@ class PlantaPulseApp extends StatelessWidget {
               ObservarAlertasCriticas(c.read<AlertaCriticaRepositorio>()),
         ),
         RepositoryProvider(
+          create: (c) =>
+              ResolverAlertaCritica(c.read<AlertaCriticaRepositorio>()),
+        ),
+        RepositoryProvider(
           create: (c) => ObservarAvisos(c.read<AvisosRepositorio>()),
         ),
         RepositoryProvider(

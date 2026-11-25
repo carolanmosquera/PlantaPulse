@@ -56,6 +56,26 @@ class ObservarAlertasCriticas {
       _alertas.abiertasDeLaPlanta(plantaId);
 }
 
+/// "Alerta solucionada": la cierra y limpia sus avisos. Quién puede
+/// hacerlo (supervisor o admin) lo vuelve a comprobar el servidor.
+class ResolverAlertaCritica {
+  /// Mismo límite que la función resolver_alerta.
+  static const maxNota = 300;
+
+  final AlertaCriticaRepositorio _alertas;
+
+  const ResolverAlertaCritica(this._alertas);
+
+  Future<void> ejecutar({required String alertaId, String nota = ''}) {
+    final texto = nota.trim();
+    if (texto.length > maxNota) {
+      return Future.error(
+          const FalloApp('La nota de cierre admite hasta $maxNota caracteres.'));
+    }
+    return _alertas.resolver(alertaId, nota: texto);
+  }
+}
+
 /// Pide la ubicación actual (puede tardar unos segundos).
 class ObtenerUbicacion {
   final UbicacionRepositorio _ubicacion;
