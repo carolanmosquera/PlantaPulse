@@ -80,7 +80,6 @@ class _ValidarEvidenciaScreenState extends State<ValidarEvidenciaScreen> {
 
     return PantallaBase(
       titulo: 'Validar Evidencia',
-      mostrarMenu: true,
       tabActiva: 0,
       cuerpo: StreamBuilder<List<Reporte>>(
         stream: _reportes,

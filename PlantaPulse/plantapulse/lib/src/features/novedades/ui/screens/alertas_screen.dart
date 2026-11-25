@@ -41,7 +41,6 @@ class _AlertasScreenState extends State<AlertasScreen> {
     return PantallaBase(
       titulo: 'Alertas de Planta',
       mostrarAtras: false,
-      mostrarMenu: true,
       tabActiva: 1,
       cuerpo: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),

@@ -147,7 +147,6 @@ class _LlenarReporteVistaState extends State<_LlenarReporteVista> {
             canPop: !state.publicando,
             child: PantallaBase(
               titulo: 'Llenar reporte de avance',
-              mostrarMenu: true,
               tabActiva: 0,
               cuerpo: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),

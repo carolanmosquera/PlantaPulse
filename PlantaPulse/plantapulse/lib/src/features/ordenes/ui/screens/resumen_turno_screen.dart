@@ -59,7 +59,6 @@ class _ResumenTurnoScreenState extends State<ResumenTurnoScreen> {
     return PantallaBase(
       titulo: 'Resumen de Planta',
       mostrarAtras: true,
-      mostrarMenu: true,
       tabActiva: 0,
       cuerpo: BlocBuilder<OrdenesBloc, OrdenesState>(
         builder: (context, state) {

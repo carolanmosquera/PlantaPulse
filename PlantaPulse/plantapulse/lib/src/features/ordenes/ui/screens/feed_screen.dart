@@ -64,7 +64,6 @@ class _FeedScreenState extends State<FeedScreen> {
     return PantallaBase(
       titulo: 'PlantaPulse Feed',
       mostrarAtras: false,        // pantalla raíz: no hay a dónde volver
-      mostrarMenu: true,
       tabActiva: 0,
       accionesExtra: [
         // KAN-90: cualquier persona de la planta puede avisar de una emergencia

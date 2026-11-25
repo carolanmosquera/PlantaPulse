@@ -7,7 +7,6 @@ class PantallaBase extends StatelessWidget {
   final String titulo;
   final Widget cuerpo;
   final bool mostrarAtras;
-  final bool mostrarMenu;
   final List<Widget>? accionesExtra;
   final Widget? fab;
   final Widget? barraInferiorFija; // el campo de comentario del detalle
@@ -19,7 +18,6 @@ class PantallaBase extends StatelessWidget {
     required this.titulo,
     required this.cuerpo,
     this.mostrarAtras = true,
-    this.mostrarMenu = false,
     this.accionesExtra,
     this.fab,
     this.barraInferiorFija,
@@ -45,11 +43,7 @@ class PantallaBase extends StatelessWidget {
             : null,
         title: Text(titulo, style: TextStyle(
             fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.texto.segunTema(context))),
-        actions: [
-          ...?accionesExtra,
-          if (mostrarMenu)
-            IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
-        ],
+        actions: [...?accionesExtra],
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: AppColors.borde.segunTema(context)),

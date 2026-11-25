@@ -248,8 +248,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
         !orden.invalidada;
     return PantallaBase(
       titulo: 'Orden #${orden.codigo}',
-      // Supervisor y admin tienen sus acciones; el resto ve el menú de siempre
-      mostrarMenu: !puedeEditar,
+      // Supervisor y admin tienen sus acciones (asignar, editar...)
       accionesExtra: puedeEditar ? _acciones(orden) : null,
       conNavegacion: true,
       tabActiva: 0,
