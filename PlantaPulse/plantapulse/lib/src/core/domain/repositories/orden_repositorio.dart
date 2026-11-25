@@ -59,6 +59,12 @@ abstract class OrdenRepositorio {
   /// el rechazo nunca es silencioso.
   Future<void> eliminar(String ordenId);
 
+  /// Solo admin. Para una orden falsa que ya tiene trabajo y por eso no se
+  /// puede eliminar: deja de verse en el feed y en Mis Tareas, queda
+  /// congelada y solo aparece en el Historial, con quién la invalidó y el
+  /// [motivo]. Si no se puede, lanza FalloApp con el motivo del servidor.
+  Future<void> invalidar(String ordenId, String motivo);
+
   /// "Aprobar y cerrar": la orden pasa a completada, con fecha de cierre,
   /// quién la validó y las observaciones si hay. El servidor actualiza
   /// solo el último mantenimiento del equipo.

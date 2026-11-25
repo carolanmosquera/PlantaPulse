@@ -258,6 +258,9 @@ class PlantaPulseApp extends StatelessWidget {
         RepositoryProvider(
           create: (c) => EliminarOrden(c.read<OrdenRepositorio>()),
         ),
+        RepositoryProvider(
+          create: (c) => InvalidarOrden(c.read<OrdenRepositorio>()),
+        ),
         // Reportes y evidencia
         RepositoryProvider(
           create: (c) => ObservarReportesDeOrden(c.read<ReporteRepositorio>()),

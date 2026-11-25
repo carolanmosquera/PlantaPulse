@@ -437,14 +437,15 @@ class FakeOrdenRepository implements OrdenRepositorio {
   @override
   Stream<List<Orden>> deLaPlanta(String plantaId, {EstadoOrden? estado}) =>
       _consultar(
-        (o) => !o.eliminada &&
+        (o) => !o.eliminada && !o.invalidada &&
             o.plantaId == plantaId && (estado == null || o.estado == estado),
         (a, b) => b.createdAt.compareTo(a.createdAt),
       );
 
   @override
   Stream<List<Orden>> asignadasA(String uid, String plantaId) => _consultar(
-        (o) => !o.eliminada && o.plantaId == plantaId && o.asignadoAUid == uid,
+        (o) => !o.eliminada && !o.invalidada &&
+            o.plantaId == plantaId && o.asignadoAUid == uid,
         (a, b) => a.fechaLimite.compareTo(b.fechaLimite),
       );
 
@@ -532,6 +533,29 @@ class FakeOrdenRepository implements OrdenRepositorio {
     _avisar();
   }
 
+  /// Las mismas reglas que la función invalidar_orden() de la base: sirve
+  /// en cualquier estado y con reportes; solo exige un motivo. Quién puede
+  /// (solo admin) lo comprueba el servidor; aquí se registra la llamada.
+  final List<({String ordenId, String motivo})> invalidaciones = [];
+
+  @override
+  Future<void> invalidar(String ordenId, String motivo) async {
+    mutaciones++;
+    final i = ordenes.indexWhere((o) => o.id == ordenId);
+    if (i < 0) throw const FalloApp('La orden no existe.');
+    final o = ordenes[i];
+    if (o.eliminada) {
+      throw const FalloApp('La orden fue eliminada: no hace falta invalidarla.');
+    }
+    if (o.invalidada) return;                     // idempotente
+    invalidaciones.add((ordenId: ordenId, motivo: motivo));
+    ordenes[i] = rehacer(o,
+        invalidadaEn: DateTime.now(),
+        invalidadaPor: const UsuarioRef(uid: 'adm1', nombre: 'Admin'),
+        motivoInvalidacion: motivo);
+    _avisar();
+  }
+
   /// Orden no tiene copyWith(id): Postgres pone el id al crear.
   static Orden conId(Orden o, String id) => rehacer(o, id: id);
 
@@ -548,6 +572,9 @@ class FakeOrdenRepository implements OrdenRepositorio {
     bool cambiarResponsable = false,
     UsuarioRef? asignadoA,
     DateTime? eliminadaEn,
+    DateTime? invalidadaEn,
+    UsuarioRef? invalidadaPor,
+    String? motivoInvalidacion,
   }) =>
       Orden(
         id: id ?? o.id,
@@ -573,6 +600,9 @@ class FakeOrdenRepository implements OrdenRepositorio {
         totalAlertas: o.totalAlertas,
         evidencias: o.evidencias,
         eliminadaEn: eliminadaEn ?? o.eliminadaEn,
+        invalidadaEn: invalidadaEn ?? o.invalidadaEn,
+        invalidadaPor: invalidadaPor ?? o.invalidadaPor,
+        motivoInvalidacion: motivoInvalidacion ?? o.motivoInvalidacion,
       );
 }
 

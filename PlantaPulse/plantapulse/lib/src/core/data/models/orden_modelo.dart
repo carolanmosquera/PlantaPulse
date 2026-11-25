@@ -36,6 +36,9 @@ class OrdenModelo extends Orden {
     super.validadaPor,
     super.observacionesSupervisor,
     super.eliminadaEn,
+    super.invalidadaEn,
+    super.invalidadaPor,
+    super.motivoInvalidacion,
   });
 
   factory OrdenModelo.desdeEntidad(Orden o) => OrdenModelo(
@@ -67,6 +70,9 @@ class OrdenModelo extends Orden {
         validadaPor: o.validadaPor,
         observacionesSupervisor: o.observacionesSupervisor,
         eliminadaEn: o.eliminadaEn,
+        invalidadaEn: o.invalidadaEn,
+        invalidadaPor: o.invalidadaPor,
+        motivoInvalidacion: o.motivoInvalidacion,
       );
 
   factory OrdenModelo.fromJson(Map<String, dynamic> j) {
@@ -102,12 +108,16 @@ class OrdenModelo extends Orden {
       validadaPor: UsuarioRefModelo.fromJsonOpcional(j['validada_por']),
       observacionesSupervisor: textoOpcional(j['observaciones_supervisor']),
       eliminadaEn: fechaOpcional(j['eliminada_en']),
+      invalidadaEn: fechaOpcional(j['invalidada_en']),
+      invalidadaPor: UsuarioRefModelo.fromJsonOpcional(j['invalidada_por']),
+      motivoInvalidacion: textoOpcional(j['motivo_invalidacion']),
     );
   }
 
   /// Para insertar: sin id (lo genera Postgres) y sin created_at ni
   /// ultima_actividad (los pone el trigger con la hora del servidor).
   /// eliminada_en tampoco: solo la pone la función eliminar_orden().
+  /// Ni las columnas de invalidación: solo las pone invalidar_orden().
   ///
   /// El id SÍ se envía si la app ya lo generó (OrdenRepositorio.nuevoId):
   /// las fotos del hallazgo se suben antes, a la carpeta de esa orden.

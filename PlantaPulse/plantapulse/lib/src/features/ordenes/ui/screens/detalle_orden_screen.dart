@@ -25,6 +25,9 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
       .read<ObservarReportesDeOrden>()
       .ejecutar(widget.orden.id);
 
+  bool get _soyAdmin =>
+      context.read<SesionBloc>().state.usuario?.rol == RolUsuario.admin;
+
   /// "Asignar técnico": cierra el ciclo de las órdenes sin asignar.
   /// Sin mensaje de éxito: la orden cambia sola cuando llega por el stream.
   Future<void> _asignarTecnico(Orden orden) async {
@@ -118,6 +121,40 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
     }
   }
 
+  /// "Invalidar orden" (solo admin): para una orden falsa que ya tiene
+  /// trabajo y por eso no se puede eliminar. Pide el motivo, que queda en
+  /// el historial. El servidor vuelve a comprobar que sea admin.
+  Future<void> _invalidar(Orden orden) async {
+    final motivo = await showDialog<String>(
+      context: context,
+      builder: (_) => _DialogoInvalidar(codigo: orden.codigo),
+    );
+    if (motivo == null || !mounted) return;
+
+    final invalidar = context.read<InvalidarOrden>();
+    final navegador = Navigator.of(context);
+    final avisos = ScaffoldMessenger.of(context);
+    try {
+      await invalidar.ejecutar(orden.id, motivo);
+      // Ya no está en el feed: fuera del detalle. Sigue en el Historial.
+      navegador.pop();
+      avisos.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.verde,
+          content: Text('Orden ${orden.codigo} invalidada. '
+              'Queda en el Historial.'),
+        ),
+      );
+    } catch (e) {
+      avisos.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.rojo,
+          content: Text(FalloApp.mensajeDe(e)),
+        ),
+      );
+    }
+  }
+
   /// Acciones de supervisor y admin. "Editar" va a la vista como lápiz:
   /// escondido en el menú de tres puntos no se encontraba.
   List<Widget> _acciones(Orden orden) => [
@@ -132,6 +169,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
       onSelected: (accion) => switch (accion) {
         'asignar' => _asignarTecnico(orden),
         'eliminar' => _eliminar(orden),
+        'invalidar' => _invalidar(orden),
         _ => EditarOrdenHoja.mostrar(context, orden),
       },
       itemBuilder: (_) => [
@@ -164,6 +202,19 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        // Solo admin: sirve aunque la orden ya tenga reportes
+        if (_soyAdmin && orden.puedeInvalidarse)
+          PopupMenuItem(
+            value: 'invalidar',
+            child: ListTile(
+              leading: Icon(Icons.block, color: AppColors.rojo.segunTema(context)),
+              title: Text(
+                'Invalidar orden',
+                style: TextStyle(color: AppColors.rojo.segunTema(context)),
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
       ],
     ),
   ];
@@ -191,8 +242,10 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
   }
 
   Widget _contenido(Orden orden) {
+    // Una orden invalidada queda congelada: nadie la edita ni la reporta
     final puedeEditar =
-        context.watch<SesionBloc>().state.usuario?.rol.puedeOperar ?? false;
+        (context.watch<SesionBloc>().state.usuario?.rol.puedeOperar ?? false) &&
+        !orden.invalidada;
     return PantallaBase(
       titulo: 'Orden #${orden.codigo}',
       // Supervisor y admin tienen sus acciones; el resto ve el menú de siempre
@@ -205,6 +258,25 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           const SizedBox(height: 12),
+
+          // ══ ORDEN INVALIDADA ══
+          if (orden.invalidada) ...[
+            TileAviso(
+              icono: Icons.block,
+              titulo: 'ORDEN INVALIDADA',
+              subtitulo: [
+                if (orden.invalidadaPor != null)
+                  'Por ${orden.invalidadaPor!.nombre} · '
+                      '${fechaCorta(orden.invalidadaEn!)}',
+                if ((orden.motivoInvalidacion ?? '').isNotEmpty)
+                  'Motivo: ${orden.motivoInvalidacion}',
+                'No aparece en el feed ni en Mis Tareas y ya no se puede '
+                    'editar ni reportar.',
+              ].join('\n'),
+              color: AppColors.rojo,
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // ══ BANNER DE ESTADO ══
           TarjetaOscura(
@@ -391,7 +463,7 @@ class _DetalleOrdenScreenState extends State<DetalleOrdenScreen> {
   /// (técnico asignado o supervisor/admin, orden abierta).
   Widget? _barraAcciones(Orden orden) {
     final usuario = context.watch<SesionBloc>().state.usuario;
-    if (usuario == null || orden.eliminada) return null;
+    if (usuario == null || orden.eliminada || orden.invalidada) return null;
     final opera = usuario.rol.puedeOperar;
 
     final Widget boton;
@@ -538,6 +610,82 @@ class _TarjetaReporte extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Pide el motivo de la invalidación. Devuelve el texto, o null si se
+/// cancela. El botón se habilita con al menos 5 caracteres.
+class _DialogoInvalidar extends StatefulWidget {
+  final String codigo;
+
+  const _DialogoInvalidar({required this.codigo});
+
+  @override
+  State<_DialogoInvalidar> createState() => _DialogoInvalidarState();
+}
+
+class _DialogoInvalidarState extends State<_DialogoInvalidar> {
+  final _motivo = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _motivo.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _motivo.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final largo = _motivo.text.trim().length;
+    final valido = largo >= InvalidarOrden.minMotivo &&
+        largo <= InvalidarOrden.maxMotivo;
+    return AlertDialog(
+      title: Text('¿Invalidar la orden ${widget.codigo}?'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Úsalo para órdenes falsas o de prueba que ya tienen reportes. '
+              'Dejará de verse en el feed y en Mis Tareas, y ya no se podrá '
+              'editar ni reportar. Seguirá en el Historial, con quién la '
+              'invalidó y el motivo.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _motivo,
+              maxLines: 3,
+              maxLength: InvalidarOrden.maxMotivo,
+              decoration: const InputDecoration(
+                labelText: 'Motivo (obligatorio)',
+                hintText: 'Ej: reporte de prueba, no corresponde a una falla real',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: valido
+              ? () => Navigator.pop(context, _motivo.text.trim())
+              : null,
+          style: TextButton.styleFrom(
+              foregroundColor: AppColors.rojo.segunTema(context)),
+          child: const Text('Invalidar'),
+        ),
+      ],
     );
   }
 }

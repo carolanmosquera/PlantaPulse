@@ -116,10 +116,14 @@ class _HistorialScreenState extends State<HistorialScreen> {
               (orden) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: FilaOpcion(
-                  icono: Icons.build_outlined,
+                  // Las invalidadas solo se ven aquí: marcadas en rojo
+                  icono: orden.invalidada ? Icons.block : Icons.build_outlined,
+                  color: orden.invalidada ? AppColors.rojo : AppColors.azul,
                   titulo: orden.titulo,
                   subtitulo:
-                      '${orden.codigo} · ${orden.equipoNombre ?? "Sin equipo"} · ${orden.estado.etiqueta}\n${orden.descripcion}',
+                      '${orden.codigo} · ${orden.equipoNombre ?? "Sin equipo"} · '
+                      '${orden.invalidada ? "INVALIDADA" : orden.estado.etiqueta}'
+                      '\n${orden.descripcion}',
                   onTap: () => Navigator.pushNamed(
                     context,
                     Rutas.detalleOrden,

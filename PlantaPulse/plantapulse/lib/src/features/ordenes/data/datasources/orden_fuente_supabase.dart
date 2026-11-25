@@ -113,6 +113,11 @@ class OrdenFuenteSupabase {
   Future<void> eliminar(String ordenId) => traducirSupabase(
       () => _db.rpc<void>('eliminar_orden', params: {'p_orden_id': ordenId}));
 
+  /// Solo admin; los motivos de rechazo vienen redactados del servidor.
+  Future<void> invalidar(String ordenId, String motivo) => traducirSupabase(
+      () => _db.rpc<void>('invalidar_orden',
+          params: {'p_orden_id': ordenId, 'p_motivo': motivo}));
+
   /// Sin .select(). fecha_cierre en UTC con aIso, como el resto.
   /// El último mantenimiento del equipo lo escribe el trigger al_cerrar_orden.
   Future<void> cerrar({

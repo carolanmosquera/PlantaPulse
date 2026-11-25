@@ -840,4 +840,69 @@ void main() {
     await entrarComo(tester, 'tec1');
     expect(find.text('Historial de mantenimiento'), findsNothing);
   });
+  // ─────────────── Invalidar orden (solo admin) ───────────────
+
+  probar('el admin invalida una orden con trabajo: sale del feed y queda en el historial',
+      (tester) async {
+    crearCuenta('adm1', 'Admin Planta', RolUsuario.admin);
+    sembrar('o1', 'Orden con reportes falsos', estado: EstadoOrden.enProgreso);
+    sembrar('o2', 'Orden real', codigo: 'WO-2026-0002');
+    await entrarComo(tester, 'adm1');
+    await tocar(tester, 'Orden con reportes falsos');
+
+    // En curso: eliminar no se ofrece, invalidar sí
+    await tester.tap(find.byTooltip('Más acciones'));
+    await tester.pumpAndSettle();
+    expect(find.text('Eliminar orden'), findsNothing);
+    await tocar(tester, 'Invalidar orden');
+
+    // El motivo es obligatorio: sin él no se puede confirmar
+    expect(find.text('¿Invalidar la orden WO-2026-0001?'), findsOneWidget);
+    final confirmar = find.widgetWithText(TextButton, 'Invalidar');
+    expect(tester.widget<TextButton>(confirmar).onPressed, isNull);
+    await tester.enterText(find.byType(TextField).last, 'Reportes de prueba');
+    await tester.pumpAndSettle();
+    await tocar(tester, 'Invalidar');
+
+    // De vuelta en el feed: la invalidada ya no está, la otra sí
+    expect(find.text('PlantaPulse Feed'), findsOneWidget);
+    expect(find.text('Orden con reportes falsos'), findsNothing);
+    expect(find.text('Orden real'), findsOneWidget);
+    expect(find.textContaining('invalidada'), findsOneWidget);
+    expect(ordenes.invalidaciones.single,
+        (ordenId: 'o1', motivo: 'Reportes de prueba'));
+
+    // En el historial sigue, marcada; su detalle está congelado
+    await tocar(tester, 'Historial de mantenimiento');
+    expect(find.textContaining('INVALIDADA'), findsOneWidget);
+    await tocar(tester, 'Orden con reportes falsos');
+    expect(find.text('ORDEN INVALIDADA'), findsOneWidget);
+    expect(find.textContaining('Motivo: Reportes de prueba'), findsOneWidget);
+    expect(find.text('LLENAR REPORTE DE AVANCE'), findsNothing);
+    expect(find.byTooltip('Más acciones'), findsNothing);
+    expect(find.byTooltip('Editar orden'), findsNothing);
+  });
+
+  probar('el supervisor no tiene la opción de invalidar', (tester) async {
+    sembrar('o1', 'Orden en curso', estado: EstadoOrden.enProgreso);
+    await entrarComo(tester, 'sup1');
+    await tocar(tester, 'Orden en curso');
+    await tester.tap(find.byTooltip('Más acciones'));
+    await tester.pumpAndSettle();
+    expect(find.text('Invalidar orden'), findsNothing);
+  });
+
+  probar('al técnico una orden invalidada le desaparece de Mis Tareas',
+      (tester) async {
+    sembrar('o1', 'Tarea que era falsa');
+    sembrar('o2', 'Tarea real', codigo: 'WO-2026-0002');
+    await entrarComo(tester, 'tec1');
+    await tocar(tester, 'Mis tareas asignadas');
+    expect(find.text('Tarea que era falsa'), findsOneWidget);
+
+    await ordenes.invalidar('o1', 'Reporte duplicado');
+    await tester.pumpAndSettle();
+    expect(find.text('Tarea que era falsa'), findsNothing);
+    expect(find.text('Tarea real'), findsOneWidget);
+  });
 }

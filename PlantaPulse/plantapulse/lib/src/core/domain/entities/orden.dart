@@ -127,6 +127,14 @@ class Orden {
   /// app ya no la muestra. Solo la pone la función eliminar_orden().
   final DateTime? eliminadaEn;
 
+  /// Invalidación (solo admin): la orden era falsa o de prueba pero ya
+  /// tenía trabajo, así que no se puede eliminar. Sale del feed y de Mis
+  /// Tareas, queda congelada y solo se ve en el Historial. La ponen
+  /// únicamente la función invalidar_orden() del servidor.
+  final DateTime? invalidadaEn;
+  final UsuarioRef? invalidadaPor;
+  final String? motivoInvalidacion;
+
   const Orden({
     required this.id,
     required this.codigo,
@@ -156,6 +164,9 @@ class Orden {
     this.validadaPor,
     this.observacionesSupervisor,
     this.eliminadaEn,
+    this.invalidadaEn,
+    this.invalidadaPor,
+    this.motivoInvalidacion,
   });
 
   // ── Getters para la UI que ya tienes ──────────────────────
@@ -173,6 +184,12 @@ class Orden {
   bool get sinAsignar => asignadoAUid == null;
 
   bool get eliminada => eliminadaEn != null;
+
+  bool get invalidada => invalidadaEn != null;
+
+  /// El admin la puede invalidar en cualquier estado, con o sin reportes:
+  /// es justo para lo que eliminar no sirve.
+  bool get puedeInvalidarse => !eliminada && !invalidada;
 
   /// Lo mismo que exige eliminar_orden() en la base, para no ofrecer la
   /// opción cuando ya se sabe que va a fallar. Reportes, alertas y
@@ -236,5 +253,8 @@ class Orden {
         observacionesSupervisor:
             observacionesSupervisor ?? this.observacionesSupervisor,
         eliminadaEn: eliminadaEn,
+        invalidadaEn: invalidadaEn,
+        invalidadaPor: invalidadaPor,
+        motivoInvalidacion: motivoInvalidacion,
       );
 }

@@ -13,15 +13,17 @@ class OrdenRepositorioImpl implements OrdenRepositorio {
 
   OrdenRepositorioImpl(this._fuente);
 
-  /// Las eliminadas siguen llegando de la fuente y se descartan aquí:
-  /// así desaparecen de todas las pantallas abiertas.
+  /// Las eliminadas y las invalidadas siguen llegando de la fuente y se
+  /// descartan aquí: así desaparecen del feed, de Mis Tareas y del resumen
+  /// en todas las pantallas abiertas. Las invalidadas siguen en el
+  /// Historial (buscarHistorial) y abriéndose por su id (obtener).
   Stream<List<Orden>> _dePlanta(String plantaId, String columnaOrden,
           {required bool ascendente}) =>
       _fuente
           .dePlanta(plantaId, columnaOrden, ascendente: ascendente)
           .map((filas) => filas
               .map(OrdenModelo.fromJson)
-              .where((o) => !o.eliminada)
+              .where((o) => !o.eliminada && !o.invalidada)
               .toList());
 
   /// Feed de la planta en tiempo real, las más nuevas primero.
@@ -97,6 +99,10 @@ class OrdenRepositorioImpl implements OrdenRepositorio {
 
   @override
   Future<void> eliminar(String ordenId) => _fuente.eliminar(ordenId);
+
+  @override
+  Future<void> invalidar(String ordenId, String motivo) =>
+      _fuente.invalidar(ordenId, motivo.trim());
 
   @override
   Future<void> cerrar({
